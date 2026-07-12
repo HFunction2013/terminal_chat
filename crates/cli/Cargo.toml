@@ -1,0 +1,23 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+license = "MIT"
+
+[dependencies]
+clap = "4"
+shell-words = "1.1.1"
+rustyline = "14"
+core = { path = "../core" }
+clap_complete = { version = "4", features = ["unstable-dynamic"] }
+chrono="0.4.45"
+
+[build-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9.0"
+built = { version = "0.7", features = [
+    "chrono",
+    "git2",
+    "dependency-tree"
+] }

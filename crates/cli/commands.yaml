@@ -1,0 +1,270 @@
+commands:
+  - name: setg
+    about: Set global options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
+      - name: value
+        required: false
+        value_name: VALUE
+        help: Target config value
+      - name: p
+        short: p
+        long: password
+        help: use rpassword to read the value
+        action: set_true
+        conflicts_with: value
+  - name: set
+    about: Set session options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Session config key
+      - name: value
+        required: true
+        value_name: VALUE
+        help: Session config value
+  - name: route
+    about: Trace route to server
+  - name: proxy_off
+    about: Turn off system proxy
+  - name: show
+    about: Show runtime information
+    subcommands:
+      - name: options
+        about: Show available set/setg options
+      - name: afreqs
+        about: Show all active frequencies
+      - name: ausers
+        about: Show active users in current frequency
+      - name: mods
+        about: Show moderators in current frequency
+  - name: join_freq
+    about: Join a target frequency channel
+    args:
+      - name: freq
+        required: true
+        value_name: FREQ_ID
+        help: Target frequency id
+  - name: create_freq
+    about: Create a new frequency channel
+    args:
+      - name: freq
+        required: true
+        value_name: FREQ_ID
+        help: New frequency unique id
+      - name: p
+        short: p
+        long: password
+        help: Create frequency with password
+        action: set_true
+      - name: max_people
+        long: max-people
+        value_name: NUM
+        help: Max online user limit
+        action: set
+        required: false
+  - name: background
+    about: Background current session and return to main console
+  - name: sessions
+    about: Multi-session manager
+    multiple_values: false
+    args:
+      - name: list
+        long: list
+        short: l
+        help: List all running sessions
+        action: set_true
+      - name: interact
+        long: interact
+        short: i
+        value_name: SESSION_ID
+        help: Switch to target session
+        action: set
+      - name: kill
+        long: kill
+        short: k
+        value_name: SESSION_ID
+        help: Close and destroy target session
+        action: set
+  - name: load
+    about: Load Plugin
+    subcommands:
+      - name: plugin
+        about: load plugin
+        args:
+          - name: load_namespace
+            short: l
+            long: load-namespace
+            help: load plugin's namespace while loading the plugin
+            action: set_true
+          - name: plugin
+            value_name: PLUGIN
+            required: true
+            help: Plugin to load
+      - name: namespace
+        about: load namespace
+        args:
+          - name: namespace
+            value_name: NAMESPACE
+            required: true
+            help: namespace to load
+  - name: unload
+    about: Unload Plugin
+    subcommands:
+      - name: plugin
+        about: unload plugin
+        args:
+          - name: plugin_name
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin to unload
+      - name: namespace
+        about: unload namespace
+        args:
+          - name: namespace_name
+            value_name: NAMESPACE_NAME
+            required: true
+            help: namespace to unload
+  - name: clear
+    about: Clear the Screen
+  - name: tcpm
+    about: Terminal Chat Package Manager
+    subcommands:
+      - name: install
+        about: Install plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin to install
+          - name: registry
+            long: registry
+            required: false
+            action: set
+            help: Set plugin registry
+          - name: uload
+            short: u
+            long: uload
+            required: false
+            action: set_true
+            help: Use plugin's namespace when start
+          - name: local
+            short: l
+            long: local
+            help: Install local plugin
+            action: set
+      - name: uninstall
+        about: Uninstall plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN
+            required: true
+            help: Plugin to uninstall
+          - name: delete_local
+            short: d
+            long: delete-local-file
+            required: false
+            action: set_true
+            help: Delete local file
+      - name: download
+        about: Download plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN
+            required: true
+            help: Plugin to download
+          - name: registry
+            long: registry
+            required: false
+            action: set
+            help: Set plugin registry
+          - name: load
+            required: false
+            long: load
+            short: l 
+            action: set_true
+            help: load plugin after download
+          - name: use_namespace
+            long: use-namespace
+            short: u 
+            action: set_true
+            help: load plugin and namespace after download
+            conflicts_with: load
+  - name: upload
+    about: Upload file or folder to server.
+    args: 
+      - name: local_path
+        required: true
+        value_name: LOCAL_PATH
+        help: Local path to upload.
+      - name: remote_path
+        required: false
+        value_name: REMOTE_PATH
+        help: Remote path to upload.
+  - name: download
+    about: Download file or folder to server.
+    args: 
+      - name: remote_path
+        required: true
+        value_name: REMOTE_PATH
+        help: Remote path to download.
+      - name: local_path
+        required: false
+        value_name: LOCAL_PATH
+        help: Local path to store downloads.
+  - name: checksum
+    about: Get checksum of remote file.
+    args:
+      - name: file
+        value_name: FILE
+        required: true
+        help: Remote filte to check.
+  - name: cd
+    about: Change the current remote directory to DIR.
+    args:
+      - name: dir
+        value_name: DIR
+        required: true
+        help: DIR to change.
+  - name: pwd
+    about: Get current remote directory.
+  - name: ls
+    about: List files in current directory.
+  - name: mkdir
+    about: Make directory in remote server.
+    args:
+      - name: directory
+        required: true 
+        value_name: DIR
+        help: DIR to make.
+aliases:
+  - name: join_freq
+    alias: jfreq
+  - name: create_freq
+    alias: cfreq
+  - name: background
+    alias: bg
+  - name: upload
+    alias: upl
+  - name: download
+    alias: dl
+  - name: batch_upload
+    alias: bupl
+  - name: batch_download
+    alias: bdl
+  - name: leave_freq
+    alias: lfreq
+  - name: foreground
+    alias: fg
+  - name: disconnect
+    alias: dc
+  - name: reconnect
+    alias: rc
+  - name: connect
+    alias: conn
+  - name: mkdir
+    alias: md
