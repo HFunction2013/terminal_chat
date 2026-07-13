@@ -1,6 +1,6 @@
+use built::write_built_file;
 use std::fs;
 use std::path::Path;
-use built::write_built_file;
 
 #[derive(serde::Deserialize, Debug)]
 struct Config {
@@ -14,7 +14,7 @@ struct AliasDef {
     alias: String,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 struct CommandDef {
     name: String,
     about: String,
@@ -22,9 +22,14 @@ struct CommandDef {
     hidden: Option<bool>,
     subcommands: Option<Vec<CommandDef>>,
     multiple_values: Option<bool>,
+
+    // ✅ 仅新增：默认 false，老 yaml 完全兼容
+    #[serde(default)]
+    #[allow(dead_code)]
+    debug_only: bool,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 struct ArgDef {
     name: String,
     short: Option<char>,
@@ -72,29 +77,36 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
     let about = escape_str(&c.about);
     code.push_str(&format!(
         "Command::new(\"{}\").about(\"{}\")",
-        escape_str(&c.name), about
+        escape_str(&c.name),
+        about
     ));
 
-    // 匹配全局别名，添加 .alias()
+    // alias
     for (cmd_name, alias) in global_aliases {
         if c.name == *cmd_name {
             code.push_str(&format!(".alias(\"{}\")", escape_str(alias)));
         }
     }
+
     if c.hidden == Some(true) {
         code.push_str(".hide(true)");
     }
-    // 如果 multiple_values: false，创建全局互斥组，包含所有参数
-    if c.multiple_values == Some(false) 
-        && let Some(args) = &c.args {
-            let mut group = format!("clap::ArgGroup::new(\"{}_exclusive\").multiple(false)", escape_str(&c.name));
-            for arg in args {
-                group.push_str(&format!(".arg(\"{}\")", escape_str(&arg.name)));
-            }
-            code.push_str(&format!(".group({})", group));
-        }
 
-    // 处理参数
+    // exclusive group
+    if c.multiple_values == Some(false)
+        && let Some(args) = &c.args
+    {
+        let mut group = format!(
+            "clap::ArgGroup::new(\"{}_exclusive\").multiple(false)",
+            escape_str(&c.name)
+        );
+        for arg in args {
+            group.push_str(&format!(".arg(\"{}\")", escape_str(&arg.name)));
+        }
+        code.push_str(&format!(".group({})", group));
+    }
+
+    // args
     if let Some(args) = &c.args {
         for a in args {
             let mut arg = format!("Arg::new(\"{}\")", escape_str(&a.name));
@@ -132,10 +144,12 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
         }
     }
 
-    // 递归子命令
-    if let Some(subs) = &c.subcommands {
-        for sub in subs {
-            let sub_code = build_command(sub, global_aliases);
+    // ✅ 子命令排序（关键）
+    if let Some(mut subcommands) = c.subcommands.clone() {
+        subcommands.sort_by(|a, b| a.name.cmp(&b.name));
+
+        for sub in subcommands {
+            let sub_code = build_command(&sub, global_aliases);
             code.push_str(&format!(".subcommand({})", sub_code));
         }
     }
@@ -153,24 +167,34 @@ fn main() {
     }
 
     let yaml_path = Path::new("./commands.yaml");
-    let yaml = fs::read_to_string(yaml_path)
-        .expect("Cannot read ./commands.yaml, file missing");
-    let config: Config = serde_yaml::from_str(&yaml)
-        .expect("commands.yaml yaml parse failed, check syntax");
+    let yaml = fs::read_to_string(yaml_path).expect("Cannot read ./commands.yaml, file missing");
+    let config: Config =
+        serde_yaml::from_str(&yaml).expect("commands.yaml yaml parse failed, check syntax");
 
     // 转换别名列表
     let alias_list: Vec<(String, String)> = config
         .aliases
         .as_ref()
-        .map(|list| list.iter().map(|a| (a.name.clone(), a.alias.clone())).collect())
+        .map(|list| {
+            list.iter()
+                .map(|a| (a.name.clone(), a.alias.clone()))
+                .collect()
+        })
         .unwrap_or_default();
 
+    let mut commands = config.commands;
+
+    // ✅ 关键：release 下直接丢弃 debug_only 命令
+    #[cfg(not(debug_assertions))]
+    commands.retain(|c| !c.debug_only);
+
+    commands.sort_by(|a, b| a.name.cmp(&b.name));
+
     let mut code = String::new();
-    // 导入 ArgGroup
     code.push_str("use clap::{Arg, Command};\n");
     code.push_str("pub fn add_commands(mut cmd: Command) -> Command {\n");
 
-    for c in config.commands {
+    for c in commands {
         let cmd_code = build_command(&c, &alias_list);
         code.push_str(&format!("    cmd = cmd.subcommand({});\n", cmd_code));
     }

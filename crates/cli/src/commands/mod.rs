@@ -2,10 +2,8 @@ use clap::ArgMatches;
 use anyhow::Result;
 
 pub trait CommandExecutor {
-    /// 对应 YAML 里的 command.name
     fn name(&self) -> &'static str;
 
-    /// 执行命令
     fn run(&self, matches: &ArgMatches) -> Result<()>;
 }
 pub mod setg;
@@ -35,6 +33,32 @@ pub mod msg;
 pub mod schedule_msg;
 pub mod cancel;
 pub mod whoami;
+pub mod unset;
+pub mod create;
+pub mod run;
+pub mod delete;
+pub mod status;
+pub mod freq_info;
+pub mod reply;
+pub mod ignore;
+pub mod unignore;
+pub mod user_info;
+pub mod away;
+pub mod foreground;
+pub mod disconnect;
+pub mod reconnect;
+pub mod connect;
+#[cfg(debug_assertions)]
+pub mod logs;
+pub mod kick;
+pub mod ban;
+pub mod unban;
+pub mod mute;
+pub mod unmute;
+pub mod op;
+pub mod deop;
+pub mod trop;
+pub mod disband;
 
 pub fn all_commands() -> Vec<Box<dyn CommandExecutor>> {
     vec![
@@ -65,5 +89,31 @@ pub fn all_commands() -> Vec<Box<dyn CommandExecutor>> {
         Box::new(schedule_msg::ScheduleMsgCommand),
         Box::new(cancel::CancelCommand),
         Box::new(whoami::WhoamiCommand),
+        Box::new(unset::UnsetCommand),
+        Box::new(create::CreateCommand),
+        Box::new(run::RunCommand),
+        Box::new(delete::DeleteCommand),
+        Box::new(status::StatusCommand),
+        Box::new(freq_info::FreqInfoCommand),
+        Box::new(reply::ReplyCommand),
+        Box::new(ignore::IgnoreCommand),
+        Box::new(unignore::UnignoreCommand),
+        Box::new(user_info::UserInfoCommand),
+        Box::new(away::AwayCommand),
+        Box::new(foreground::ForegroundCommand),
+        Box::new(disconnect::DisconnectCommand),
+        Box::new(reconnect::ReconnectCommand),
+        Box::new(connect::ConnectCommand),
+        #[cfg(debug_assertions)]
+        Box::new(logs::LogsCommand),
+        Box::new(kick::KickCommand),
+        Box::new(ban::BanCommand),
+        Box::new(unban::UnbanCommand),
+        Box::new(mute::MuteCommand),
+        Box::new(unmute::UnmuteCommand),
+        Box::new(op::OpCommand),
+        Box::new(deop::DeopCommand),
+        Box::new(trop::TropCommand),
+        Box::new(disband::DisbandCommand),
     ]
 }

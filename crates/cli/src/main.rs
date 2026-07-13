@@ -165,6 +165,7 @@ fn print_copyright() {
 }
 fn print_license() {
     let _ = io::stdout().write_all(include_str!("../../../LICENSE").as_bytes());
+    println!();
     let _ = io::stdout().flush();
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
