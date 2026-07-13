@@ -32,6 +32,8 @@ pub mod call;
 pub mod msg;
 pub mod schedule_msg;
 pub mod cancel;
+pub mod schedule;
+pub mod tasks;
 pub mod whoami;
 pub mod unset;
 pub mod create;
@@ -88,6 +90,8 @@ pub fn all_commands() -> Vec<Box<dyn CommandExecutor>> {
         Box::new(msg::MsgCommand),
         Box::new(schedule_msg::ScheduleMsgCommand),
         Box::new(cancel::CancelCommand),
+        Box::new(schedule::ScheduleCommand),
+        Box::new(tasks::TasksCommand),
         Box::new(whoami::WhoamiCommand),
         Box::new(unset::UnsetCommand),
         Box::new(create::CreateCommand),

@@ -249,12 +249,12 @@ commands:
         value_name: LOCAL_PATH
         help: Local path to store downloads.
   - name: checksum
-    about: Get checksum of remote file.
+    about: Get checksum of remote file (SHA256).
     args:
       - name: file
         value_name: FILE
         required: true
-        help: Remote file to check.
+        help: Remote file to check. NO FOLDERS!
   - name: cd
     about: Change the current remote directory to DIR.
     args:
@@ -289,19 +289,55 @@ commands:
         value_name: USER
         help: The user
         required: true 
-  - name: msg #?
+  - name: msg
     about: send message
     args:
-      - name: MSG
+      - name: message
+        value_name: MSG
         required: true
-        num_args: "1"
-      - name: USER
+        help: 'Your message, send #EDITOR# to open editor'
+      - name: users
+        value_name: USERS
         num_args: "0.."
         help: The users, default everybody.
-  - name: schedule_msg #?
+  - name: schedule_msg
     about: Schedules message.
-  - name: cancel #?
+    args:
+      - name: time
+        value_name: TIME
+        help: send time
+      - name: message
+        value_name: MSG
+        required: true
+        help: 'Your message, send #EDITOR# to open editor'
+      - name: users
+        value_name: USERS
+        num_args: "0.."
+        help: The users, default everybody.
+  - name: cancel
     about: cancel a task
+    args: 
+      - name: task_id
+        help: The task id
+        required: true
+        value_name: TASK_ID
+  - name: schedule
+    about: schedule a task
+    args:
+      - name: session
+        required: true
+        value_name: SESSION
+        help: The certain session, 0 for main console.
+      - name: time
+        value_name: TIME
+        help: send time
+        required: true
+      - name: cmd
+        value_name: CMD
+        help: 'Dest CMD, #EDITOR# to open editor'
+        required: true
+  - name: tasks
+    about: Get scheduled tasks.
   - name: whoami
     about: Get username.
   - name: unset
@@ -332,6 +368,10 @@ commands:
             value_name: MARCO_NAME
             required: true 
             help: marco name
+          - name: marco_body
+            value_name: MARCO_BODY
+            required: true 
+            help: 'Marco body, #EDITOR# to open editor'
   - name: run
     about: run a certain marco
     args:
@@ -371,7 +411,7 @@ commands:
       - name: message
         value_name: MSG
         required: false
-        help: Your message, if not given, fallback to editor mode.
+        help: 'Your message, if not given, fallback to editor mode. Also switch to editor if MSG==#EDITOR#'
   - name: ignore
     about: Ignore comments of certain user
     args:
@@ -491,10 +531,6 @@ aliases:
     alias: upl
   - name: download
     alias: dl
-  - name: batch_upload
-    alias: bupl
-  - name: batch_download
-    alias: bdl
   - name: leave_freq
     alias: lfreq
   - name: foreground
