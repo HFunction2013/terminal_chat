@@ -19,6 +19,7 @@ struct CommandDef {
     name: String,
     about: String,
     args: Option<Vec<ArgDef>>,
+    hidden: Option<bool>,
     subcommands: Option<Vec<CommandDef>>,
     multiple_values: Option<bool>,
 }
@@ -55,7 +56,7 @@ fn parse_num_args(s: &str) -> String {
         "1.." => "1..".to_string(),
         "0..1" => "0..1".to_string(),
         "0..=" => "0..=".to_string(),
-        val if val.parse::<usize>().is_ok() => format!("{}", val),
+        val if val.parse::<usize>().is_ok() => val.to_string(),
         _ => panic!("invalid num_args range: {}", s),
     }
 }
@@ -80,17 +81,18 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
             code.push_str(&format!(".alias(\"{}\")", escape_str(alias)));
         }
     }
-
+    if c.hidden == Some(true) {
+        code.push_str(".hide(true)");
+    }
     // 如果 multiple_values: false，创建全局互斥组，包含所有参数
-    if c.multiple_values == Some(false) {
-        if let Some(args) = &c.args {
+    if c.multiple_values == Some(false) 
+        && let Some(args) = &c.args {
             let mut group = format!("clap::ArgGroup::new(\"{}_exclusive\").multiple(false)", escape_str(&c.name));
             for arg in args {
                 group.push_str(&format!(".arg(\"{}\")", escape_str(&arg.name)));
             }
             code.push_str(&format!(".group({})", group));
         }
-    }
 
     // 处理参数
     if let Some(args) = &c.args {

@@ -1,110 +1,26 @@
+use anyhow::Result;
+use clap::ArgMatches;
 use clap::Command;
 use clap_complete::engine::complete;
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
-use rustyline::hint::Hinter;
 use rustyline::highlight::Highlighter;
+use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{Context, Editor, Helper};
-use shell_words;
+use shell_words::split;
 use std::ffi::OsString;
 use std::path::Path;
-use chrono::DateTime;
+mod commands;
+use commands::all_commands;
+use std::io::Write;
+use std::io::{self};
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 mod command {
     include!(concat!(env!("OUT_DIR"), "/command.rs"));
 }
-fn print_banner() {
-    println!("=== built::info ===");
-
-    // ----- Cargo / Package -----
-    println!("\n# Package");
-    println!("PKG_NAME: {}", built_info::PKG_NAME);
-    println!("PKG_VERSION: {}", built_info::PKG_VERSION);
-    println!("PKG_VERSION_MAJOR: {}", built_info::PKG_VERSION_MAJOR);
-    println!("PKG_VERSION_MINOR: {}", built_info::PKG_VERSION_MINOR);
-    println!("PKG_VERSION_PATCH: {}", built_info::PKG_VERSION_PATCH);
-    println!("PKG_VERSION_PRE: {}", built_info::PKG_VERSION_PRE);
-    println!("PKG_AUTHORS: {}", built_info::PKG_AUTHORS);
-    println!("PKG_DESCRIPTION: {}", built_info::PKG_DESCRIPTION);
-    println!("PKG_HOMEPAGE: {}", built_info::PKG_HOMEPAGE);
-    println!("PKG_LICENSE: {}", built_info::PKG_LICENSE);
-    println!("PKG_REPOSITORY: {}", built_info::PKG_REPOSITORY);
-
-    // ----- Build target -----
-    println!("\n# Target");
-    println!("TARGET: {}", built_info::TARGET);
-    println!("HOST: {}", built_info::HOST);
-    println!("PROFILE: {}", built_info::PROFILE);
-
-    // ----- Toolchain -----
-    println!("\n# Toolchain");
-    println!("RUSTC: {}", built_info::RUSTC);
-    println!("RUSTDOC: {}", built_info::RUSTDOC);
-    println!("RUSTC_VERSION: {}", built_info::RUSTC_VERSION);
-    println!("RUSTDOC_VERSION: {}", built_info::RUSTDOC_VERSION);
-
-    // ----- Compile options -----
-    println!("\n# Compile options");
-    println!("OPT_LEVEL: {}", built_info::OPT_LEVEL);
-    println!("NUM_JOBS: {}", built_info::NUM_JOBS);
-    println!("DEBUG: {}", built_info::DEBUG);
-
-    // ----- Features -----
-    println!("\n# Features");
-    println!("FEATURES: {:?}", built_info::FEATURES);
-    println!("FEATURES_STR: {}", built_info::FEATURES_STR);
-    println!("FEATURES_LOWERCASE: {:?}", built_info::FEATURES_LOWERCASE);
-    println!("FEATURES_LOWERCASE_STR: {}", built_info::FEATURES_LOWERCASE_STR);
-
-    // ----- CARGO_CFG_* -----
-    println!("\n# CARGO_CFG");
-    println!("CFG_TARGET_ARCH: {}", built_info::CFG_TARGET_ARCH);
-    println!("CFG_ENDIAN: {}", built_info::CFG_ENDIAN);
-    println!("CFG_ENV: {}", built_info::CFG_ENV);
-    println!("CFG_FAMILY: {}", built_info::CFG_FAMILY);
-    println!("CFG_OS: {}", built_info::CFG_OS);
-    println!("CFG_POINTER_WIDTH: {}", built_info::CFG_POINTER_WIDTH);
-
-    // ----- CI -----
-    {
-        println!("\n# CI");
-        println!("CI_PLATFORM: {:?}", built_info::CI_PLATFORM);
-    }
-
-    // ----- Build time -----
-    {
-        println!("\n# Build time");
-        println!("BUILT_TIME_UTC: {}", built_info::BUILT_TIME_UTC);
-    }
-
-    // ----- Git -----
-    {
-        println!("\n# Git");
-        println!("GIT_VERSION: {:?}", built_info::GIT_VERSION);
-        println!("GIT_DIRTY: {:?}", built_info::GIT_DIRTY);
-        println!("GIT_HEAD_REF: {:?}", built_info::GIT_HEAD_REF);
-        println!("GIT_COMMIT_HASH: {:?}", built_info::GIT_COMMIT_HASH);
-        println!("GIT_COMMIT_HASH_SHORT: {:?}", built_info::GIT_COMMIT_HASH_SHORT);
-    }
-
-    // ----- Dependencies -----
-    {
-        println!("\n# Dependencies");
-        println!("DEPENDENCIES_STR: {}", built_info::DEPENDENCIES_STR);
-    }
-
-    {
-        println!("\n# Dependency tree");
-        println!("DIRECT_DEPENDENCIES_STR: {}", built_info::DIRECT_DEPENDENCIES_STR);
-        println!("INDIRECT_DEPENDENCIES_STR: {}", built_info::INDIRECT_DEPENDENCIES_STR);
-    }
-
-    println!("\n=== end of built::info ===");
-}
-
 /// rustyline Helper：桥接 clap_complete
 struct ClapHelper {
     cli: Command,
@@ -123,7 +39,7 @@ impl Completer for ClapHelper {
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
         let before_cursor = &line[..pos];
 
-        let args = match shell_words::split(before_cursor) {
+        let args = match split(before_cursor) {
             Ok(a) => a,
             Err(_) => return Ok((pos, vec![])),
         };
@@ -151,7 +67,6 @@ impl Completer for ClapHelper {
         // ✅ CompletionCandidate 没有 display，只有 value (OsString)
         let pairs = candidates
             .into_iter()
-            .filter(|c| !c.is_hide_set())
             .map(|c| {
                 let value = c.get_value().to_string_lossy().to_string();
                 Pair {
@@ -180,8 +95,80 @@ impl Hinter for ClapHelper {
 
 impl Highlighter for ClapHelper {}
 impl Validator for ClapHelper {}
+fn simplify_branch(ref_name: Option<&str>) -> &str {
+    ref_name
+        .and_then(|r| r.strip_prefix("refs/heads/"))
+        .unwrap_or("no branch")
+}
+fn welcome(b: bool) {
+    println!(
+        "{} {}({}) ({}, {}, {})",
+        built_info::PKG_NAME,
+        built_info::PKG_VERSION,
+        built_info::PROFILE,
+        simplify_branch(built_info::GIT_HEAD_REF),
+        built_info::GIT_COMMIT_HASH_SHORT.unwrap_or("unknown"),
+        built_info::BUILT_TIME_UTC,
+    );
+    println!("[{}] on {}", built_info::RUSTC_VERSION, built_info::CFG_OS);
+    if b {
+        println!("Type \"help\", \"copyright\" or \"license\" for more information.");
+    }
+}
 
+fn build_info() {
+
+    let out = format!(
+r#"=== built::info ===
+PKG_NAME: {}
+PKG_VERSION: {}
+TARGET: {}
+HOST: {} ({})
+PROFILE: {} (OPT_LEVEL: {})
+RUSTC_VERSION: {}
+BUILT_TIME_UTC: {}
+GIT_BRANCH :{:?}
+GIT_VERSION: {:?}
+GIT_DIRTY: {:?}
+GIT_COMMIT_HASH: {:?}
+=== end of built::info ===
+"#,
+        built_info::PKG_NAME,
+        built_info::PKG_VERSION,
+        built_info::TARGET,
+        built_info::HOST,
+        built_info::CFG_OS,
+        built_info::PROFILE,
+        built_info::OPT_LEVEL,
+        built_info::RUSTC_VERSION,
+        built_info::BUILT_TIME_UTC,
+        simplify_branch(built_info::GIT_HEAD_REF),
+        built_info::GIT_VERSION.unwrap_or("unknown"),
+        built_info::GIT_DIRTY.unwrap_or(false),
+        built_info::GIT_COMMIT_HASH.unwrap_or("unknown"),
+    );
+
+    let _ = io::stdout().write_all(out.as_bytes());
+    let _ = io::stdout().flush();
+}
+
+fn dispatch(matches: &ArgMatches) -> Result<()> {
+    for cmd in all_commands() {
+        if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
+            return cmd.run(sub_matches);
+        }
+    }
+    Ok(())
+}
+fn print_copyright() {
+    println!("Copyright (c) 2026 HZFY. All Rights Reserved.");
+}
+fn print_license() {
+    let _ = io::stdout().write_all(include_str!("../../../LICENSE").as_bytes());
+    let _ = io::stdout().flush();
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    welcome(true);
     let cli = command::add_commands(
         Command::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
@@ -191,7 +178,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
-    print_banner();
     loop {
         let input = match rl.readline("tc> ") {
             Ok(line) => line,
@@ -215,10 +201,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         rl.add_history_entry(input)?;
-
-        if input == "exit" {
-            println!("Bye");
-            break;
+        match input {
+            "exit" | "quit" | "q" => {
+                println!("Bye");
+                break;
+            }
+            "clear" => {
+                let _ = rl.clear_screen();
+                continue;
+            }
+            "copyright" => {
+                print_copyright();
+                continue;
+            }
+            "license" => {
+                print_license();
+                continue;
+            }
+            "version" => {
+                welcome(false);
+                continue;
+            }
+            "build_info" => {
+                build_info();
+                continue;
+            }
+            _ => {}
         }
 
         let args = match shell_words::split(input) {
@@ -235,8 +243,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         match cli.clone().try_get_matches_from(&full_args) {
             Ok(matches) => {
-                println!("✅ Parsed:");
-                println!("{:#?}", matches);
+                if let Err(e) = dispatch(&matches) {
+                    eprintln!("Error: {}", e);
+                }
             }
             Err(err) => {
                 eprintln!("{}", err);

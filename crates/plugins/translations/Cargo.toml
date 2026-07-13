@@ -9,3 +9,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 libc = "0.2"
+deeplx = { version = "2", default-features = false }
+tokio = { version = "1", features = ["full"] }

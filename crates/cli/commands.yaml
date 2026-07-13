@@ -222,7 +222,7 @@ commands:
       - name: file
         value_name: FILE
         required: true
-        help: Remote filte to check.
+        help: Remote file to check.
   - name: cd
     about: Change the current remote directory to DIR.
     args:
@@ -241,6 +241,37 @@ commands:
         required: true 
         value_name: DIR
         help: DIR to make.
+  - name: file_info
+    about: Get remote file infomation.
+    args:
+      - name: file
+        value_name: FILE
+        required: true
+        help: The remote file
+  - name: leave_freq
+    about: Leave current frequency.
+  - name: call
+    about: Call an user
+    args:
+      - name: USER
+        value_name: USER
+        help: The user
+        required: true 
+  - name: msg #?
+    about: send message
+    args:
+      - name: MSG
+        required: true
+        num_args: "1"
+      - name: USER
+        num_args: "0.."
+        help: The users, default everybody.
+  - name: schedule_msg #?
+    about: Schedules message.
+  - name: cancel #?
+    about: cancel a task
+  - name: whoami
+    about: Get username.
 aliases:
   - name: join_freq
     alias: jfreq
