@@ -524,7 +524,7 @@ commands:
     hidden: true 
     about: Are you sleepy? Why not sleep for a while?
     args:
-      - name: miliseconds
+      - name: milliseconds
         value_name: TIME
         required: true 
         help: Aha... sleepy!
