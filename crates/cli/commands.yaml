@@ -405,6 +405,7 @@ commands:
         value_name: FREQ
         required: true 
         help: freq ID
+        value_parser: "f64"
   - name: reply
     about: Reply to the user who has just spoken quickly
     args:
@@ -439,9 +440,9 @@ commands:
       - name: status
         value_name: STATUS
         required: false 
+        default_value: "away"
         help: |
           Your status, only away and busy avaliable.
-          Default: away.
           Auto replies private messages. Like:
             [bot-reply] I am busy now. Contact me later.
   - name: foreground
@@ -459,7 +460,8 @@ commands:
       - name: operation
         value_name: OP
         required: false
-        help: 'Operation (open|close). default: open'  
+        default_value: "open"
+        help: 'Operation (open|close).'  
   - name: kick
     about: kick user from freq (op)
     args:
@@ -518,6 +520,16 @@ commands:
         help: the full username, e.g., HZFY@192.168.78.91
   - name: disband
     about: disband current frequency.
+  - name: sleep
+    hidden: true 
+    about: Are you sleepy? Why not sleep for a while?
+    args:
+      - name: miliseconds
+        value_name: TIME
+        required: true 
+        help: Aha... sleepy!
+        default_value: "1000"
+        value_parser: "humantime::Duration"
 
 
 aliases:

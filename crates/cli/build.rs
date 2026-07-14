@@ -23,7 +23,6 @@ struct CommandDef {
     subcommands: Option<Vec<CommandDef>>,
     multiple_values: Option<bool>,
 
-    // ✅ 仅新增：默认 false，老 yaml 完全兼容
     #[serde(default)]
     #[allow(dead_code)]
     debug_only: bool,
@@ -41,6 +40,9 @@ struct ArgDef {
     action: Option<String>,
     default_value: Option<String>,
     conflicts_with: Option<String>,
+
+    // ✅ 唯一新增字段
+    value_parser: Option<String>,
 }
 
 /// 映射action字符串到clap枚举
@@ -66,7 +68,7 @@ fn parse_num_args(s: &str) -> String {
     }
 }
 
-/// 转义字符串，避免生成代码双引号逃逸
+/// 转义字符串
 fn escape_str(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
@@ -81,7 +83,6 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
         about
     ));
 
-    // alias
     for (cmd_name, alias) in global_aliases {
         if c.name == *cmd_name {
             code.push_str(&format!(".alias(\"{}\")", escape_str(alias)));
@@ -92,7 +93,6 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
         code.push_str(".hide(true)");
     }
 
-    // exclusive group
     if c.multiple_values == Some(false)
         && let Some(args) = &c.args
     {
@@ -106,7 +106,6 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
         code.push_str(&format!(".group({})", group));
     }
 
-    // args
     if let Some(args) = &c.args {
         for a in args {
             let mut arg = format!("Arg::new(\"{}\")", escape_str(&a.name));
@@ -136,6 +135,15 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
             if let Some(dv) = &a.default_value {
                 arg.push_str(&format!(".default_value(\"{}\")", escape_str(dv)));
             }
+
+            // ✅ 唯一新增生成逻辑
+            if let Some(vp) = &a.value_parser {
+                arg.push_str(&format!(
+                    ".value_parser(clap::value_parser!({}))",
+                    vp
+                ));
+            }
+
             if let Some(cf) = &a.conflicts_with {
                 arg.push_str(&format!(".conflicts_with(\"{}\")", escape_str(cf)));
             }
@@ -144,10 +152,8 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
         }
     }
 
-    // ✅ 子命令排序（关键）
     if let Some(mut subcommands) = c.subcommands.clone() {
         subcommands.sort_by(|a, b| a.name.cmp(&b.name));
-
         for sub in subcommands {
             let sub_code = build_command(&sub, global_aliases);
             code.push_str(&format!(".subcommand({})", sub_code));
@@ -171,7 +177,6 @@ fn main() {
     let config: Config =
         serde_yaml::from_str(&yaml).expect("commands.yaml yaml parse failed, check syntax");
 
-    // 转换别名列表
     let alias_list: Vec<(String, String)> = config
         .aliases
         .as_ref()
@@ -184,7 +189,6 @@ fn main() {
 
     let mut commands = config.commands;
 
-    // ✅ 关键：release 下直接丢弃 debug_only 命令
     #[cfg(not(debug_assertions))]
     commands.retain(|c| !c.debug_only);
 
@@ -202,12 +206,8 @@ fn main() {
     code.push_str("    cmd\n");
     code.push_str("}\n");
 
-    // 仅变更时写入
     let need_write = if dest.exists() {
-        match fs::read_to_string(&dest) {
-            Ok(old) => old != code,
-            Err(_) => true,
-        }
+        fs::read_to_string(&dest).ok().map_or(true, |old| old != code)
     } else {
         true
     };

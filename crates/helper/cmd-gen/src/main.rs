@@ -52,6 +52,8 @@ fn generate_module(name: &str, about: &str, debug_only: bool) -> String {
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
 
 pub struct {struct_name};
 
@@ -122,6 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut mod_rs = String::new();
     mod_rs.push_str(
 r#"use clap::ArgMatches;
+use std::sync::Arc;
 use anyhow::Result;
 
 pub trait CommandExecutor {
@@ -140,7 +143,7 @@ pub trait CommandExecutor {
     }
 
     mod_rs.push('\n');
-    mod_rs.push_str("pub fn all_commands() -> Vec<Box<dyn CommandExecutor>> {\n");
+    mod_rs.push_str("pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {\n");
     mod_rs.push_str("    vec![\n");
 
     for cmd in &config.commands {
@@ -148,7 +151,7 @@ pub trait CommandExecutor {
             mod_rs.push_str("        #[cfg(debug_assertions)]\n");
         }
         mod_rs.push_str(&format!(
-            "        Box::new({}::{}),\n",
+            "        Arc::new({}::{}),\n",
             cmd.name,
             to_struct_name(&cmd.name)
         ));

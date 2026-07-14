@@ -12,6 +12,11 @@ rustyline = "14"
 core = { path = "../core" }
 clap_complete = { version = "4", features = ["unstable-dynamic"] }
 anyhow = "1.0.103"
+sha2 = "0.10"
+base64 = "0.22.1"
+humantime = "2.1"
+ctrlc = "3.4"
+libc = "0.2.186"
 
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }

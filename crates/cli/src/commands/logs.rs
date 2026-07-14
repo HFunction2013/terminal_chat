@@ -4,6 +4,8 @@
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
 
 pub struct LogsCommand;
 

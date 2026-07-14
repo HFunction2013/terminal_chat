@@ -12,9 +12,21 @@ use shell_words::split;
 use std::ffi::OsString;
 use std::path::Path;
 mod commands;
+use base64::{Engine as _, engine::general_purpose};
 use commands::all_commands;
+use libc::{SIGTSTP, signal};
+use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::io::{self};
+use std::sync::atomic::{AtomicBool, Ordering};
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+fn install_ctrlc_handler() {
+    ctrlc::set_handler(move || {
+        INTERRUPTED.store(true, Ordering::SeqCst);
+        println!(" (interrupt sent to current command)");
+    })
+    .expect("failed to install Ctrl+C handler");
+}
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
@@ -117,9 +129,8 @@ fn welcome(b: bool) {
 }
 
 fn build_info() {
-
     let out = format!(
-r#"=== built::info ===
+        r#"=== built::info ===
 PKG_NAME: {}
 PKG_VERSION: {}
 TARGET: {}
@@ -155,6 +166,8 @@ GIT_COMMIT_HASH: {:?}
 fn dispatch(matches: &ArgMatches) -> Result<()> {
     for cmd in all_commands() {
         if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
+            // 每次执行前清零
+            INTERRUPTED.store(false, Ordering::SeqCst);
             return cmd.run(sub_matches);
         }
     }
@@ -168,7 +181,16 @@ fn print_license() {
     println!();
     let _ = io::stdout().flush();
 }
+fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data.as_ref());
+    format!("{:x}", hasher.finalize())
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    unsafe {
+        signal(SIGTSTP, libc::SIG_IGN);
+    }
+    install_ctrlc_handler();
     welcome(true);
     let cli = command::add_commands(
         Command::new(env!("CARGO_PKG_NAME"))
@@ -200,7 +222,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if input.is_empty() {
             continue;
         }
-
+        if sha256_hex(input).as_str()
+            == "6ac3c336e4094835293a3fed8a4b5fedde1b5e2626d9838fed50693bba00af0e"
+        {
+            println!(
+                "{}",
+                String::from_utf8_lossy(
+                    &general_purpose::STANDARD
+                        .decode("ZnVjayB5b3UgdG9vLCBidWRkeS4=")
+                        .unwrap()
+                )
+            );
+            continue;
+        }
         rl.add_history_entry(input)?;
         match input {
             "exit" | "quit" | "q" => {
@@ -225,6 +259,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "build_info" => {
                 build_info();
+                continue;
+            }
+            "coffee" => {
+                println!(
+                    r#"                  ( (
+                   ) )
+                 ........
+                 |      |]
+                 \      /
+                  `----'
+Because everyone deserves a good cup of coffee."#
+                );
                 continue;
             }
             _ => {}
