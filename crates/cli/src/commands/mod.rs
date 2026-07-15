@@ -1,6 +1,8 @@
 use clap::ArgMatches;
 use std::sync::Arc;
 use anyhow::Result;
+use std::sync::atomic::Ordering;
+use crate::INTERRUPTED;
 
 pub trait CommandExecutor {
     fn name(&self) -> &'static str;
@@ -123,4 +125,16 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(disband::DisbandCommand),
         Arc::new(sleep::SleepCommand),
     ]
+}
+
+pub fn dispatch(matches: &ArgMatches) -> Result<()> {
+    for cmd in all_commands() {
+        if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
+            // 每次执行前清零
+            INTERRUPTED.store(false, Ordering::SeqCst);
+            return cmd.run(sub_matches);
+        }
+    }
+    eprintln!("No matching command found. Use --help for usage information.");
+    Ok(())
 }

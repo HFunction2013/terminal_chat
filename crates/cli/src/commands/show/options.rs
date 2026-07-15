@@ -1,21 +1,21 @@
-// delete.rs
-// delete a alias or marco
+// options.rs
+// Show available set/setg options
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct DeleteCommand;
+pub struct OptionsCommand;
 
-impl CommandExecutor for DeleteCommand {
+impl CommandExecutor for OptionsCommand {
     fn name(&self) -> &'static str {
-        "delete"
+        "options"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: delete a alias or marco
-        println!("Command `delete` is not yet implemented.");
+        // TODO: Show available set/setg options
+        println!("Command `options` is not yet implemented.");
         Ok(())
     }
 }

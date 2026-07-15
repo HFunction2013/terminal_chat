@@ -1,5 +1,4 @@
 use anyhow::Result;
-use clap::ArgMatches;
 use clap::Command;
 use clap_complete::engine::complete;
 use rustyline::completion::{Completer, Pair};
@@ -13,7 +12,6 @@ use std::ffi::OsString;
 use std::path::Path;
 mod commands;
 use base64::{Engine as _, engine::general_purpose};
-use commands::all_commands;
 use libc::{SIGTSTP, signal};
 use sha2::{Digest, Sha256};
 use std::io::Write;
@@ -162,17 +160,6 @@ GIT_COMMIT_HASH: {:?}
     let _ = io::stdout().write_all(out.as_bytes());
     let _ = io::stdout().flush();
 }
-
-fn dispatch(matches: &ArgMatches) -> Result<()> {
-    for cmd in all_commands() {
-        if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
-            // 每次执行前清零
-            INTERRUPTED.store(false, Ordering::SeqCst);
-            return cmd.run(sub_matches);
-        }
-    }
-    Ok(())
-}
 fn print_copyright() {
     println!("Copyright (c) 2026 HZFY. All Rights Reserved.");
 }
@@ -290,7 +277,7 @@ Because everyone deserves a good cup of coffee."#
 
         match cli.clone().try_get_matches_from(&full_args) {
             Ok(matches) => {
-                if let Err(e) = dispatch(&matches) {
+                if let Err(e) = commands::dispatch(&matches) {
                     eprintln!("Error: {}", e);
                 }
             }

@@ -1,21 +1,21 @@
-// unload.rs
-// Unload Plugin
+// alias.rs
+// Create alias
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct UnloadCommand;
+pub struct AliasCommand;
 
-impl CommandExecutor for UnloadCommand {
+impl CommandExecutor for AliasCommand {
     fn name(&self) -> &'static str {
-        "unload"
+        "alias"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Unload Plugin
-        println!("Command `unload` is not yet implemented.");
+        // TODO: Create alias
+        println!("Command `alias` is not yet implemented.");
         Ok(())
     }
 }

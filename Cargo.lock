@@ -11,9 +11,6 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "ai-glm"
 version = "0.1.0"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "alloc-no-stdlib"
@@ -371,6 +368,9 @@ checksum = "cc14f565cf027a105f7a44ccf9e5b424348421a1d8952a8fc9d499d313107789"
 [[package]]
 name = "core"
 version = "0.1.0"
+dependencies = [
+ "once_cell",
+]
 
 [[package]]
 name = "core-foundation"
@@ -2026,7 +2026,6 @@ name = "translations"
 version = "0.1.0"
 dependencies = [
  "deeplx",
- "libc",
  "tokio",
 ]
 
@@ -2219,9 +2218,6 @@ dependencies = [
 [[package]]
 name = "werewolf"
 version = "0.1.0"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "whatlang"

@@ -1,21 +1,21 @@
-// tcpm.rs
-// Terminal Chat Package Manager
+// installed.rs
+// show all installed plugins.
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct TcpmCommand;
+pub struct InstalledCommand;
 
-impl CommandExecutor for TcpmCommand {
+impl CommandExecutor for InstalledCommand {
     fn name(&self) -> &'static str {
-        "tcpm"
+        "installed"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Terminal Chat Package Manager
-        println!("Command `tcpm` is not yet implemented.");
+        // TODO: show all installed plugins.
+        println!("Command `installed` is not yet implemented.");
         Ok(())
     }
 }

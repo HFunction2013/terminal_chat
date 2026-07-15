@@ -1,21 +1,21 @@
-// show.rs
-// Show runtime information
+// afreqs.rs
+// Show all active frequencies
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct ShowCommand;
+pub struct AfreqsCommand;
 
-impl CommandExecutor for ShowCommand {
+impl CommandExecutor for AfreqsCommand {
     fn name(&self) -> &'static str {
-        "show"
+        "afreqs"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Show runtime information
-        println!("Command `show` is not yet implemented.");
+        // TODO: Show all active frequencies
+        println!("Command `afreqs` is not yet implemented.");
         Ok(())
     }
 }

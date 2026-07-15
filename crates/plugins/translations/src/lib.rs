@@ -1,57 +1,23 @@
 use deeplx::{Config, DeepLX};
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
-use std::ptr;
+use std::sync::OnceLock;
 use tokio::runtime::Runtime;
-/// # Safety
-/// 翻译函数
-/// text: UTF-8 C string
-/// from: 源语言（如 "en"）
-/// to:   目标语言（如 "zh"）
-/// 返回：UTF-8 C string（调用方负责 free）
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn translate(
-    text: *const c_char,
-    from: *const c_char,
-    to: *const c_char,
-) -> *mut c_char {
-    if text.is_null() || from.is_null() || to.is_null() {
-        return ptr::null_mut();
-    }
 
-    let text = unsafe { CStr::from_ptr(text) }.to_string_lossy().into_owned();
-    let from = unsafe { CStr::from_ptr(from) }.to_string_lossy().into_owned();
-    let to = unsafe { CStr::from_ptr(to) }.to_string_lossy().into_owned();
+fn rt() -> &'static Runtime {
+    static RT: OnceLock<Runtime> = OnceLock::new();
+    RT.get_or_init(|| Runtime::new().expect("failed to create tokio runtime"))
+}
 
-    // 创建 tokio runtime（FFI 不能用 async）
-    let rt = Runtime::new().unwrap();
-
-    let result = rt.block_on(async {
+pub fn translate(text: &str, from: &str, to: &str) -> Option<String> {
+    rt().block_on(async {
         let translator = DeepLX::new(Config::default());
         translator
-            .translate(&from, &to, &text, None)
+            .translate(from, to, text, None)
             .await
-    });
+            .ok()
+            .map(|r| r.data)
+    })
+}
 
-    match result {
-        Ok(res) => {
-            let s = CString::new(res.data).unwrap();
-            s.into_raw()
-        }
-        Err(_) => ptr::null_mut(),
-    }
-}
-/// # Safety
-/// 释放字符串内存
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn free_string(s: *mut c_char) {
-    if s.is_null() {
-        return;
-    }
-    unsafe {
-        let _ = CString::from_raw(s);
-    }
-}
 #[cfg(test)]
 mod tests {
     use deeplx::{Config, DeepLX};
@@ -87,7 +53,7 @@ mod tests {
       cancel        cancel a task
       whoami        Get username.
       help          Print this message or the help of the given subcommand(s)
-    
+
     Options:
       -h, --help     Print help
       -V, --version  Print version"#;

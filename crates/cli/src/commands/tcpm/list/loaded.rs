@@ -1,21 +1,21 @@
-// load.rs
-// Load Plugin
+// loaded.rs
+// show all loaded plugins.
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct LoadCommand;
+pub struct LoadedCommand;
 
-impl CommandExecutor for LoadCommand {
+impl CommandExecutor for LoadedCommand {
     fn name(&self) -> &'static str {
-        "load"
+        "loaded"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Load Plugin
-        println!("Command `load` is not yet implemented.");
+        // TODO: show all loaded plugins.
+        println!("Command `loaded` is not yet implemented.");
         Ok(())
     }
 }

@@ -1,21 +1,21 @@
-// create.rs
-// Create alias or marco
+// plugin.rs
+// unload plugin
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct CreateCommand;
+pub struct PluginCommand;
 
-impl CommandExecutor for CreateCommand {
+impl CommandExecutor for PluginCommand {
     fn name(&self) -> &'static str {
-        "create"
+        "plugin"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Create alias or marco
-        println!("Command `create` is not yet implemented.");
+        // TODO: unload plugin
+        println!("Command `plugin` is not yet implemented.");
         Ok(())
     }
 }
