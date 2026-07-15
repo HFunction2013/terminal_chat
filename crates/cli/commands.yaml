@@ -134,6 +134,32 @@ commands:
   - name: tcpm
     about: Terminal Chat Package Manager
     subcommands:
+      - name: update
+        about: | 
+          Update plugins.
+          'standard' means main program.
+        args:
+          - name: plugin
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin(s) to update
+            num_args: "1.."
+          - name: registry
+            long: registry
+            required: false
+            action: set
+            help: Set plugin registry
+          - name: reload
+            short: r
+            long: reload
+            required: false
+            action: set_true
+            help: Reload after update
+          - name: force
+            short: f
+            long: force
+            help: Override old one (if exists).
+            action: set_true
       - name: search
         about: Search plugin in registry
         args:
@@ -151,7 +177,7 @@ commands:
           - name: local
             short: l
             long: local
-            help: Show local plugin
+            help: Show plugin from local storage instead of registry
             action: set_true
       - name: list
         about: List plugin with certain constraints.
@@ -166,12 +192,15 @@ commands:
             about: |
               Show all plugins from registry.
               Use this carefully.
+          - name: updates
+            about: Show all avaliable updates.
       - name: install
         about: Install plugin
         args:
           - name: plugin
             value_name: PLUGIN_NAME
             required: true
+            num_args: "1.."
             help: Plugin to install
           - name: registry
             long: registry
@@ -187,13 +216,20 @@ commands:
           - name: local
             short: l
             long: local
-            help: Install local plugin
+            help: Path to local plugin file or directory
+            value_name: PATH
             action: set
+          - name: force
+            short: f
+            long: force
+            help: Override old one (if exists).
+            action: set_true
       - name: uninstall
         about: Uninstall plugin
         args:
           - name: plugin
             value_name: PLUGIN
+            num_args: "1.."
             required: true
             help: Plugin to uninstall
           - name: delete_local
@@ -207,6 +243,7 @@ commands:
         args:
           - name: plugin
             value_name: PLUGIN
+            num_args: "1.."
             required: true
             help: Plugin to download
           - name: registry

@@ -16,7 +16,7 @@ impl CommandExecutor for RegistryCommand {
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         // TODO: Show all plugins from registry.
-// TODO: Use this carefully.
+        // TODO: Use this carefully.
         println!("Command `registry` is not yet implemented.");
         Ok(())
     }

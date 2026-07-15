@@ -21,6 +21,7 @@ pub mod installed;
 pub mod downloaded;
 pub mod loaded;
 pub mod registry;
+pub mod updates;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
@@ -28,6 +29,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(downloaded::DownloadedCommand),
         Arc::new(loaded::LoadedCommand),
         Arc::new(registry::RegistryCommand),
+        Arc::new(updates::UpdatesCommand),
 
     ]
 }

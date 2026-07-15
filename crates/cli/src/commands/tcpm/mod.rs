@@ -17,6 +17,7 @@ impl CommandExecutor for TcpmCommand {
     }
 }
 
+pub mod update;
 pub mod search;
 pub mod show;
 pub mod list;
@@ -26,6 +27,7 @@ pub mod download;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
+        Arc::new(update::UpdateCommand),
         Arc::new(search::SearchCommand),
         Arc::new(show::ShowCommand),
         Arc::new(list::ListCommand),

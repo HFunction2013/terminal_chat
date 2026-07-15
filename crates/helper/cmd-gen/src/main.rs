@@ -56,7 +56,7 @@ fn generate_module(name: &str, about: &str, debug_only: bool) -> String {
         .join("\n");
     let todo = comment_lines
         .iter()
-        .map(|line| format!("// TODO: {}", line))
+        .map(|line| format!("        // TODO: {}", line))
         .collect::<Vec<_>>()
         .join("\n");
     format!(
@@ -76,7 +76,7 @@ impl CommandExecutor for {struct_name} {{
     }}
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {{
-        {todo}
+{todo}
         println!("Command `{name}` is not yet implemented.");
         Ok(())
     }}
