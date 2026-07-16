@@ -1,5 +1,5 @@
 // run.rs
-// run a certain marco
+// run a certain macro
 use clap::ArgMatches;
 use anyhow::Result;
 use crate::commands::CommandExecutor;
@@ -14,7 +14,7 @@ impl CommandExecutor for RunCommand {
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: run a certain marco
+        // TODO: run a certain macro
         println!("Command `run` is not yet implemented.");
         Ok(())
     }

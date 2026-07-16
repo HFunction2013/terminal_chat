@@ -3,6 +3,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
+use check_keyword::CheckKeyword;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -143,20 +144,11 @@ fn generate_sub_all_commands(cmd: &CommandDef, indent: usize) -> String {
             result.push_str(&format!("{}#[cfg(debug_assertions)]\n", indent_str));
         }
         
-        if sub.subcommands.is_empty() {
-            let struct_name = to_struct_name(&sub.name);
-            result.push_str(&format!(
-                "{}Arc::new({}::{}),\n",
-                indent_str, sub.name, struct_name
-            ));
-        } else {
-            // 有子命令的，通过其 mod.rs 中的结构体访问
-            let struct_name = to_struct_name(&sub.name);
-            result.push_str(&format!(
-                "{}Arc::new({}::{}),\n",
-                indent_str, sub.name, struct_name
-            ));
-        }
+        let struct_name = to_struct_name(&sub.name);
+        result.push_str(&format!(
+            "{}Arc::new({}::{}),\n",
+            indent_str, sub.name.clone().into_safe(), struct_name
+        ));
     }
     
     result
@@ -227,7 +219,8 @@ pub trait CommandExecutor {
                 }
             }
 
-            mod_rs.push_str(&format!("pub mod {};\n", cmd_name));
+            // &str 转 String 再 into_safe
+            mod_rs.push_str(&format!("pub mod {};\n", cmd_name.to_string().into_safe()));
         }
     }
 
@@ -259,7 +252,7 @@ pub trait CommandExecutor {
         let struct_name = to_struct_name(cmd_name);
         mod_rs.push_str(&format!(
             "        Arc::new({}::{}),\n",
-            cmd_name, struct_name
+            cmd_name.to_string().into_safe(), struct_name
         ));
     }
 
@@ -349,7 +342,7 @@ impl CommandExecutor for {parent_struct_name} {{
                         sub_mod_rs.push_str("#[cfg(debug_assertions)]\n");
                     }
 
-                    sub_mod_rs.push_str(&format!("pub mod {};\n", sub.name));
+                    sub_mod_rs.push_str(&format!("pub mod {};\n", sub.name.clone().into_safe()));
                 }
 
                 // ==== 新增：子目录的 all_commands ====

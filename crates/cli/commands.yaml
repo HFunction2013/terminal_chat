@@ -385,7 +385,7 @@ commands:
         value_name: KEY
         help: Config key name
   - name: create
-    about: Create alias or marco
+    about: Create alias or macro
     subcommands:
       - name: alias
         about: Create alias
@@ -398,26 +398,26 @@ commands:
             value_name: ALIAS
             required: true 
             help: alias dest
-      - name: marco
-        about: Create marco
+      - name: macro
+        about: Create macro
         args:
-          - name: marco_name
-            value_name: MARCO_NAME
+          - name: macro_name
+            value_name: macro_NAME
             required: true 
-            help: marco name
-          - name: marco_body
-            value_name: MARCO_BODY
+            help: macro name
+          - name: macro_body
+            value_name: macro_BODY
             required: true 
-            help: 'Marco body, #EDITOR# to open editor'
+            help: 'macro body, #EDITOR# to open editor'
   - name: run
-    about: run a certain marco
+    about: run a certain macro
     args:
-      - name: marco_name
-        value_name: MARCO_NAME
+      - name: macro_name
+        value_name: macro_NAME
         required: true 
-        help: marco name
+        help: macro name
   - name: delete
-    about: delete a alias or marco
+    about: delete a alias or macro
     subcommands:
       - name: alias
         about: Delete alias
@@ -426,13 +426,13 @@ commands:
             value_name: ALIAS
             required: true 
             help: alias to delete
-      - name: marco
-        about: Delete marco
+      - name: macro
+        about: Delete macro
         args:
-          - name: marco_name
-            value_name: MARCO_NAME
+          - name: macro_name
+            value_name: macro_NAME
             required: true 
-            help: marco to delete
+            help: macro to delete
   - name: status
     about: Test network
   - name: freq_info

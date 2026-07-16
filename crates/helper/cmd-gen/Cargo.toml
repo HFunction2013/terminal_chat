@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
+check_keyword = "0.2"

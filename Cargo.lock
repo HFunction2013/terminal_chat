@@ -251,6 +251,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "check_keyword"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4d532198271d4fb82f944bd25527e760a6cfc966c7d592525e092d4c6a4f787"
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -335,6 +341,7 @@ dependencies = [
 name = "cmd-gen"
 version = "0.1.0"
 dependencies = [
+ "check_keyword",
  "serde",
  "serde_yaml",
 ]
@@ -370,6 +377,7 @@ name = "core"
 version = "0.1.0"
 dependencies = [
  "once_cell",
+ "paste",
 ]
 
 [[package]]
@@ -1213,6 +1221,12 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percent-encoding"

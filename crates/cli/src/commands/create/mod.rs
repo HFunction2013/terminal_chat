@@ -18,12 +18,12 @@ impl CommandExecutor for CreateCommand {
 }
 
 pub mod alias;
-pub mod marco;
+pub mod r#macro;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
         Arc::new(alias::AliasCommand),
-        Arc::new(marco::MarcoCommand),
+        Arc::new(r#macro::MacroCommand),
 
     ]
 }
