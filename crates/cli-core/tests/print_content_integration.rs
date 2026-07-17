@@ -1,5 +1,5 @@
 
-use core::{
+use cli_core::{
     clear_print_content_hooks, print_content, register_after_print_content, register_before_print_content, register_on_print_content,
 };
 use std::sync::{Arc, Mutex};

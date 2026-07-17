@@ -9,7 +9,7 @@ license = "MIT"
 clap = "4"
 shell-words = "1.1.1"
 rustyline = "14"
-core = { path = "../core" }
+cli_core = { path = "../cli-core" }
 clap_complete = { version = "4", features = ["unstable-dynamic"] }
 anyhow = "1.0.103"
 sha2 = "0.10"

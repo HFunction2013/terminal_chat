@@ -317,7 +317,7 @@ dependencies = [
  "built",
  "clap",
  "clap_complete",
- "core",
+ "cli_core",
  "ctrlc",
  "humantime",
  "libc",
@@ -326,6 +326,14 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "shell-words",
+]
+
+[[package]]
+name = "cli_core"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "paste",
 ]
 
 [[package]]
@@ -371,14 +379,6 @@ name = "compression-core"
 version = "0.4.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc14f565cf027a105f7a44ccf9e5b424348421a1d8952a8fc9d499d313107789"
-
-[[package]]
-name = "core"
-version = "0.1.0"
-dependencies = [
- "once_cell",
- "paste",
-]
 
 [[package]]
 name = "core-foundation"

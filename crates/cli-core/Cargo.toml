@@ -1,8 +1,11 @@
 [package]
-name = "core"
+name = "cli_core"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+
+[lib]
+crate-type = ["dylib"]
 
 [dependencies]
 once_cell = "1.19"

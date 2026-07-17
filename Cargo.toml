@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/core",
+    "crates/cli-core",
     "crates/cli",
     "crates/srv", 
 	"crates/plugins/werewolf", 
