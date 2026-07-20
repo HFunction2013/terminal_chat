@@ -8,6 +8,7 @@ use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
+use cli_core::print_content::print_content;
 
 pub struct SleepCommand;
 
@@ -18,17 +19,17 @@ impl CommandExecutor for SleepCommand {
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         let total = _matches.get_one::<humantime::Duration>("milliseconds").copied().unwrap();
-        println!("[*] Aha... Sleep for {}.", total);
+        print_content(format!("[*] Aha... Sleep for {}.", total).as_str());
         let start = std::time::Instant::now();
         while start.elapsed() < *total {
             if INTERRUPTED.load(Ordering::SeqCst) {
-                println!("[!] All your fault! My dream was disturbed!");
+                print_content("[!] All your fault! My dream was disturbed!");
                 INTERRUPTED.store(false, Ordering::SeqCst);
                 return Ok(());
             }
             thread::sleep(Duration::from_millis(1));
         }
-        println!("{}", "[*] Aha... What a nice sleep!");
+        print_content("[*] Aha... What a nice sleep!");
 
         Ok(())
     }

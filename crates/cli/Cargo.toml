@@ -17,6 +17,7 @@ base64 = "0.22.1"
 humantime = "2.1"
 ctrlc = "3.4"
 libc = "0.2.186"
+rpassword = "7.5.4"
 
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }

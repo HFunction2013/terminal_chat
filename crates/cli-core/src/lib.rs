@@ -1,5 +1,7 @@
 pub mod print_content;
-pub use print_content::*;
+pub mod global_settings;
 mod hook;
+pub mod _void;
+pub use _void::*;
 #[macro_use]
-pub mod hook_marcos;
+mod hook_macros;

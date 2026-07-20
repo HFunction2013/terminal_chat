@@ -1,11 +1,15 @@
-fn int_print_content(content: &str) {
+fn internal_print_content(content: &str) {
     println!("{}", content);
 }
-crate::define_hook_system! (
-    int_print_content,
+crate::define_hook_system!(
+    internal_print_content,
     "print_content",
+    M,
+    R,
+    R,
+    R,
     &mut String,
-    &str,
-    &str,
-    &str
+    &String,
+    &String,
+    String
 );

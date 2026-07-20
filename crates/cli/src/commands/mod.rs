@@ -10,6 +10,8 @@ pub trait CommandExecutor {
     fn run(&self, matches: &ArgMatches) -> Result<()>;
 }
 pub mod setg;
+pub mod get;
+pub mod getg;
 pub mod set;
 pub mod route;
 pub mod proxy_off;
@@ -39,6 +41,7 @@ pub mod schedule;
 pub mod tasks;
 pub mod whoami;
 pub mod unset;
+pub mod unsetg;
 pub mod create;
 pub mod run;
 pub mod delete;
@@ -69,6 +72,8 @@ pub mod sleep;
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
         Arc::new(setg::SetgCommand),
+        Arc::new(get::GetCommand),
+        Arc::new(getg::GetgCommand),
         Arc::new(set::SetCommand),
         Arc::new(route::RouteCommand),
         Arc::new(proxy_off::ProxyOffCommand),
@@ -98,6 +103,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(tasks::TasksCommand),
         Arc::new(whoami::WhoamiCommand),
         Arc::new(unset::UnsetCommand),
+        Arc::new(unsetg::UnsetgCommand),
         Arc::new(create::CreateCommand),
         Arc::new(run::RunCommand),
         Arc::new(delete::DeleteCommand),

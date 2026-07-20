@@ -10,12 +10,26 @@ commands:
         required: false
         value_name: VALUE
         help: Target config value
-      - name: p
+      - name: password
         short: p
         long: password
         help: use rpassword to read the value
         action: set_true
         conflicts_with: value
+  - name: get
+    about: Get session options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
+  - name: getg
+    about: Get global options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
   - name: set
     about: Set session options
     args:
@@ -36,6 +50,12 @@ commands:
     subcommands:
       - name: options
         about: Show available set/setg options
+      - name: globals
+        about: Show value of all global variables
+      - name: locals
+        about: Show value of all local variables
+      - name: vars
+        about: Show value of all variables
       - name: afreqs
         about: Show all active frequencies
       - name: ausers
@@ -378,7 +398,14 @@ commands:
   - name: whoami
     about: Get username.
   - name: unset
-    about: Unset variable.
+    about: Unset session variable.
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
+  - name: unsetg
+    about: Unset global variable.
     args:
       - name: key
         required: true

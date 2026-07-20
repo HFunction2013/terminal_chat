@@ -18,6 +18,9 @@ impl CommandExecutor for ShowCommand {
 }
 
 pub mod options;
+pub mod globals;
+pub mod locals;
+pub mod vars;
 pub mod afreqs;
 pub mod ausers;
 pub mod mods;
@@ -25,6 +28,9 @@ pub mod mods;
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
         Arc::new(options::OptionsCommand),
+        Arc::new(globals::GlobalsCommand),
+        Arc::new(locals::LocalsCommand),
+        Arc::new(vars::VarsCommand),
         Arc::new(afreqs::AfreqsCommand),
         Arc::new(ausers::AusersCommand),
         Arc::new(mods::ModsCommand),
