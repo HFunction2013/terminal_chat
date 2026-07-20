@@ -17,6 +17,7 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::io::{self};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::env;
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 fn install_ctrlc_handler() {
     ctrlc::set_handler(move || {
@@ -173,11 +174,26 @@ fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
     hasher.update(data.as_ref());
     format!("{:x}", hasher.finalize())
 }
+fn print_banner() {
+    print!("{}", include_str!("rainbow.txt"));
+}
+fn no_banner() -> bool {
+    match env::var("BANNER") {
+        Ok(val) => {
+            let lower = val.to_lowercase();
+            lower == "false" || lower == "0" || lower == "no" || lower == "n"
+        }
+        Err(_) => false,
+    }
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
     }
     install_ctrlc_handler();
+    if !no_banner() {
+        print_banner();
+    }
     welcome(true);
     let cli = command::add_commands(
         Command::new(env!("CARGO_PKG_NAME"))
@@ -258,6 +274,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                   `----'
 Because everyone deserves a good cup of coffee."#
                 );
+                continue;
+            }
+            "banner" => {
+                print_banner();
                 continue;
             }
             _ => {}
