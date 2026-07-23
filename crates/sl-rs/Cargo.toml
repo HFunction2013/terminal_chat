@@ -1,0 +1,29 @@
+[package]
+name = "sl-rs"
+version = "2.0.1"
+edition = "2018"
+authors = ["yasuhara <yasuhara@gmail.com>"]
+repository = "https://github.com/yshryk/sl-rs"
+homepage = "https://github.com/yshryk/sl-rs"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+description = """
+Pure Rust port of the SL, an old joke command.
+SL (Steam Locomotive) runs across your terminal when you type "sl" as you meant to type "ls"."""
+keywords = ["joke"]
+categories = ["command-line-utilities"]
+exclude = [
+    "*.iml"
+]
+
+[[bin]]
+name = "sl"
+path = "src/main.rs"
+
+[lib]
+name = "sl"
+path = "src/lib.rs"
+
+[dependencies]
+getopts = "^0"
+crossterm = "0.28"

@@ -5,6 +5,8 @@ members = [
     "crates/srv", 
 	"crates/plugins/werewolf", 
 	"crates/plugins/translations", 
-	"crates/plugins/ai-glm", "crates/helper/cmd-gen",
+	"crates/plugins/ai-glm", 
+    "crates/helper/cmd-gen",
+    "crates/sl-rs",
 ]
 resolver = "2"

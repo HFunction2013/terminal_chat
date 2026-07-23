@@ -280,6 +280,10 @@ Because everyone deserves a good cup of coffee."#
                 print_banner();
                 continue;
             }
+            "train" => {
+                let _ = sl::run_sl();
+                continue;
+            }
             _ => {}
         }
 

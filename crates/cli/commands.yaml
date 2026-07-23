@@ -363,6 +363,7 @@ commands:
       - name: time
         value_name: TIME
         help: send time
+        required: true
       - name: message
         value_name: MSG
         required: true
