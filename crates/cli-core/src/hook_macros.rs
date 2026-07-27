@@ -22,9 +22,9 @@ macro_rules! define_hook_system {
         $bt:ty, $ot:ty, $at:ty, $ct:ty
     ) => {
         paste::paste! {
-            type [<Before $pfx:camel Hook>] = crate::hook::Hook<Box<dyn Fn($bt) -> bool + Send + Sync>>;
-            type [<On $pfx:camel Hook>] = crate::hook::Hook<Box<dyn Fn($ot) -> bool + Send + Sync>>;
-            type [<After $pfx:camel Hook>] = crate::hook::Hook<Box<dyn Fn($at) -> bool + Send + Sync>>;
+            type [<Before $pfx:camel Hook>] = $crate::hook::Hook<Box<dyn Fn($bt) -> bool + Send + Sync>>;
+            type [<On $pfx:camel Hook>] = $crate::hook::Hook<Box<dyn Fn($ot) -> bool + Send + Sync>>;
+            type [<After $pfx:camel Hook>] = $crate::hook::Hook<Box<dyn Fn($at) -> bool + Send + Sync>>;
 
             static [<BEFORE_ $pfx:upper _HOOKS>]: once_cell::sync::Lazy<std::sync::Mutex<Vec<[<Before $pfx:camel Hook>]>>>
                 = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(Vec::new()));
@@ -40,19 +40,19 @@ macro_rules! define_hook_system {
             pub fn [<register_before_ $pfx>]<F>(name: &'static str, f: F)
             where F: Fn($bt) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<BEFORE_ $pfx:upper _HOOKS>].lock() {
-                    hooks.push(crate::hook::Hook { name, f: Box::new(f) });
+                    hooks.push($crate::hook::Hook { name, f: Box::new(f) });
                 }
             }
             pub fn [<register_on_ $pfx>]<F>(name: &'static str, f: F)
             where F: Fn($ot) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<ON_ $pfx:upper _HOOKS>].lock() {
-                    hooks.push(crate::hook::Hook { name, f: Box::new(f) });
+                    hooks.push($crate::hook::Hook { name, f: Box::new(f) });
                 }
             }
             pub fn [<register_after_ $pfx>]<F>(name: &'static str, f: F)
             where F: Fn($at) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<AFTER_ $pfx:upper _HOOKS>].lock() {
-                    hooks.push(crate::hook::Hook { name, f: Box::new(f) });
+                    hooks.push($crate::hook::Hook { name, f: Box::new(f) });
                 }
             }
 

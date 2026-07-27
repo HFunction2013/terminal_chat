@@ -207,7 +207,7 @@ fn main() {
     code.push_str("}\n");
 
     let need_write = if dest.exists() {
-        fs::read_to_string(&dest).ok().map_or(true, |old| old != code)
+        fs::read_to_string(&dest).ok().is_none_or(|old| old != code)
     } else {
         true
     };

@@ -127,17 +127,12 @@ pub trait Train {
 
             // 非阻塞检查按键
             while event::poll(Duration::from_millis(0))? {
-                match event::read()? {
-                    Event::Key(key_event) => {
-                        if key_event.code == KeyCode::Char('c') 
-                            && key_event.modifiers.contains(KeyModifiers::CONTROL) 
-                        {
-                            if self.config().interruptable {
-                                interrupted = true;
-                            }
+                if let Event::Key(key_event) = event::read()? {
+                    if key_event.code == KeyCode::Char('c') 
+                        && key_event.modifiers.contains(KeyModifiers::CONTROL)
+                        && self.config().interruptable {
+                            interrupted = true;
                         }
-                    }
-                    _ => {}
                 }
             }
 

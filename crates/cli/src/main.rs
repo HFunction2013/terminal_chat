@@ -1,28 +1,50 @@
 use anyhow::Result;
 use clap::Command;
 use clap_complete::engine::complete;
-use rustyline::completion::{Completer, Pair};
-use rustyline::error::ReadlineError;
-use rustyline::highlight::Highlighter;
-use rustyline::hint::Hinter;
-use rustyline::validate::Validator;
-use rustyline::{Context, Editor, Helper};
+use rustyline::{
+    Context, Editor, Helper,
+    completion::{Completer, Pair},
+    error::ReadlineError,
+    highlight::Highlighter,
+    hint::Hinter,
+    validate::Validator,
+};
 use shell_words::split;
-use std::ffi::OsString;
-use std::path::Path;
 mod commands;
 use base64::{Engine as _, engine::general_purpose};
+use crossterm::{
+    cursor::{Hide, MoveTo, Show},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+};
+use figlet_rs::FIGlet;
+use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
+use lolcat::{Config, Printer, choose_color_mode, initial_offset};
+use rand::Rng;
 use sha2::{Digest, Sha256};
-use std::io::Write;
-use std::io::{self};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::env;
+use std::{
+    env,
+    ffi::OsString,
+    io::{self, Write, stdout},
+    path::Path,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    thread,
+    time::Duration,
+};
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+static IN_CMD: AtomicBool = AtomicBool::new(false);
 fn install_ctrlc_handler() {
     ctrlc::set_handler(move || {
         INTERRUPTED.store(true, Ordering::SeqCst);
-        println!(" (interrupt sent to current command)");
+        if !IN_CMD.load(Ordering::SeqCst) {
+            let _ = execute!(stdout(), LeaveAlternateScreen, Show);
+            std::process::exit(0);
+        }
+        let _ = write!(std::io::stderr(), " (interrupt sent to current command)\n");
     })
     .expect("failed to install Ctrl+C handler");
 }
@@ -174,8 +196,8 @@ fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
     hasher.update(data.as_ref());
     format!("{:x}", hasher.finalize())
 }
-fn print_banner() {
-    print!("{}", include_str!("rainbow.txt"));
+fn print_banner(colored: &String) {
+    print!("{}", colored);
 }
 fn no_banner() -> bool {
     match env::var("BANNER") {
@@ -186,15 +208,136 @@ fn no_banner() -> bool {
         Err(_) => false,
     }
 }
+struct CommandGuard;
+impl Drop for CommandGuard {
+    fn drop(&mut self) {
+        IN_CMD.store(false, Ordering::SeqCst);
+    }
+}
+fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
+    let mut output = Vec::new();
+    let mut printer = Printer::new(
+        &cfg,
+        true,
+        choose_color_mode(&cfg),
+        initial_offset(cfg.seed),
+    );
+
+    printer.print_text(input, &mut output)?;
+    printer.finalize(&mut output)?;
+
+    let colored =
+        String::from_utf8(output).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    Ok(colored)
+}
+struct AtExit;
+impl Drop for AtExit {
+    fn drop(&mut self) {
+        let _ = execute!(stdout(), LeaveAlternateScreen, Show);
+    }
+}
+fn prepare_startup() -> String {
+    let running = Arc::new(AtomicBool::new(true));
+    let running_anim = running.clone();
+
+    // TODO: stub tasks.
+    let tasks = vec![
+        ("Loading config", 10),
+        ("Initializing modules", 10),
+        ("Connecting to server", 10),
+        ("Verifying assets", 20),
+        ("Starting services", 10),
+    ];
+
+    let total_target: u64 = tasks.iter().map(|(_, t)| t).sum();
+
+    let progress = Arc::new(AtomicU64::new(0));
+    let progress_pb = progress.clone();
+
+    let pb = Arc::new(ProgressBar::new(total_target));
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} {msg:.bold} [{bar:20.cyan/blue}] {pos:.yellow}/{len:.yellow} ({elapsed_precise}) {percent:.bold}%")
+            .unwrap()
+            .progress_chars("█▓▒░"),
+    );
+    let colored = Arc::new(Mutex::new(String::new()));
+    let colored_anim = colored.clone();
+    let pb_anim = pb.clone();
+    let pb_task = pb.clone();
+    let anim_handle = thread::spawn(move || {
+        let mut rng = rand::thread_rng();
+        let mut i: u64 = rng.r#gen();
+        let freq = 10;
+        let note = String::from("Terminal Chat Starting");
+        let font = FIGlet::standard().unwrap();
+        let art = font.convert("Terminal Chat").unwrap();
+        let mut cfg = Config::default();
+        cfg.speed = 4000.0;
+        let mut display = note.clone();
+
+        while running_anim.load(Ordering::SeqCst) {
+            cfg.seed = i;
+            pb_anim.suspend(|| {
+                execute!(stdout(), MoveTo(0, 0)).unwrap();
+                let result = colorize_string(&cfg, &art.as_str()).unwrap();
+                *colored_anim.lock().unwrap() = result.clone();
+                println!("{}", result);
+            });
+
+            pb_anim.set_position(progress_pb.load(Ordering::Relaxed));
+
+            thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
+            i = i.wrapping_add(1);
+
+            if i % freq == 0 {
+                let pos = ((i / freq) as usize) % note.len();
+                let mut chars: Vec<char> = note.chars().collect();
+                if let Some(c) = chars.get_mut(pos) {
+                    if c.is_ascii_alphabetic() {
+                        *c = if c.is_ascii_uppercase() {
+                            c.to_ascii_lowercase()
+                        } else {
+                            c.to_ascii_uppercase()
+                        };
+                    }
+                }
+                display = chars.into_iter().collect();
+            }
+            println!("{}", display);
+        }
+    });
+
+    let task_handle = thread::spawn(move || {
+        for (name, target) in tasks {
+            pb_task.set_message(name);
+
+            // TODO: run task stub.
+            for _ in 0..target {
+                thread::sleep(Duration::from_millis(50));
+                progress.fetch_add(1, Ordering::SeqCst);
+                pb_task.inc(1);
+            }
+        }
+
+        pb_task.finish_with_message("All systems ready!");
+        running.store(false, Ordering::SeqCst);
+    });
+
+    task_handle.join().unwrap();
+    anim_handle.join().unwrap();
+
+    colored.lock().unwrap().clone()
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
     }
     install_ctrlc_handler();
-    if !no_banner() {
-        print_banner();
-    }
-    welcome(true);
+    let _guard = AtExit;
+    execute!(stdout(), Hide, EnterAlternateScreen)?;
+    let colored = prepare_startup();
+    execute!(stdout(), Show)?;
     let cli = command::add_commands(
         Command::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
@@ -204,6 +347,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
+    rl.clear_screen()?;
+    if !no_banner() {
+        print_banner(&colored);
+    }
+    welcome(true);
     loop {
         let input = match rl.readline("tc> ") {
             Ok(line) => line,
@@ -277,11 +425,12 @@ Because everyone deserves a good cup of coffee."#
                 continue;
             }
             "banner" => {
-                print_banner();
+                print_banner(&colored);
                 continue;
             }
             "train" => {
                 let _ = sl::run_sl();
+                rl.clear_screen()?;
                 continue;
             }
             _ => {}
@@ -301,6 +450,8 @@ Because everyone deserves a good cup of coffee."#
 
         match cli.clone().try_get_matches_from(&full_args) {
             Ok(matches) => {
+                IN_CMD.store(true, Ordering::SeqCst);
+                let _guard = CommandGuard;
                 if let Err(e) = commands::dispatch(&matches) {
                     eprintln!("Error: {}", e);
                 }

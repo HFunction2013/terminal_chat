@@ -8,5 +8,10 @@ members = [
 	"crates/plugins/ai-glm", 
     "crates/helper/cmd-gen",
     "crates/sl-rs",
+    "crates/neo-lolcat",
 ]
 resolver = "2"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1

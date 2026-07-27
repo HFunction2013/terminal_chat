@@ -176,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let out_dir = Path::new("./crates/cli/src/commands");
     if !out_dir.exists() {
-        fs::create_dir_all(&out_dir)?;
+        fs::create_dir_all(out_dir)?;
     }
 
     let mut mod_entries = Vec::new();
@@ -213,11 +213,10 @@ pub trait CommandExecutor {
 
             let cmd = find_cmd(&config.commands, cmd_name);
 
-            if let Some(cmd) = cmd {
-                if cmd.debug_only {
+            if let Some(cmd) = cmd
+                && cmd.debug_only {
                     mod_rs.push_str("#[cfg(debug_assertions)]\n");
                 }
-            }
 
             // &str 转 String 再 into_safe
             mod_rs.push_str(&format!("pub mod {};\n", cmd_name.to_string().into_safe()));
@@ -243,11 +242,10 @@ pub trait CommandExecutor {
 
         let cmd = find_cmd(&config.commands, cmd_name);
 
-        if let Some(cmd) = cmd {
-            if cmd.debug_only {
+        if let Some(cmd) = cmd
+            && cmd.debug_only {
                 mod_rs.push_str("        #[cfg(debug_assertions)]\n");
             }
-        }
 
         let struct_name = to_struct_name(cmd_name);
         mod_rs.push_str(&format!(
