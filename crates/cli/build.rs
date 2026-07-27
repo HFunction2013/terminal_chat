@@ -5,13 +5,6 @@ use std::path::Path;
 #[derive(serde::Deserialize, Debug)]
 struct Config {
     commands: Vec<CommandDef>,
-    aliases: Option<Vec<AliasDef>>,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct AliasDef {
-    name: String,
-    alias: String,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -26,6 +19,7 @@ struct CommandDef {
     #[serde(default)]
     #[allow(dead_code)]
     debug_only: bool,
+    aliases: Option<Vec<String>>,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -74,7 +68,7 @@ fn escape_str(s: &str) -> String {
 }
 
 /// 递归构建Command代码字符串
-fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String {
+fn build_command(c: &CommandDef) -> String {
     let mut code = String::new();
     let about = escape_str(&c.about);
     code.push_str(&format!(
@@ -83,8 +77,8 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
         about
     ));
 
-    for (cmd_name, alias) in global_aliases {
-        if c.name == *cmd_name {
+    if let Some(aliases) = &c.aliases {
+        for alias in aliases {
             code.push_str(&format!(".alias(\"{}\")", escape_str(alias)));
         }
     }
@@ -155,7 +149,7 @@ fn build_command(c: &CommandDef, global_aliases: &[(String, String)]) -> String 
     if let Some(mut subcommands) = c.subcommands.clone() {
         subcommands.sort_by(|a, b| a.name.cmp(&b.name));
         for sub in subcommands {
-            let sub_code = build_command(&sub, global_aliases);
+            let sub_code = build_command(&sub);
             code.push_str(&format!(".subcommand({})", sub_code));
         }
     }
@@ -177,16 +171,6 @@ fn main() {
     let config: Config =
         serde_yaml::from_str(&yaml).expect("commands.yaml yaml parse failed, check syntax");
 
-    let alias_list: Vec<(String, String)> = config
-        .aliases
-        .as_ref()
-        .map(|list| {
-            list.iter()
-                .map(|a| (a.name.clone(), a.alias.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
-
     let mut commands = config.commands;
 
     #[cfg(not(debug_assertions))]
@@ -199,7 +183,7 @@ fn main() {
     code.push_str("pub fn add_commands(mut cmd: Command) -> Command {\n");
 
     for c in commands {
-        let cmd_code = build_command(&c, &alias_list);
+        let cmd_code = build_command(&c);
         code.push_str(&format!("    cmd = cmd.subcommand({});\n", cmd_code));
     }
 

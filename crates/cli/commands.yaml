@@ -69,7 +69,11 @@ commands:
         required: true
         value_name: FREQ_ID
         help: Target frequency id
+    aliases:
+      - jfreq
   - name: create_freq
+    aliases:
+      - cfreq
     about: Create a new frequency channel
     args:
       - name: freq
@@ -88,6 +92,8 @@ commands:
         action: set
         required: false
   - name: background
+    aliases:
+      - bg
     about: Background current session and return to main console
   - name: sessions
     about: Multi-session manager
@@ -284,6 +290,8 @@ commands:
             help: load plugin and namespace after download
             conflicts_with: load
   - name: upload
+    aliases:
+      - upl
     about: Upload file or folder to server.
     args: 
       - name: local_path
@@ -295,6 +303,8 @@ commands:
         value_name: REMOTE_PATH
         help: Remote path to upload.
   - name: download
+    aliases:
+      - dl
     about: Download file or folder to server.
     args: 
       - name: remote_path
@@ -324,6 +334,8 @@ commands:
   - name: ls
     about: List files in current directory.
   - name: mkdir
+    aliases:
+      - md
     about: Make directory in remote server.
     args:
       - name: directory
@@ -338,6 +350,8 @@ commands:
         required: true
         help: The remote file
   - name: leave_freq
+    aliases:
+      - lfreq
     about: Leave current frequency.
   - name: call
     about: Call an user
@@ -511,12 +525,20 @@ commands:
           Auto replies private messages. Like:
             [bot-reply] I am busy now. Contact me later.
   - name: foreground
+    aliases:
+      - fg
     about: Switch to session if there is only one.
   - name: disconnect
+    aliases: 
+      - dc
     about: Disconnect from server
   - name: reconnect
+    aliases:
+      - rc
     about: Reconnect the server
   - name: connect
+    aliases: 
+      - conn
     about: Connect the server
   - name: logs
     about: open/close logging
@@ -595,28 +617,3 @@ commands:
         help: Aha... sleepy!
         default_value: "1000"
         value_parser: "humantime::Duration"
-
-
-aliases:
-  - name: join_freq
-    alias: jfreq
-  - name: create_freq
-    alias: cfreq
-  - name: background
-    alias: bg
-  - name: upload
-    alias: upl
-  - name: download
-    alias: dl
-  - name: leave_freq
-    alias: lfreq
-  - name: foreground
-    alias: fg
-  - name: disconnect
-    alias: dc
-  - name: reconnect
-    alias: rc
-  - name: connect
-    alias: conn
-  - name: mkdir
-    alias: md
