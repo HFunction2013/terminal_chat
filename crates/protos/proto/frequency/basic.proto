@@ -8,7 +8,7 @@ import "utils/empty.proto";
 
 // 创建频点的请求
 message CreateFreqRequest {
-    double freq = 1;                // 频点值
+    string freq = 1;                // 频点值
     optional string password = 2;   // -p 密码保护（可选）
     optional int32 max_people = 3;  // --max-people 最大人数限制（可选）
     bool join_after_create = 4;     // -j 创建后立即加入
@@ -33,7 +33,7 @@ message CreateFreqResponse {
 
 // 加入频点的请求
 message JoinFreqRequest {
-    double freq = 1;                // 频点值
+    string freq = 1;                // 频点值
     optional string password = 2;   // 密码（如果有）
 }
 
@@ -79,7 +79,7 @@ message MemberInfo {
 
 // 频点详细信息
 message FreqInfo {
-    double freq = 1;                // 频点值
+    string freq = 1;                // 频点值
     bool has_password = 2;          // 是否有密码保护
     int32 current_members = 3;      // 当前成员数
     int32 max_members = 4;          // 最大成员数（0表示无限制）
@@ -90,7 +90,7 @@ message FreqInfo {
 
 // 查询频点信息的请求
 message FreqInfoRequest {
-    double freq = 1;                // 要查询的频点值
+    string freq = 1;                // 要查询的频点值
 }
 
 // 查询频点信息的响应
@@ -104,7 +104,7 @@ message FreqInfoResponse {
 
 // 解散频点的请求
 message DisbandFreqRequest {
-    double freq = 1;                // 要解散的频点值
+    string freq = 1;                // 要解散的频点值
 }
 
 // 解散频点的结果枚举

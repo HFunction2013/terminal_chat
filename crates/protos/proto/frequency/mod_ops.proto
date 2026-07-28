@@ -6,7 +6,7 @@ package frequency.mod_ops;
 
 message KickRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum KickResult {
@@ -15,7 +15,7 @@ enum KickResult {
     KICK_USER_NOT_FOUND = 2;
     KICK_ACCESS_DENIED = 3;         // 无权限（不是管理员）
     KICK_CANNOT_KICK_CREATOR = 4;
-    KICK_FAILED = 5;
+    KICK_ERROR = 5;
 }
 
 message KickResponse {
@@ -27,7 +27,7 @@ message KickResponse {
 
 message BanRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum BanResult {
@@ -36,7 +36,7 @@ enum BanResult {
     BAN_USER_NOT_FOUND = 2;
     BAN_ACCESS_DENIED = 3;          // 无权限（不是管理员）
     BAN_CANNOT_BAN_CREATOR = 4;
-    BAN_FAILED = 5;
+    BAN_ERROR = 5;
 }
 
 message BanResponse {
@@ -48,7 +48,7 @@ message BanResponse {
 
 message UnbanRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum UnbanResult {
@@ -56,7 +56,7 @@ enum UnbanResult {
     UNBAN_SUCCESS = 1;
     UNBAN_USER_NOT_FOUND = 2;
     UNBAN_ACCESS_DENIED = 3;        // 无权限（不是管理员）
-    UNBAN_FAILED = 4;
+    UNBAN_ERROR = 4;
 }
 
 message UnbanResponse {
@@ -68,7 +68,7 @@ message UnbanResponse {
 
 message MuteRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
     optional int32 duration = 3;
 }
 
@@ -78,7 +78,7 @@ enum MuteResult {
     MUTE_USER_NOT_FOUND = 2;
     MUTE_ACCESS_DENIED = 3;         // 无权限（不是管理员）
     MUTE_CANNOT_MUTE_CREATOR = 4;
-    MUTE_FAILED = 5;
+    MUTE_ERROR = 5;
 }
 
 message MuteResponse {
@@ -90,7 +90,7 @@ message MuteResponse {
 
 message UnmuteRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum UnmuteResult {
@@ -98,7 +98,7 @@ enum UnmuteResult {
     UNMUTE_SUCCESS = 1;
     UNMUTE_USER_NOT_MUTED = 2;
     UNMUTE_ACCESS_DENIED = 3;       // 无权限（不是管理员）
-    UNMUTE_FAILED = 4;
+    UNMUTE_ERROR = 4;
 }
 
 message UnmuteResponse {
@@ -110,7 +110,7 @@ message UnmuteResponse {
 
 message OpRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum OpResult {
@@ -119,7 +119,7 @@ enum OpResult {
     OP_USER_NOT_FOUND = 2;
     OP_ACCESS_DENIED = 3;           // 无权限（只有创建者可授权）
     OP_ALREADY_MODERATOR = 4;
-    OP_FAILED = 5;
+    OP_ERROR = 5;
 }
 
 message OpResponse {
@@ -131,7 +131,7 @@ message OpResponse {
 
 message DeopRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum DeopResult {
@@ -141,7 +141,7 @@ enum DeopResult {
     DEOP_ACCESS_DENIED = 3;         // 无权限（只有创建者可撤销）
     DEOP_CANNOT_DEOP_CREATOR = 4;
     DEOP_NOT_MODERATOR = 5;
-    DEOP_FAILED = 6;
+    DEOP_ERROR = 6;
 }
 
 message DeopResponse {
@@ -153,7 +153,7 @@ message DeopResponse {
 
 message TropRequest {
     string user = 1;
-    double freq = 2;
+    string freq = 2;
 }
 
 enum TropResult {
@@ -162,7 +162,7 @@ enum TropResult {
     TROP_USER_NOT_FOUND = 2;
     TROP_ACCESS_DENIED = 3;         // 无权限（只有创建者可转让）
     TROP_SELF_TRANSFER = 4;
-    TROP_FAILED = 5;
+    TROP_ERROR = 5;
 }
 
 message TropResponse {
@@ -173,7 +173,7 @@ message TropResponse {
 // ---------- Disband ----------
 
 message DisbandRequest {
-    double freq = 1;
+    string freq = 1;
 }
 
 enum DisbandResult {
@@ -182,7 +182,7 @@ enum DisbandResult {
     DISBAND_NOT_FOUND = 2;
     DISBAND_ACCESS_DENIED = 3;      // 无权限（不是创建者）
     DISBAND_HAS_MEMBERS = 4;
-    DISBAND_FAILED = 5;
+    DISBAND_ERROR = 5;
 }
 
 message DisbandResponse {
