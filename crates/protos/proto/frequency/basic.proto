@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package frequency.basic;
+
+import "utils/empty.proto";
+
+// ---------- CreateFreq ----------
+
+// 创建频点的请求
+message CreateFreqRequest {
+    double freq = 1;                // 频点值
+    optional string password = 2;   // -p 密码保护（可选）
+    optional int32 max_people = 3;  // --max-people 最大人数限制（可选）
+    bool join_after_create = 4;     // -j 创建后立即加入
+}
+
+// 创建频点的结果枚举
+enum CreateResult {
+    CREATE_RESULT_UNSPECIFIED = 0;
+    CREATE_SUCCESS = 1;             // 创建成功
+    CREATE_DUPLICATE = 2;           // 频点已存在
+    CREATE_INVALID_PARAM = 3;       // 参数错误
+    CREATE_ERROR = 4;               // 其他错误
+}
+
+// 创建频点的响应
+message CreateFreqResponse {
+    CreateResult result = 1;
+    string message = 2;             // 附加说明
+}
+
+// ---------- JoinFreq ----------
+
+// 加入频点的请求
+message JoinFreqRequest {
+    double freq = 1;                // 频点值
+    optional string password = 2;   // 密码（如果有）
+}
+
+// 频点状态枚举
+enum FreqStatus {
+    FREQ_STATUS_UNSPECIFIED = 0;
+    FREQ_IDLE = 1;                  // 空闲可用（加入成功）
+    FREQ_ERROR = 2;                 // 其他错误
+    FREQ_FORMAT_WRONG = 3;          // 格式错误
+    FREQ_NEED_PASSWORD = 4;         // 需要密码
+    FREQ_FULL = 5;                  // 人数已满
+}
+
+// 加入频点的响应
+message JoinFreqResponse {
+    FreqStatus status = 1;
+    string message = 2;
+}
+
+// ---------- LeaveFreq ----------
+
+// 离开频点的结果枚举
+enum LeaveResult {
+    LEAVE_RESULT_UNSPECIFIED = 0;
+    LEAVE_SUCCESS = 1;
+    LEAVE_NOT_JOINED = 2;
+    LEAVE_FAILED = 3;
+}
+
+// 离开频点的响应
+message LeaveFreqResponse {
+    LeaveResult result = 1;
+    string message = 2;
+}
+
+// ---------- FreqInfo ----------
+
+// 成员信息
+message MemberInfo {
+    string nickname = 1;            // 昵称
+    string ip_address = 2;          // IP地址
+}
+
+// 频点详细信息
+message FreqInfo {
+    double freq = 1;                // 频点值
+    bool has_password = 2;          // 是否有密码保护
+    int32 current_members = 3;      // 当前成员数
+    int32 max_members = 4;          // 最大成员数（0表示无限制）
+    string creator_nickname = 5;    // 创建者昵称
+    string creator_ip = 6;          // 创建者IP地址
+    repeated MemberInfo members = 7;// 成员列表（可选）
+}
+
+// 查询频点信息的请求
+message FreqInfoRequest {
+    double freq = 1;                // 要查询的频点值
+}
+
+// 查询频点信息的响应
+message FreqInfoResponse {
+    bool found = 1;                 // 是否找到该频点
+    optional FreqInfo info = 2;     // 频点详细信息（如果找到）
+    string message = 3;             // 附加说明
+}
+
+// ---------- DisbandFreq ----------
+
+// 解散频点的请求
+message DisbandFreqRequest {
+    double freq = 1;                // 要解散的频点值
+}
+
+// 解散频点的结果枚举
+enum DisbandResult {
+    DISBAND_RESULT_UNSPECIFIED = 0;
+    DISBAND_SUCCESS = 1;            // 解散成功
+    DISBAND_NOT_FOUND = 2;          // 频点不存在
+    DISBAND_ACCESS_DENIED = 3;      // 无权限（不是创建者）
+    DISBAND_FAILED = 4;             // 其他错误
+}
+
+// 解散频点的响应
+message DisbandFreqResponse {
+    DisbandResult result = 1;
+    string message = 2;             // 附加说明
+}
+
+// ---------- Service ----------
+
+service FrequencyService {
+    rpc CreateFreq(CreateFreqRequest) returns (CreateFreqResponse);
+    rpc JoinFreq(JoinFreqRequest) returns (JoinFreqResponse);
+    rpc LeaveFreq(utils.empty.Empty) returns (LeaveFreqResponse);
+    rpc GetFreqInfo(FreqInfoRequest) returns (FreqInfoResponse);
+    rpc DisbandFreq(DisbandFreqRequest) returns (DisbandFreqResponse);
+}

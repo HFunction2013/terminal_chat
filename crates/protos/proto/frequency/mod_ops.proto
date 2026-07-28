@@ -1,0 +1,203 @@
+syntax = "proto3";
+
+package frequency.mod_ops;
+
+// ---------- Kick ----------
+
+message KickRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum KickResult {
+    KICK_RESULT_UNSPECIFIED = 0;
+    KICK_SUCCESS = 1;
+    KICK_USER_NOT_FOUND = 2;
+    KICK_ACCESS_DENIED = 3;         // 无权限（不是管理员）
+    KICK_CANNOT_KICK_CREATOR = 4;
+    KICK_FAILED = 5;
+}
+
+message KickResponse {
+    KickResult result = 1;
+    string message = 2;
+}
+
+// ---------- Ban ----------
+
+message BanRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum BanResult {
+    BAN_RESULT_UNSPECIFIED = 0;
+    BAN_SUCCESS = 1;
+    BAN_USER_NOT_FOUND = 2;
+    BAN_ACCESS_DENIED = 3;          // 无权限（不是管理员）
+    BAN_CANNOT_BAN_CREATOR = 4;
+    BAN_FAILED = 5;
+}
+
+message BanResponse {
+    BanResult result = 1;
+    string message = 2;
+}
+
+// ---------- Unban ----------
+
+message UnbanRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum UnbanResult {
+    UNBAN_RESULT_UNSPECIFIED = 0;
+    UNBAN_SUCCESS = 1;
+    UNBAN_USER_NOT_FOUND = 2;
+    UNBAN_ACCESS_DENIED = 3;        // 无权限（不是管理员）
+    UNBAN_FAILED = 4;
+}
+
+message UnbanResponse {
+    UnbanResult result = 1;
+    string message = 2;
+}
+
+// ---------- Mute ----------
+
+message MuteRequest {
+    string user = 1;
+    double freq = 2;
+    optional int32 duration = 3;
+}
+
+enum MuteResult {
+    MUTE_RESULT_UNSPECIFIED = 0;
+    MUTE_SUCCESS = 1;
+    MUTE_USER_NOT_FOUND = 2;
+    MUTE_ACCESS_DENIED = 3;         // 无权限（不是管理员）
+    MUTE_CANNOT_MUTE_CREATOR = 4;
+    MUTE_FAILED = 5;
+}
+
+message MuteResponse {
+    MuteResult result = 1;
+    string message = 2;
+}
+
+// ---------- Unmute ----------
+
+message UnmuteRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum UnmuteResult {
+    UNMUTE_RESULT_UNSPECIFIED = 0;
+    UNMUTE_SUCCESS = 1;
+    UNMUTE_USER_NOT_MUTED = 2;
+    UNMUTE_ACCESS_DENIED = 3;       // 无权限（不是管理员）
+    UNMUTE_FAILED = 4;
+}
+
+message UnmuteResponse {
+    UnmuteResult result = 1;
+    string message = 2;
+}
+
+// ---------- Op ----------
+
+message OpRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum OpResult {
+    OP_RESULT_UNSPECIFIED = 0;
+    OP_SUCCESS = 1;
+    OP_USER_NOT_FOUND = 2;
+    OP_ACCESS_DENIED = 3;           // 无权限（只有创建者可授权）
+    OP_ALREADY_MODERATOR = 4;
+    OP_FAILED = 5;
+}
+
+message OpResponse {
+    OpResult result = 1;
+    string message = 2;
+}
+
+// ---------- Deop ----------
+
+message DeopRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum DeopResult {
+    DEOP_RESULT_UNSPECIFIED = 0;
+    DEOP_SUCCESS = 1;
+    DEOP_USER_NOT_FOUND = 2;
+    DEOP_ACCESS_DENIED = 3;         // 无权限（只有创建者可撤销）
+    DEOP_CANNOT_DEOP_CREATOR = 4;
+    DEOP_NOT_MODERATOR = 5;
+    DEOP_FAILED = 6;
+}
+
+message DeopResponse {
+    DeopResult result = 1;
+    string message = 2;
+}
+
+// ---------- Trop ----------
+
+message TropRequest {
+    string user = 1;
+    double freq = 2;
+}
+
+enum TropResult {
+    TROP_RESULT_UNSPECIFIED = 0;
+    TROP_SUCCESS = 1;
+    TROP_USER_NOT_FOUND = 2;
+    TROP_ACCESS_DENIED = 3;         // 无权限（只有创建者可转让）
+    TROP_SELF_TRANSFER = 4;
+    TROP_FAILED = 5;
+}
+
+message TropResponse {
+    TropResult result = 1;
+    string message = 2;
+}
+
+// ---------- Disband ----------
+
+message DisbandRequest {
+    double freq = 1;
+}
+
+enum DisbandResult {
+    DISBAND_RESULT_UNSPECIFIED = 0;
+    DISBAND_SUCCESS = 1;
+    DISBAND_NOT_FOUND = 2;
+    DISBAND_ACCESS_DENIED = 3;      // 无权限（不是创建者）
+    DISBAND_HAS_MEMBERS = 4;
+    DISBAND_FAILED = 5;
+}
+
+message DisbandResponse {
+    DisbandResult result = 1;
+    string message = 2;
+}
+
+service ModOpsService {
+    rpc Kick(KickRequest) returns (KickResponse);
+    rpc Ban(BanRequest) returns (BanResponse);
+    rpc Unban(UnbanRequest) returns (UnbanResponse);
+    rpc Mute(MuteRequest) returns (MuteResponse);
+    rpc Unmute(UnmuteRequest) returns (UnmuteResponse);
+    rpc Op(OpRequest) returns (OpResponse);
+    rpc Deop(DeopRequest) returns (DeopResponse);
+    rpc Trop(TropRequest) returns (TropResponse);
+    rpc Disband(DisbandRequest) returns (DisbandResponse);
+}

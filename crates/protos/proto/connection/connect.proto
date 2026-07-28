@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package connect;
+
+import "models/system.proto";
+
+// 服务器 -> 客户端: 连接
+message Connect {
+    map<string, string> sync_keys = 1;    // 需要同步的键值对集合
+    models.system.SystemInfo system_info = 2;    // 系统信息
+    string prog_vers = 3;                 // 程序版本
+}
