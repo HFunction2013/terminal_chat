@@ -1,4 +1,4 @@
-// mods.rs
+// moderators.rs
 // Show moderators in current frequency
 use clap::ArgMatches;
 use anyhow::Result;
@@ -6,16 +6,16 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct ModsCommand;
+pub struct ModeratorsCommand;
 
-impl CommandExecutor for ModsCommand {
+impl CommandExecutor for ModeratorsCommand {
     fn name(&self) -> &'static str {
-        "mods"
+        "moderators"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         // TODO: Show moderators in current frequency
-        println!("Command `mods` is not yet implemented.");
+        println!("Command `moderators` is not yet implemented.");
         Ok(())
     }
 }

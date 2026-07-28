@@ -54,13 +54,21 @@ commands:
         about: Show value of all global variables
       - name: locals
         about: Show value of all local variables
-      - name: vars
+      - name: variables
+        aliases: 
+          - vars
         about: Show value of all variables
-      - name: afreqs
+      - name: active_freqs
+        aliases:
+          - afreqs
         about: Show all active frequencies
-      - name: ausers
+      - name: active_users
+        aliases:
+          - ausers
         about: Show active users in current frequency
-      - name: mods
+      - name: moderators
+        aliases:
+          - mods
         about: Show moderators in current frequency
   - name: join_freq
     about: Join a target frequency channel

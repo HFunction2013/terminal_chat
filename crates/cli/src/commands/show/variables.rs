@@ -1,4 +1,4 @@
-// vars.rs
+// variables.rs
 // Show value of all variables
 use clap::ArgMatches;
 use anyhow::Result;
@@ -6,16 +6,16 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct VarsCommand;
+pub struct VariablesCommand;
 
-impl CommandExecutor for VarsCommand {
+impl CommandExecutor for VariablesCommand {
     fn name(&self) -> &'static str {
-        "vars"
+        "variables"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         // TODO: Show value of all variables
-        println!("Command `vars` is not yet implemented.");
+        println!("Command `variables` is not yet implemented.");
         Ok(())
     }
 }

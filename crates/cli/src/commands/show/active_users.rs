@@ -1,4 +1,4 @@
-// ausers.rs
+// active_users.rs
 // Show active users in current frequency
 use clap::ArgMatches;
 use anyhow::Result;
@@ -6,16 +6,16 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 
-pub struct AusersCommand;
+pub struct ActiveUsersCommand;
 
-impl CommandExecutor for AusersCommand {
+impl CommandExecutor for ActiveUsersCommand {
     fn name(&self) -> &'static str {
-        "ausers"
+        "active_users"
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         // TODO: Show active users in current frequency
-        println!("Command `ausers` is not yet implemented.");
+        println!("Command `active_users` is not yet implemented.");
         Ok(())
     }
 }

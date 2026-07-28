@@ -12,6 +12,7 @@ use rustyline::{
 use shell_words::split;
 mod commands;
 use base64::{Engine as _, engine::general_purpose};
+#[allow(unused_imports)]
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     execute,
@@ -41,6 +42,7 @@ fn install_ctrlc_handler() {
     ctrlc::set_handler(move || {
         INTERRUPTED.store(true, Ordering::SeqCst);
         if !IN_CMD.load(Ordering::SeqCst) {
+            #[cfg(not(debug_assertions))]
             let _ = execute!(stdout(), LeaveAlternateScreen, Show);
             std::process::exit(0);
         }
@@ -199,15 +201,6 @@ fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
 fn print_banner(colored: &String) {
     print!("{}", colored);
 }
-fn no_banner() -> bool {
-    match env::var("BANNER") {
-        Ok(val) => {
-            let lower = val.to_lowercase();
-            lower == "false" || lower == "0" || lower == "no" || lower == "n"
-        }
-        Err(_) => false,
-    }
-}
 struct CommandGuard;
 impl Drop for CommandGuard {
     fn drop(&mut self) {
@@ -233,6 +226,7 @@ fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
 struct AtExit;
 impl Drop for AtExit {
     fn drop(&mut self) {
+        #[cfg(not(debug_assertions))]
         let _ = execute!(stdout(), LeaveAlternateScreen, Show);
     }
 }
@@ -335,7 +329,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     install_ctrlc_handler();
     let _guard = AtExit;
-    execute!(stdout(), Hide, EnterAlternateScreen)?;
+    #[cfg(not(debug_assertions))]
+    execute!(stdout(), EnterAlternateScreen)?;
+    execute!(stdout(), Hide)?;
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
     let cli = command::add_commands(
@@ -348,9 +344,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
     rl.clear_screen()?;
-    if !no_banner() {
-        print_banner(&colored);
-    }
+    print_banner(&colored);
     welcome(true);
     loop {
         let input = match rl.readline("tc> ") {
