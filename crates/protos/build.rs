@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = prost_build::Config::new();
@@ -48,8 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ));
         }
 
-        // 为带有 package 前缀的文件名生成嵌套模块别名
-        // 例如：models.system -> pub mod models { pub mod system { pub use super::models_system::*; } }
+        // 收集所有需要生成嵌套模块的信息
+        // 使用 HashMap 按父模块名聚合子模块
+        let mut nested_modules: HashMap<String, Vec<(String, String)>> = HashMap::new();
+        
         for entry in &entries {
             let path = entry.path();
             let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
@@ -57,28 +60,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if file_name.contains('.') {
                 let parts: Vec<&str> = file_name.split('.').collect();
                 if parts.len() == 2 {
-                    let parent = parts[0];
-                    let child = parts[1];
+                    let parent = parts[0].to_string();
+                    let child = parts[1].to_string();
                     let flat_module = file_name.replace('.', "_");
                     
                     // 检查父模块是否已经被声明（作为扁平模块）
                     let parent_as_flat = entries.iter().any(|e| {
-                        e.path().file_stem().and_then(|s| s.to_str()) == Some(parent)
+                        e.path().file_stem().and_then(|s| s.to_str()) == Some(&parent)
                     });
                     
                     if !parent_as_flat {
-                        // 生成嵌套模块：pub mod parent { pub mod child { pub use super::parent_child::*; } }
-                        lib_content.push_str(&format!(
-                            "pub mod {0} {{
-    pub mod {1} {{
-        pub use super::super::{2}::*;
-    }}
-}}\n\n",
-                            parent, child, flat_module
-                        ));
+                        nested_modules.entry(parent)
+                            .or_default()
+                            .push((child, flat_module));
                     }
                 }
             }
+        }
+
+        // 生成嵌套模块（已按父模块名合并）
+        for (parent, children) in nested_modules {
+            lib_content.push_str(&format!("pub mod {} {{\n", parent));
+            for (child, flat_module) in children {
+                lib_content.push_str(&format!(
+                    "    pub mod {} {{\n        pub use super::super::{}::*;\n    }}\n",
+                    child, flat_module
+                ));
+            }
+            lib_content.push_str("}\n\n");
         }
     }
 
