@@ -43,7 +43,8 @@ fn install_ctrlc_handler() {
         INTERRUPTED.store(true, Ordering::SeqCst);
         if !IN_CMD.load(Ordering::SeqCst) {
             #[cfg(not(debug_assertions))]
-            let _ = execute!(stdout(), LeaveAlternateScreen, Show);
+            let _ = execute!(stdout(), LeaveAlternateScreen);
+            let _ = execute!(stdout(), Show);
             std::process::exit(0);
         }
         let _ = write!(std::io::stderr(), " (interrupt sent to current command)\n");
