@@ -4,9 +4,25 @@ package connect;
 
 import "models/system.proto";
 
+enum ConnectStatus {
+    CONNECT_STATUS_UNSPECIFIED = 0;
+    CONNECT_SUCCESS = 1;
+    CONNECT_VERSION_NOT_COMPATIBLE = 2;
+    CONNECT_ERROR = 100;
+}
+
 // 服务器 -> 客户端: 连接
-message Connect {
-    map<string, string> sync_keys = 1;    // 需要同步的键值对集合
-    models.system.SystemInfo system_info = 2;    // 系统信息
-    string prog_vers = 3;                 // 程序版本
+message ConnectRequest {
+    map<string, string> sync_keys = 1;            // 需要同步的键值对集合
+    models.system.SystemInfo system_info = 2;     // 系统信息
+    string prog_vers = 3;                         // 程序版本
+}
+
+message ConnectResponse {
+    ConnectStatus status = 1;                     // 连接结果
+    optional string message = 2;                  // 附加说明
+}
+
+service ConnectService {
+    rpc ConnectServer(ConnectRequest) returns (ConnectResponse);
 }

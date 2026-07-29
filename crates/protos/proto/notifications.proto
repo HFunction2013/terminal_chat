@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package frequency.notification;
+
+import "utils/empty.proto";
+import "frequency/basic.proto";  // 引用 basic 包中的类型
+
+// ---------- 加入/离开频点通知 ----------
+
+message UserJoinedFreq {
+    string user_id = 1;                // 加入的用户ID
+    string nickname = 2;               // 加入用户的昵称
+    string target_freq_id = 3;         // 加入的频点ID
+    int32 current_member_count = 4;    // 当前成员数
+    int64 timestamp = 5;               // 加入时间（Unix时间戳）
+}
+
+message UserLeftFreq {
+    string user_id = 1;                // 离开的用户ID
+    string nickname = 2;               // 离开用户的昵称
+    string target_freq_id = 3;         // 离开的频点ID
+    int32 current_member_count = 4;    // 剩余成员数
+    int64 timestamp = 5;               // 离开时间（Unix时间戳）
+}
+
+// ---------- 原有管理操作通知（从 mod_ops 迁移过来） ----------
+
+message YouHaveBeenKicked {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message YouHaveBeenBanned {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message YouHaveBeenUnbanned {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message YouHaveBeenMuted {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    int32 duration = 3;             // 禁言时长（秒），-1表示永久
+    string reason = 4;
+    int64 timestamp = 5;
+}
+
+message YouHaveBeenUnmuted {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message YouHaveBeenOpped {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message YouHaveBeenDeopped {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message YouAreNowTheOwner {
+    string previous_owner_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message GroupHasBeenDisbanded {
+    string operator_user_id = 1;
+    string target_freq_id = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+// ---------- 统一通知类型枚举 ----------
+
+enum NotificationType {
+    NOTIFICATION_TYPE_UNSPECIFIED = 0;
+    
+    // 加入/离开
+    NOTIFICATION_USER_JOINED = 1;       // 有人加入了频点
+    NOTIFICATION_USER_LEFT = 2;         // 有人离开了频点
+    
+    // 管理操作
+    NOTIFICATION_KICKED = 10;
+    NOTIFICATION_BANNED = 11;
+    NOTIFICATION_UNBANNED = 12;
+    NOTIFICATION_MUTED = 13;
+    NOTIFICATION_UNMUTED = 14;
+    NOTIFICATION_OPPED = 15;
+    NOTIFICATION_DEPPED = 16;
+    NOTIFICATION_OWNER_TRANSFERRED = 17;
+    NOTIFICATION_GROUP_DISBANDED = 18;
+}
+
+// ---------- 统一通知包装器 ----------
+
+message UserNotification {
+    NotificationType type = 1;
+    oneof payload {
+        // 加入/离开
+        UserJoinedFreq joined = 20;
+        UserLeftFreq left = 21;
+        
+        // 管理操作
+        YouHaveBeenKicked kicked = 30;
+        YouHaveBeenBanned banned = 31;
+        YouHaveBeenUnbanned unbanned = 32;
+        YouHaveBeenMuted muted = 33;
+        YouHaveBeenUnmuted unmuted = 34;
+        YouHaveBeenOpped opped = 35;
+        YouHaveBeenDeopped deopped = 36;
+        YouAreNowTheOwner owner_transferred = 37;
+        GroupHasBeenDisbanded group_disbanded = 38;
+    }
+}
+
+// ---------- 订阅请求 ----------
+
+message SubscribeRequest {
+    string user_id = 1;                    // 当前登录用户ID
+    repeated string freq_ids = 2;          // 可选：只订阅指定频点的通知，空则订阅全部
+    repeated NotificationType filter = 3;  // 可选：只订阅特定类型的通知
+}
+
+// ---------- 服务定义 ----------
+
+service NotificationService {
+    // 通知订阅 RPC（服务端流式推送）
+    rpc SubscribeNotification(SubscribeRequest) returns (stream UserNotification);
+}

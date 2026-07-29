@@ -100,28 +100,6 @@ message FreqInfoResponse {
     string message = 3;             // 附加说明
 }
 
-// ---------- DisbandFreq ----------
-
-// 解散频点的请求
-message DisbandFreqRequest {
-    string freq = 1;                // 要解散的频点值
-}
-
-// 解散频点的结果枚举
-enum DisbandResult {
-    DISBAND_RESULT_UNSPECIFIED = 0;
-    DISBAND_SUCCESS = 1;            // 解散成功
-    DISBAND_NOT_FOUND = 2;          // 频点不存在
-    DISBAND_ACCESS_DENIED = 3;      // 无权限（不是创建者）
-    DISBAND_FAILED = 4;             // 其他错误
-}
-
-// 解散频点的响应
-message DisbandFreqResponse {
-    DisbandResult result = 1;
-    string message = 2;             // 附加说明
-}
-
 // ---------- Service ----------
 
 service FrequencyService {
@@ -129,5 +107,4 @@ service FrequencyService {
     rpc JoinFreq(JoinFreqRequest) returns (JoinFreqResponse);
     rpc LeaveFreq(utils.empty.Empty) returns (LeaveFreqResponse);
     rpc GetFreqInfo(FreqInfoRequest) returns (FreqInfoResponse);
-    rpc DisbandFreq(DisbandFreqRequest) returns (DisbandFreqResponse);
 }
