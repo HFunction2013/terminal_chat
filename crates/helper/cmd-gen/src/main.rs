@@ -1,8 +1,11 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use check_keyword::CheckKeyword;
 
 #[derive(Debug, Deserialize)]
@@ -36,6 +39,44 @@ fn to_struct_name(name: &str) -> String {
         })
         .collect::<String>()
         + "Command"
+}
+
+/// 计算字符串的哈希值
+fn hash_content(content: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    content.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// 读取 lock 文件
+fn read_lock_file(path: &Path) -> HashMap<String, u64> {
+    if !path.exists() {
+        return HashMap::new();
+    }
+    let content = fs::read_to_string(path).unwrap_or_default();
+    content
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.splitn(2, ':');
+            let file_path = parts.next()?.trim().to_string();
+            let hash = parts.next()?.trim().parse::<u64>().ok()?;
+            Some((file_path, hash))
+        })
+        .collect()
+}
+
+/// 写入 lock 文件
+fn write_lock_file(path: &Path, entries: &HashMap<String, u64>) -> Result<(), Box<dyn std::error::Error>> {
+    let mut content = String::new();
+    let mut sorted_entries: Vec<_> = entries.iter().collect();
+    sorted_entries.sort_by_key(|e| e.0.clone());
+    
+    for (file_path, hash) in sorted_entries {
+        content.push_str(&format!("{}:{}\n", file_path, hash));
+    }
+    
+    fs::write(path, content)?;
+    Ok(())
 }
 
 /// 生成单个命令模块
@@ -97,6 +138,7 @@ fn process_commands(
     parent_dir: &Path,
     mod_entries: &mut Vec<(String, bool)>,
     prefix: &str,
+    lock_entries: &mut HashMap<String, u64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     for cmd in cmds {
         let current_prefix = if prefix.is_empty() {
@@ -117,17 +159,45 @@ fn process_commands(
 
             mod_entries.push((current_prefix.clone(), true));
 
-            process_commands(&cmd.subcommands, &sub_dir, mod_entries, &current_prefix)?;
+            process_commands(&cmd.subcommands, &sub_dir, mod_entries, &current_prefix, lock_entries)?;
         } else {
+            let content = generate_module(&cmd.name, &cmd.about, cmd.debug_only);
+            let new_hash = hash_content(&content);
+            
             if file_path.exists() {
-                println!("[SKIP] {}", file_name);
+                // 检查文件是否与锁中的哈希匹配
+                let relative_path = file_path.to_string_lossy().to_string();
+                let old_hash = lock_entries.get(&relative_path).copied();
+                
+                if let Some(old_hash) = old_hash {
+                    // 读取当前文件内容并计算哈希
+                    let current_content = fs::read_to_string(&file_path)?;
+                    let current_hash = hash_content(&current_content);
+                    
+                    if current_hash == old_hash && current_hash != new_hash {
+                        // 文件未被修改且需要更新
+                        let mut f = File::create(&file_path)?;
+                        f.write_all(content.as_bytes())?;
+                        println!("[UPDATE] {}", file_name);
+                    } else if current_hash == new_hash {
+                        println!("[SKIP] {}", file_name);
+                    } else {
+                        // 文件已被手动修改，跳过
+                        println!("[SKIP] {} (modified by user)", file_name);
+                    }
+                } else {
+                    println!("[SKIP] {} (not in lock)", file_name);
+                }
             } else {
-                let content = generate_module(&cmd.name, &cmd.about, cmd.debug_only);
                 let mut f = File::create(&file_path)?;
                 f.write_all(content.as_bytes())?;
                 println!("[CREATE] {}", file_name);
             }
 
+            // 更新锁条目
+            let relative_path = file_path.to_string_lossy().to_string();
+            lock_entries.insert(relative_path, new_hash);
+            
             mod_entries.push((current_prefix, false));
         }
     }
@@ -152,6 +222,58 @@ fn generate_sub_all_commands(cmd: &CommandDef, indent: usize) -> String {
     }
     
     result
+}
+
+/// 收集所有预期的文件路径
+fn collect_expected_files(
+    cmds: &[CommandDef],
+    base_dir: &Path,
+    expected_files: &mut Vec<String>,
+) {
+    for cmd in cmds {
+        if cmd.subcommands.is_empty() {
+            let file_path = base_dir.join(format!("{}.rs", cmd.name));
+            expected_files.push(file_path.to_string_lossy().to_string());
+        } else {
+            let sub_dir = base_dir.join(&cmd.name);
+            let mod_rs_path = sub_dir.join("mod.rs");
+            expected_files.push(mod_rs_path.to_string_lossy().to_string());
+            collect_expected_files(&cmd.subcommands, &sub_dir, expected_files);
+        }
+    }
+}
+
+/// 清理不再需要的文件
+fn cleanup_orphaned_files(
+    lock_entries: &mut HashMap<String, u64>,
+    expected_files: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let orphaned: Vec<String> = lock_entries
+        .keys()
+        .filter(|path| !expected_files.contains(path))
+        .cloned()
+        .collect();
+    
+    for path in orphaned {
+        let file_path = Path::new(&path);
+        if file_path.exists() {
+            // 验证文件哈希是否匹配
+            if let Ok(content) = fs::read_to_string(&file_path) {
+                let current_hash = hash_content(&content);
+                if let Some(stored_hash) = lock_entries.get(&path) {
+                    if current_hash == *stored_hash {
+                        fs::remove_file(&file_path)?;
+                        println!("[DELETE] {}", file_path.display());
+                    } else {
+                        println!("[SKIP] {} (modified by user, not deleted)", file_path.display());
+                    }
+                }
+            }
+        }
+        lock_entries.remove(&path);
+    }
+    
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -179,9 +301,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(out_dir)?;
     }
 
+    // 加载 lock 文件
+    let lock_path = Path::new("./crates/cli/commands.lock");
+    let mut lock_entries = read_lock_file(&lock_path);
+
     let mut mod_entries = Vec::new();
 
-    process_commands(&config.commands, out_dir, &mut mod_entries, "")?;
+    process_commands(&config.commands, out_dir, &mut mod_entries, "", &mut lock_entries)?;
+
+    // 收集所有预期文件
+    let mut expected_files = Vec::new();
+    // 添加 mod.rs 到预期文件
+    expected_files.push(out_dir.join("mod.rs").to_string_lossy().to_string());
+    collect_expected_files(&config.commands, out_dir, &mut expected_files);
+    
+    // 为有子命令的命令添加 mod.rs
+    for cmd in &config.commands {
+        if !cmd.subcommands.is_empty() {
+            let sub_dir = out_dir.join(&cmd.name);
+            let mod_rs_path = sub_dir.join("mod.rs");
+            expected_files.push(mod_rs_path.to_string_lossy().to_string());
+        }
+    }
+
+    // 清理孤立文件
+    cleanup_orphaned_files(&mut lock_entries, &expected_files)?;
 
     // 生成 mod.rs - 主入口
     let mut mod_rs = String::new();
@@ -273,8 +417,11 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
 "#,
     );
 
+    // 计算 mod.rs 的哈希并更新锁
+    let mod_rs_hash = hash_content(&mod_rs);
     fs::write(out_dir.join("mod.rs"), mod_rs)?;
     println!("[CREATE] mod.rs (top-level)");
+    lock_entries.insert(out_dir.join("mod.rs").to_string_lossy().to_string(), mod_rs_hash);
 
     // 为有子命令的文件夹生成内部的 mod.rs
     for (entry, has_sub) in &mod_entries {
@@ -371,10 +518,17 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
                 sub_mod_rs.push_str("}\n");
             }
 
+            // 计算子 mod.rs 的哈希并更新锁
+            let sub_mod_rs_hash = hash_content(&sub_mod_rs);
             fs::write(dir_path.join("mod.rs"), sub_mod_rs)?;
             println!("[CREATE] {}/mod.rs", dir_name);
+            lock_entries.insert(dir_path.join("mod.rs").to_string_lossy().to_string(), sub_mod_rs_hash);
         }
     }
+
+    // 保存 lock 文件
+    write_lock_file(&lock_path, &lock_entries)?;
+    println!("[SAVE] commands.lock");
 
     println!("\nDone! {} commands processed.", mod_entries.len());
 
