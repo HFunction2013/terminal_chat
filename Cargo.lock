@@ -420,7 +420,7 @@ dependencies = [
  "indicatif",
  "libc",
  "lolcat",
- "prost 0.12.6",
+ "prost",
  "protos",
  "rand 0.8.7",
  "rpassword",
@@ -430,6 +430,7 @@ dependencies = [
  "sha2",
  "shell-words",
  "sl-rs",
+ "tonic",
 ]
 
 [[package]]
@@ -1622,22 +1623,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deb1435c188b76130da55f17a466d252ff7b1418b2ad3e037d127b94e3411f29"
-dependencies = [
- "bytes",
- "prost-derive 0.12.6",
-]
-
-[[package]]
-name = "prost"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2796faa41db3ec313a31f7624d9286acf277b52de526150b7e69f3debf891ee5"
 dependencies = [
  "bytes",
- "prost-derive 0.13.5",
+ "prost-derive",
 ]
 
 [[package]]
@@ -1653,24 +1644,11 @@ dependencies = [
  "once_cell",
  "petgraph",
  "prettyplease",
- "prost 0.13.5",
+ "prost",
  "prost-types",
  "regex",
  "syn 2.0.118",
  "tempfile",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
-dependencies = [
- "anyhow",
- "itertools",
- "proc-macro2",
- "quote",
- "syn 2.0.118",
 ]
 
 [[package]]
@@ -1692,7 +1670,7 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52c2c1bf36ddb1a1c396b3601a3cec27c2462e45f07c386894ec3ccf5332bd16"
 dependencies = [
- "prost 0.13.5",
+ "prost",
 ]
 
 [[package]]
@@ -1700,7 +1678,7 @@ name = "protos"
 version = "0.1.0"
 dependencies = [
  "glob",
- "prost 0.13.5",
+ "prost",
  "tonic",
  "tonic-build",
 ]
@@ -2294,6 +2272,12 @@ dependencies = [
 [[package]]
 name = "srv"
 version = "0.1.0"
+dependencies = [
+ "prost",
+ "protos",
+ "tokio",
+ "tonic",
+]
 
 [[package]]
 name = "stable_deref_trait"
@@ -2557,7 +2541,7 @@ dependencies = [
  "hyper-util",
  "percent-encoding",
  "pin-project",
- "prost 0.13.5",
+ "prost",
  "socket2 0.5.10",
  "tokio",
  "tokio-stream",
