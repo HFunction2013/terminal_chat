@@ -1,8 +1,8 @@
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
-use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct LoadCommand;
@@ -17,15 +17,11 @@ impl CommandExecutor for LoadCommand {
     }
 }
 
-pub mod plugin;
 pub mod namespace;
+pub mod plugin;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
-    vec![
-        Arc::new(plugin::PluginCommand),
-        Arc::new(namespace::NamespaceCommand),
-
-    ]
+    vec![Arc::new(plugin::PluginCommand), Arc::new(namespace::NamespaceCommand)]
 }
 
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {

@@ -1,8 +1,8 @@
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
-use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct ListCommand;
@@ -17,8 +17,8 @@ impl CommandExecutor for ListCommand {
     }
 }
 
-pub mod installed;
 pub mod downloaded;
+pub mod installed;
 pub mod loaded;
 pub mod registry;
 pub mod updates;
@@ -30,7 +30,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(loaded::LoadedCommand),
         Arc::new(registry::RegistryCommand),
         Arc::new(updates::UpdatesCommand),
-
     ]
 }
 

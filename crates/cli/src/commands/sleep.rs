@@ -1,14 +1,14 @@
 // sleep.rs
 // Are you sleepy? Why not sleep for a while?
-use clap::ArgMatches;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
+use clap::ArgMatches;
+use cli_core::print_content::print_content;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
-use cli_core::print_content::print_content;
 
 pub struct SleepCommand;
 

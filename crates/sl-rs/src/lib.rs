@@ -1,13 +1,16 @@
-use std::io::{stdout, StdoutLock, Write};
+use std::io::{StdoutLock, Write, stdout};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{env, io};
 
 use crossterm::{
-    cursor::{Hide, Show, MoveTo},
+    cursor::{Hide, MoveTo, Show},
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
-    terminal::{self, Clear, ClearType, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+        enable_raw_mode,
+    },
 };
 use getopts::Options;
 
@@ -37,12 +40,7 @@ pub struct Terminal<'a> {
 impl<'a> Terminal<'a> {
     fn new(out: StdoutLock<'a>) -> Self {
         let (cols, lines) = terminal::size().unwrap_or((80, 24));
-        Terminal {
-            out,
-            cursor: (0, 0),
-            cols: cols as i32,
-            lines: lines as i32,
-        }
+        Terminal { out, cursor: (0, 0), cols: cols as i32, lines: lines as i32 }
     }
 
     pub fn init(&mut self) -> io::Result<()> {
@@ -51,12 +49,7 @@ impl<'a> Terminal<'a> {
     }
 
     fn finish(&mut self) -> io::Result<()> {
-        execute!(
-            self.out,
-            Clear(ClearType::All),
-            MoveTo(0, self.lines as u16),
-            Show
-        )?;
+        execute!(self.out, Clear(ClearType::All), MoveTo(0, self.lines as u16), Show)?;
         Ok(())
     }
 
@@ -75,7 +68,7 @@ impl<'a> Terminal<'a> {
             if x < 0 || x >= self.cols || y < 0 || y >= self.lines {
                 return false;
             }
-            
+
             if execute!(self.out, MoveTo(x as u16, y as u16)).is_err() {
                 return false;
             }
@@ -114,7 +107,7 @@ pub trait Train {
         let out = stdout();
         let mut terminal = Terminal::new(out.lock());
         terminal.init()?;
-        
+
         let mut interrupted = false;
         let frame_duration = Duration::from_millis(40);
         let mut next_frame_time = Instant::now() + frame_duration;
@@ -128,16 +121,17 @@ pub trait Train {
             // 非阻塞检查按键
             while event::poll(Duration::from_millis(0))? {
                 if let Event::Key(key_event) = event::read()? {
-                    if key_event.code == KeyCode::Char('c') 
+                    if key_event.code == KeyCode::Char('c')
                         && key_event.modifiers.contains(KeyModifiers::CONTROL)
-                        && self.config().interruptable {
-                            interrupted = true;
-                        }
+                        && self.config().interruptable
+                    {
+                        interrupted = true;
+                    }
                 }
             }
 
             io::stdout().flush()?;
-            
+
             if let Some(duration) = checked_duration_since(next_frame_time, Instant::now()) {
                 thread::sleep(duration);
             }
@@ -187,11 +181,7 @@ pub trait Train {
 }
 
 fn checked_duration_since(s: Instant, earlier: Instant) -> Option<Duration> {
-    if s > earlier {
-        Some(s - earlier)
-    } else {
-        None
-    }
+    if s > earlier { Some(s - earlier) } else { None }
 }
 
 fn print_usage(program: &str, opts: &Options) {
@@ -201,7 +191,7 @@ fn print_usage(program: &str, opts: &Options) {
 pub fn run_sl() -> io::Result<()> {
     execute!(stdout(), EnterAlternateScreen)?;
     enable_raw_mode()?;
-    
+
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -241,7 +231,7 @@ pub fn run_sl() -> io::Result<()> {
         smoke_state: smoke::SmokeState::default(),
         interruptable: matches.opt_present("interrupt"),
     };
-    
+
     let result = match sl_type {
         SLType::Logo => Logo::new(conf).run(),
         SLType::C51 => C51::new(conf).run(),

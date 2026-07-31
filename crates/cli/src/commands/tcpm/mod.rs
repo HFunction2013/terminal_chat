@@ -1,8 +1,8 @@
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
-use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct TcpmCommand;
@@ -17,13 +17,13 @@ impl CommandExecutor for TcpmCommand {
     }
 }
 
-pub mod update;
+pub mod download;
+pub mod install;
+pub mod list;
 pub mod search;
 pub mod show;
-pub mod list;
-pub mod install;
 pub mod uninstall;
-pub mod download;
+pub mod update;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
@@ -34,7 +34,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(install::InstallCommand),
         Arc::new(uninstall::UninstallCommand),
         Arc::new(download::DownloadCommand),
-
     ]
 }
 

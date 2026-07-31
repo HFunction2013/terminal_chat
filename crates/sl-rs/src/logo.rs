@@ -1,17 +1,16 @@
-use super::{ Config, Train };
-use crate::common::*;
+use super::{Config, Train};
 use crate::Terminal;
+use crate::common::*;
 
-const LOGOHEIGHT: i32 =    	 6;
-const LOGOFUNNEL: i32 =  	 4;
-const LOGOLENGTH: i32 =      SL_LENGTH;
-const LOGOPATTERNS: i32 =	 6;
+const LOGOHEIGHT: i32 = 6;
+const LOGOFUNNEL: i32 = 4;
+const LOGOLENGTH: i32 = SL_LENGTH;
+const LOGOPATTERNS: i32 = 6;
 
 const LOGO1: &str = "     ++      +------ ";
 const LOGO2: &str = "     ||      |+-+ |  ";
 const LOGO3: &str = "   /---------|| | |  ";
 const LOGO4: &str = "  + ========  +-+ |  ";
-
 
 const LWHL11: &str = " _|--O========O~\\-+  ";
 const LWHL12: &str = "//// \\_/      \\_/    ";
@@ -47,23 +46,22 @@ const LCAR6: &str = "   (O)        (O)    ";
 
 const DELLN: &str = "                     ";
 
-const SL: [[&str; (LOGOHEIGHT + 1) as usize]; LOGOPATTERNS as usize] =
-    [[LOGO1, LOGO2, LOGO3, LOGO4, LWHL11, LWHL12, DELLN],
+const SL: [[&str; (LOGOHEIGHT + 1) as usize]; LOGOPATTERNS as usize] = [
+    [LOGO1, LOGO2, LOGO3, LOGO4, LWHL11, LWHL12, DELLN],
     [LOGO1, LOGO2, LOGO3, LOGO4, LWHL21, LWHL22, DELLN],
     [LOGO1, LOGO2, LOGO3, LOGO4, LWHL31, LWHL32, DELLN],
     [LOGO1, LOGO2, LOGO3, LOGO4, LWHL41, LWHL42, DELLN],
     [LOGO1, LOGO2, LOGO3, LOGO4, LWHL51, LWHL52, DELLN],
-    [LOGO1, LOGO2, LOGO3, LOGO4, LWHL61, LWHL62, DELLN]];
-
+    [LOGO1, LOGO2, LOGO3, LOGO4, LWHL61, LWHL62, DELLN],
+];
 
 const COAL: [&str; (LOGOHEIGHT + 1) as usize] =
     [LCOAL1, LCOAL2, LCOAL3, LCOAL4, LCOAL5, LCOAL6, DELLN];
 
-const CAR: [&str; (LOGOHEIGHT + 1) as usize] =
-    [LCAR1, LCAR2, LCAR3, LCAR4, LCAR5, LCAR6, DELLN];
+const CAR: [&str; (LOGOHEIGHT + 1) as usize] = [LCAR1, LCAR2, LCAR3, LCAR4, LCAR5, LCAR6, DELLN];
 
 pub struct Logo {
-    conf: Config
+    conf: Config,
 }
 
 impl Logo {
@@ -74,7 +72,9 @@ impl Logo {
 
 impl Train for Logo {
     fn update(&mut self, terminal: &mut Terminal, x: i32) -> bool {
-        if x < -LOGOLENGTH { return false }
+        if x < -LOGOLENGTH {
+            return false;
+        }
         let y;
         let py1;
         let py2;
@@ -82,10 +82,14 @@ impl Train for Logo {
 
         if self.conf.fly {
             y = (x / 6) + terminal.lines - (terminal.cols / 6) - LOGOHEIGHT;
-            py1 = 2;  py2 = 4;  py3 = 6;
+            py1 = 2;
+            py2 = 4;
+            py3 = 6;
         } else {
             y = terminal.lines / 2 - 3;
-            py1 = 0;  py2 = 0;  py3 = 0;
+            py1 = 0;
+            py2 = 0;
+            py3 = 0;
         }
 
         for i in 0..=LOGOHEIGHT {

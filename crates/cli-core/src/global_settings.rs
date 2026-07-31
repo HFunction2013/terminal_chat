@@ -1,6 +1,6 @@
+use crate::Void;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
-use crate::Void;
 
 #[derive(Debug, Clone)]
 pub struct GlobalOption {
@@ -10,16 +10,11 @@ pub struct GlobalOption {
 
 impl GlobalOption {
     pub fn new(key: &str, value: &str) -> Self {
-        GlobalOption {
-            key: key.to_string(),
-            value: value.to_string(),
-        }
+        GlobalOption { key: key.to_string(), value: value.to_string() }
     }
 }
 
-static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| {
-    Mutex::new(HashMap::new())
-});
+static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub fn internal_set_global_option(option: &GlobalOption) {
     let mut map = MAP.lock().unwrap();

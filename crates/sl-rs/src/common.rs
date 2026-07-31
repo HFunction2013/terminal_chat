@@ -15,7 +15,6 @@ pub const COAL10: &str = "    \\_/   \\_/    \\_/   \\_/    ";
 
 pub const COALDEL: &str = "                              ";
 
-
 pub mod smoke {
     pub const SMOKEPTNS: usize = 16;
 
@@ -24,43 +23,36 @@ pub mod smoke {
         pub y: i32,
         pub x: i32,
         pub ptrn: i32,
-        pub kind: i32
+        pub kind: i32,
     }
 
-    pub const SMOKE: [[&str; SMOKEPTNS]; 2] =
-        [["(   )", "(    )", "(    )", "(   )", "(  )",
-          "(  )" , "( )"   , "( )"   , "()"   , "()"  ,
-          "O"    , "O"     , "O"     , "O"    , "O"   ,
-          " "                                          ],
-         ["(@@@)", "(@@@@)", "(@@@@)", "(@@@)", "(@@)",
-          "(@@)" , "(@)"   , "(@)"   , "@@"   , "@@"  ,
-          "@"    , "@"     , "@"     , "@"    , "@"   ,
-          " "                                          ]];
+    pub const SMOKE: [[&str; SMOKEPTNS]; 2] = [
+        [
+            "(   )", "(    )", "(    )", "(   )", "(  )", "(  )", "( )", "( )", "()", "()", "O",
+            "O", "O", "O", "O", " ",
+        ],
+        [
+            "(@@@)", "(@@@@)", "(@@@@)", "(@@@)", "(@@)", "(@@)", "(@)", "(@)", "@@", "@@", "@",
+            "@", "@", "@", "@", " ",
+        ],
+    ];
 
-    pub const ERASER: [&str; SMOKEPTNS] =
-        ["     ", "      ", "      ", "     ", "    ",
-         "    " , "   "   , "   "   , "  "   , "  "  ,
-         " "    , " "     , " "     , " "    , " "   ,
-         " "                                          ];
+    pub const ERASER: [&str; SMOKEPTNS] = [
+        "     ", "      ", "      ", "     ", "    ", "    ", "   ", "   ", "  ", "  ", " ", " ",
+        " ", " ", " ", " ",
+    ];
 
-    pub const DY: [i32; SMOKEPTNS] =
-        [2, 1, 1, 1, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0];
-    pub const DX: [i32; SMOKEPTNS] =
-        [-2, -1, 0, 1, 1, 1, 1, 1, 2, 2,
-          2, 2, 2, 3, 3, 3];
+    pub const DY: [i32; SMOKEPTNS] = [2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    pub const DX: [i32; SMOKEPTNS] = [-2, -1, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3];
 
     pub struct SmokeState {
         pub sum: usize,
-        pub s: [Smokes; 1000]
+        pub s: [Smokes; 1000],
     }
 
     impl Default for SmokeState {
         fn default() -> SmokeState {
-            SmokeState {
-                sum: 0,
-                s: [Smokes { x: 0, y: 0, ptrn: 0, kind: 0 }; 1000]
-            }
+            SmokeState { sum: 0, s: [Smokes { x: 0, y: 0, ptrn: 0, kind: 0 }; 1000] }
         }
     }
 }

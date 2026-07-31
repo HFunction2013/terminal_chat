@@ -3,7 +3,6 @@ name = "cli_core"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-build = "build.rs"
 
 [lib]
 crate-type = ["dylib"]

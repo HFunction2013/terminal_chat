@@ -1,13 +1,11 @@
-use super::{ Config, Train };
-use crate::common::*;
+use super::{Config, Train};
 use crate::Terminal;
+use crate::common::*;
 
-
-const D51HEIGHT: i32 = 	10;
-const D51FUNNEL: i32 = 	 7;
-const D51LENGTH: i32 = 	83;
+const D51HEIGHT: i32 = 10;
+const D51FUNNEL: i32 = 7;
+const D51LENGTH: i32 = 83;
 const D51PATTERNS: i32 = 6;
-
 
 const D51STR1: &str = "      ====        ________                ___________ ";
 const D51STR2: &str = "  _D _|  |_______/        \\__I_I_____===__|_________| ";
@@ -43,28 +41,38 @@ const D51WHL63: &str = "  \\_/      \\_O=====O=====O=====O/      \\_/           
 
 const D51DEL: &str = "                                                      ";
 
-
-const SL: [[&str; (D51HEIGHT + 1) as usize]; D51PATTERNS as usize] =
-    [[D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7,
-        D51WHL11, D51WHL12, D51WHL13, D51DEL],
-        [D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7,
-        D51WHL21, D51WHL22, D51WHL23, D51DEL],
-        [D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7,
-        D51WHL31, D51WHL32, D51WHL33, D51DEL],
-        [D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7,
-        D51WHL41, D51WHL42, D51WHL43, D51DEL],
-        [D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7,
-        D51WHL51, D51WHL52, D51WHL53, D51DEL],
-        [D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7,
-        D51WHL61, D51WHL62, D51WHL63, D51DEL]];
-
+const SL: [[&str; (D51HEIGHT + 1) as usize]; D51PATTERNS as usize] = [
+    [
+        D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL11, D51WHL12,
+        D51WHL13, D51DEL,
+    ],
+    [
+        D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL21, D51WHL22,
+        D51WHL23, D51DEL,
+    ],
+    [
+        D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL31, D51WHL32,
+        D51WHL33, D51DEL,
+    ],
+    [
+        D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL41, D51WHL42,
+        D51WHL43, D51DEL,
+    ],
+    [
+        D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL51, D51WHL52,
+        D51WHL53, D51DEL,
+    ],
+    [
+        D51STR1, D51STR2, D51STR3, D51STR4, D51STR5, D51STR6, D51STR7, D51WHL61, D51WHL62,
+        D51WHL63, D51DEL,
+    ],
+];
 
 const COAL: [&str; (D51HEIGHT + 1) as usize] =
-    [COAL01, COAL02, COAL03, COAL04, COAL05,
-        COAL06, COAL07, COAL08, COAL09, COAL10, COALDEL];
+    [COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09, COAL10, COALDEL];
 
 pub struct D51 {
-    conf: Config
+    conf: Config,
 }
 
 impl D51 {
@@ -75,7 +83,9 @@ impl D51 {
 
 impl Train for D51 {
     fn update(&mut self, terminal: &mut Terminal, x: i32) -> bool {
-        if x < -D51LENGTH { return false }
+        if x < -D51LENGTH {
+            return false;
+        }
         let y;
         let dy;
 

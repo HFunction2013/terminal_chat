@@ -71,11 +71,7 @@ fn escape_str(s: &str) -> String {
 fn build_command(c: &CommandDef) -> String {
     let mut code = String::new();
     let about = escape_str(&c.about);
-    code.push_str(&format!(
-        "Command::new(\"{}\").about(\"{}\")",
-        escape_str(&c.name),
-        about
-    ));
+    code.push_str(&format!("Command::new(\"{}\").about(\"{}\")", escape_str(&c.name), about));
 
     if let Some(aliases) = &c.aliases {
         for alias in aliases {
@@ -90,10 +86,8 @@ fn build_command(c: &CommandDef) -> String {
     if c.multiple_values == Some(false)
         && let Some(args) = &c.args
     {
-        let mut group = format!(
-            "clap::ArgGroup::new(\"{}_exclusive\").multiple(false)",
-            escape_str(&c.name)
-        );
+        let mut group =
+            format!("clap::ArgGroup::new(\"{}_exclusive\").multiple(false)", escape_str(&c.name));
         for arg in args {
             group.push_str(&format!(".arg(\"{}\")", escape_str(&arg.name)));
         }
@@ -132,9 +126,7 @@ fn build_command(c: &CommandDef) -> String {
 
             // ✅ 唯一新增生成逻辑
             if let Some(vp) = &a.value_parser {
-                arg.push_str(&format!(
-                    ".value_parser(clap::value_parser!({vp}))"
-                ));
+                arg.push_str(&format!(".value_parser(clap::value_parser!({vp}))"));
             }
 
             if let Some(cf) = &a.conflicts_with {

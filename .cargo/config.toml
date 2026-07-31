@@ -5,4 +5,5 @@ rustflags = ["-C", "prefer-dynamic"]
 rustflags = [
     "-C", "prefer-dynamic",
     "-C", "link-args=-Wl,-rpath,@executable_path",
+    "-C", "rpath=yes"
 ]

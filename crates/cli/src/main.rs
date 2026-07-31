@@ -86,10 +86,8 @@ impl Completer for ClapHelper {
         let arg_index = args.len();
 
         // ✅ clap_complete 要求 Vec<OsString>
-        let args_os: Vec<OsString> = std::iter::once("tc-cli".to_string())
-            .chain(args)
-            .map(OsString::from)
-            .collect();
+        let args_os: Vec<OsString> =
+            std::iter::once("tc-cli".to_string()).chain(args).map(OsString::from).collect();
 
         let mut cli = self.cli.clone();
 
@@ -107,10 +105,7 @@ impl Completer for ClapHelper {
             .into_iter()
             .map(|c| {
                 let value = c.get_value().to_string_lossy().to_string();
-                Pair {
-                    display: value.clone(),
-                    replacement: value,
-                }
+                Pair { display: value.clone(), replacement: value }
             })
             .collect();
 
@@ -131,9 +126,7 @@ impl Hinter for ClapHelper {
 impl Highlighter for ClapHelper {}
 impl Validator for ClapHelper {}
 fn simplify_branch(ref_name: Option<&str>) -> &str {
-    ref_name
-        .and_then(|r| r.strip_prefix("refs/heads/"))
-        .unwrap_or("no branch")
+    ref_name.and_then(|r| r.strip_prefix("refs/heads/")).unwrap_or("no branch")
 }
 fn welcome(b: bool) {
     println!(
@@ -261,10 +254,7 @@ fn prepare_startup() -> String {
         let note = String::from("Terminal Chat Starting");
         let font = FIGlet::standard().unwrap();
         let art = font.convert("Terminal Chat").unwrap();
-        let mut cfg = Config {
-            speed: 4000.0,
-            ..Default::default()
-        };
+        let mut cfg = Config { speed: 4000.0, ..Default::default() };
         let mut display = note.clone();
 
         while running_anim.load(Ordering::SeqCst) {
@@ -370,9 +360,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "{}",
                 String::from_utf8_lossy(
-                    &general_purpose::STANDARD
-                        .decode("ZnVjayB5b3UgdG9vLCBidWRkeS4=")
-                        .unwrap()
+                    &general_purpose::STANDARD.decode("ZnVjayB5b3UgdG9vLCBidWRkeS4=").unwrap()
                 )
             );
             continue;
@@ -443,9 +431,8 @@ Because everyone deserves a good cup of coffee."
             }
         };
 
-        let full_args: Vec<&str> = std::iter::once("tc-cli")
-            .chain(args.iter().map(String::as_str))
-            .collect();
+        let full_args: Vec<&str> =
+            std::iter::once("tc-cli").chain(args.iter().map(String::as_str)).collect();
 
         match cli.clone().try_get_matches_from(&full_args) {
             Ok(matches) => {

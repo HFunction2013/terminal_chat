@@ -110,11 +110,7 @@ pub fn execute(config: &Config) -> RunStatus {
     let stdout_is_tty = stdout.is_terminal();
     let mut handle = stdout.lock();
     let use_color = stdout_is_tty || config.force;
-    let color_mode = if use_color {
-        choose_color_mode(config)
-    } else {
-        ColorMode::Ansi256
-    };
+    let color_mode = if use_color { choose_color_mode(config) } else { ColorMode::Ansi256 };
     debug_log(
         config,
         &format!(
@@ -126,11 +122,8 @@ pub fn execute(config: &Config) -> RunStatus {
 
     let stdin = io::stdin();
     let mut stdin_lock = stdin.lock();
-    let files: Vec<String> = if config.files.is_empty() {
-        vec!["-".to_string()]
-    } else {
-        config.files.clone()
-    };
+    let files: Vec<String> =
+        if config.files.is_empty() { vec!["-".to_string()] } else { config.files.clone() };
 
     for path in files {
         debug_log(config, &format!("processing source '{path}'"));
@@ -224,9 +217,7 @@ fn process_stream_streaming<R: Read>(
     let mut carry = 0usize;
 
     'outer: loop {
-        let read = reader
-            .read(&mut buffer[carry..])
-            .map_err(StreamError::from)?;
+        let read = reader.read(&mut buffer[carry..]).map_err(StreamError::from)?;
         if read == 0 {
             break;
         }
@@ -249,9 +240,7 @@ fn process_stream_streaming<R: Read>(
                         continue;
                     }
                     if let Some(error_len) = err.error_len() {
-                        printer
-                            .write_replacement(writer)
-                            .map_err(StreamError::from)?;
+                        printer.write_replacement(writer).map_err(StreamError::from)?;
                         offset += error_len;
                         continue;
                     }
@@ -265,9 +254,7 @@ fn process_stream_streaming<R: Read>(
     }
 
     if carry > 0 {
-        printer
-            .write_replacement(writer)
-            .map_err(StreamError::from)?;
+        printer.write_replacement(writer).map_err(StreamError::from)?;
     }
 
     printer.flush_pending(writer).map_err(StreamError::from)
@@ -310,9 +297,7 @@ fn flush_line(
         Cow::Owned(s) => s,
         Cow::Borrowed(s) => s.to_string(),
     };
-    printer
-        .print_line(&text, had_newline, writer)
-        .map_err(StreamError::from)?;
+    printer.print_line(&text, had_newline, writer).map_err(StreamError::from)?;
     line_buf.clear();
     Ok(())
 }
@@ -523,9 +508,7 @@ impl Config {
         if let Some(val) = value {
             return parse_f64_value(name, val.to_string());
         }
-        let next = iter
-            .next()
-            .ok_or_else(|| format!("--{name} requires a value"))?;
+        let next = iter.next().ok_or_else(|| format!("--{name} requires a value"))?;
         parse_f64_value(name, next.to_string())
     }
 
@@ -540,9 +523,7 @@ impl Config {
         if let Some(val) = value {
             return parse_u64_value(name, val.to_string());
         }
-        let next = iter
-            .next()
-            .ok_or_else(|| format!("--{name} requires a value"))?;
+        let next = iter.next().ok_or_else(|| format!("--{name} requires a value"))?;
         parse_u64_value(name, next.to_string())
     }
 
@@ -558,9 +539,7 @@ impl Config {
         if !collected.is_empty() {
             Ok(collected)
         } else {
-            iter.next()
-                .cloned()
-                .ok_or_else(|| format!("{flag} requires a value"))
+            iter.next().cloned().ok_or_else(|| format!("{flag} requires a value"))
         }
     }
 
@@ -592,15 +571,11 @@ fn float_duration_to_frames(value: f64) -> Result<u32, String> {
 }
 
 fn parse_f64_value(name: &str, value: String) -> Result<f64, String> {
-    value
-        .parse::<f64>()
-        .map_err(|_| format!("invalid value for --{name}: '{value}'"))
+    value.parse::<f64>().map_err(|_| format!("invalid value for --{name}: '{value}'"))
 }
 
 fn parse_u64_value(name: &str, value: String) -> Result<u64, String> {
-    value
-        .parse::<u64>()
-        .map_err(|_| format!("invalid value for --{name}: '{value}'"))
+    value.parse::<u64>().map_err(|_| format!("invalid value for --{name}: '{value}'"))
 }
 
 pub enum RunStatus {
@@ -654,11 +629,7 @@ fn detects_truecolor_from(term: Option<&str>) -> bool {
 }
 
 pub fn initial_offset(seed: u64) -> f64 {
-    if seed == 0 {
-        random_seed_offset(256.0)
-    } else {
-        (seed % 256) as f64
-    }
+    if seed == 0 { random_seed_offset(256.0) } else { (seed % 256) as f64 }
 }
 
 fn random_seed_offset(range: f64) -> f64 {
@@ -837,11 +808,7 @@ impl<'a> Printer<'a> {
         };
         block[len..len + glyph.len()].copy_from_slice(glyph.as_bytes());
         len += glyph.len();
-        let reset = if self.cfg.invert {
-            RESET_BG.as_bytes()
-        } else {
-            RESET_FG.as_bytes()
-        };
+        let reset = if self.cfg.invert { RESET_BG.as_bytes() } else { RESET_FG.as_bytes() };
         block[len..len + reset.len()].copy_from_slice(reset);
         len += reset.len();
         self.buffer.push(writer, &block[..len])?;
@@ -966,10 +933,7 @@ struct SmallBuf {
 
 impl SmallBuf {
     fn new() -> Self {
-        Self {
-            data: [0u8; PENDING_CAP],
-            len: 0,
-        }
+        Self { data: [0u8; PENDING_CAP], len: 0 }
     }
 
     fn push(&mut self, writer: &mut dyn Write, chunk: &[u8]) -> io::Result<()> {
@@ -1167,10 +1131,7 @@ mod tests {
         assert!(cfg.invert);
         assert!(cfg.truecolor);
         assert!(cfg.force);
-        assert_eq!(
-            cfg.files,
-            vec!["foo".to_string(), "-".to_string(), "bar".to_string()]
-        );
+        assert_eq!(cfg.files, vec!["foo".to_string(), "-".to_string(), "bar".to_string()]);
     }
 
     #[test]
@@ -1220,19 +1181,10 @@ mod tests {
     fn choose_color_mode_prefers_truecolor_flag() {
         let mut cfg = Config::default();
         cfg.truecolor = true;
-        assert!(matches!(
-            choose_color_mode_from(&cfg, None),
-            ColorMode::TrueColor
-        ));
+        assert!(matches!(choose_color_mode_from(&cfg, None), ColorMode::TrueColor));
         cfg.truecolor = false;
-        assert!(matches!(
-            choose_color_mode_from(&cfg, Some("24bit")),
-            ColorMode::TrueColor
-        ));
-        assert!(matches!(
-            choose_color_mode_from(&cfg, Some("ansi")),
-            ColorMode::Ansi256
-        ));
+        assert!(matches!(choose_color_mode_from(&cfg, Some("24bit")), ColorMode::TrueColor));
+        assert!(matches!(choose_color_mode_from(&cfg, Some("ansi")), ColorMode::Ansi256));
     }
 
     #[test]
@@ -1245,10 +1197,7 @@ mod tests {
 
     #[test]
     fn streaming_preserves_escape_sequences() {
-        let cfg = Config {
-            force: true,
-            ..Config::default()
-        };
+        let cfg = Config { force: true, ..Config::default() };
         let mut printer = Printer::new(&cfg, true, ColorMode::Ansi256, 0.0);
         let mut output = Vec::new();
         let input = b"\x1b[31mhello\nworld";
@@ -1265,10 +1214,7 @@ mod tests {
 
     #[test]
     fn streaming_replaces_invalid_utf8() {
-        let cfg = Config {
-            force: true,
-            ..Config::default()
-        };
+        let cfg = Config { force: true, ..Config::default() };
         let mut printer = Printer::new(&cfg, true, ColorMode::Ansi256, 0.0);
         let mut output = Vec::new();
         let input = [0xFF, 0xFF, b'\n'];
@@ -1299,11 +1245,7 @@ mod tests {
 
     impl<'a> Chunked<'a> {
         fn new(data: &'a [u8], chunk: usize) -> Self {
-            Self {
-                data,
-                pos: 0,
-                chunk,
-            }
+            Self { data, pos: 0, chunk }
         }
     }
 

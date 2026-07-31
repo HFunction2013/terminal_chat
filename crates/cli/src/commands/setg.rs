@@ -21,9 +21,7 @@ impl CommandExecutor for SetgCommand {
             .ok_or_else(|| anyhow!("Missing required argument: key"))?;
         let use_password = _matches.get_flag("password");
         let value = if use_password {
-            rpassword::prompt_password(format!("Enter value for '{key}': "))?
-                .trim()
-                .to_string()
+            rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()
         } else {
             _matches.get_one::<String>("value")
                     .ok_or_else(|| anyhow!("Missing required argument: value. Use --password flag if you want to input securely."))?

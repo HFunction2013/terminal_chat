@@ -1,11 +1,11 @@
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
 #[cfg(debug_assertions)]
 // logs.rs
 // open/close logging
 use clap::ArgMatches;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 
 pub struct LogsCommand;
 

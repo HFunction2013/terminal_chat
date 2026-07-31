@@ -7,15 +7,8 @@ fn binary() -> &'static str {
 
 #[test]
 fn help_shows_usage() {
-    let output = Command::new(binary())
-        .arg("--help")
-        .output()
-        .expect("failed to run --help");
-    assert!(
-        output.status.success(),
-        "non-zero exit: {:?}",
-        output.status
-    );
+    let output = Command::new(binary()).arg("--help").output().expect("failed to run --help");
+    assert!(output.status.success(), "non-zero exit: {:?}", output.status);
     let stdout = strip_ansi(&String::from_utf8_lossy(&output.stdout));
     assert!(stdout.contains("Usage: lolcat"), "help missing usage block");
 }
@@ -31,9 +24,7 @@ fn force_color_pipeline() {
 
     {
         let mut stdin = child.stdin.take().expect("no stdin");
-        stdin
-            .write_all(b"hello\nworld\n")
-            .expect("stdin write failed");
+        stdin.write_all(b"hello\nworld\n").expect("stdin write failed");
     }
 
     let output = child.wait_with_output().expect("failed to read output");
@@ -41,24 +32,15 @@ fn force_color_pipeline() {
     let raw = String::from_utf8_lossy(&output.stdout);
     let body = strip_ansi(&raw);
     assert!(body.contains("hello"));
-    assert!(
-        raw.contains("\x1b[38;"),
-        "expected ANSI color codes in output: {raw:?}"
-    );
+    assert!(raw.contains("\x1b[38;"), "expected ANSI color codes in output: {raw:?}");
 }
 
 #[test]
 fn version_reports_number() {
-    let output = Command::new(binary())
-        .arg("--version")
-        .output()
-        .expect("failed to run --version");
+    let output = Command::new(binary()).arg("--version").output().expect("failed to run --version");
     assert!(output.status.success());
     let stdout = strip_ansi(&String::from_utf8_lossy(&output.stdout));
-    assert!(
-        stdout.contains(env!("CARGO_PKG_VERSION")),
-        "version output missing crate version"
-    );
+    assert!(stdout.contains(env!("CARGO_PKG_VERSION")), "version output missing crate version");
 }
 
 fn strip_ansi(input: &str) -> String {

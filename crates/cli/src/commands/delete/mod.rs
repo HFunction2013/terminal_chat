@@ -1,8 +1,8 @@
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
-use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct DeleteCommand;
@@ -21,11 +21,7 @@ pub mod alias;
 pub mod r#macro;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
-    vec![
-        Arc::new(alias::AliasCommand),
-        Arc::new(r#macro::MacroCommand),
-
-    ]
+    vec![Arc::new(alias::AliasCommand), Arc::new(r#macro::MacroCommand)]
 }
 
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {

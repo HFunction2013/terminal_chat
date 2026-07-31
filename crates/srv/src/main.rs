@@ -42,11 +42,8 @@ impl ConnectService for ConnectServer {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     println!("gRPC server listening on {}", addr);
-    
-    Server::builder()
-        .add_service(ConnectServiceServer::new(ConnectServer))
-        .serve(addr)
-        .await?;
+
+    Server::builder().add_service(ConnectServiceServer::new(ConnectServer)).serve(addr).await?;
 
     Ok(())
 }

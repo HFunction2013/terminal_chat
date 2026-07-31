@@ -1,11 +1,11 @@
 // update.rs
 // Update plugins.
 // 'standard' means main program.
-use clap::ArgMatches;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+use anyhow::Result;
+use clap::ArgMatches;
 
 pub struct UpdateCommand;
 

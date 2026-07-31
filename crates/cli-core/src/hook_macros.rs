@@ -1,16 +1,28 @@
 #[macro_export]
 macro_rules! __buf {
     // 修复：解引用再借用，解决双重&mut、Void引用类型不匹配
-    (M, $b:ident) => { &mut *$b };
-    (R, $b:ident) => { &*$b };
-    (V, $b:ident) => { *$b };
+    (M, $b:ident) => {
+        &mut *$b
+    };
+    (R, $b:ident) => {
+        &*$b
+    };
+    (V, $b:ident) => {
+        *$b
+    };
 }
 
 #[macro_export]
 macro_rules! __call {
-    (M, $func:ident, $b:ident) => { $func(&mut $b) };
-    (R, $func:ident, $b:ident) => { $func(&$b) };
-    (V, $func:ident, $b:ident) => { $func($b.clone()) };
+    (M, $func:ident, $b:ident) => {
+        $func(&mut $b)
+    };
+    (R, $func:ident, $b:ident) => {
+        $func(&$b)
+    };
+    (V, $func:ident, $b:ident) => {
+        $func($b.clone())
+    };
 }
 
 #[macro_export]

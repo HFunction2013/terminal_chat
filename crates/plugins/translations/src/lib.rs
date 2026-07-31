@@ -10,11 +10,7 @@ fn rt() -> &'static Runtime {
 pub fn translate(text: &str, from: &str, to: &str) -> Option<String> {
     rt().block_on(async {
         let translator = DeepLX::new(Config::default());
-        translator
-            .translate(from, to, text, None)
-            .await
-            .ok()
-            .map(|r| r.data)
+        translator.translate(from, to, text, None).await.ok().map(|r| r.data)
     })
 }
 
@@ -62,10 +58,7 @@ mod tests {
     async fn test_translate_cli_help() -> Result<(), Box<dyn std::error::Error>> {
         let translator = DeepLX::new(Config::default());
 
-        let translated = translator
-            .translate("en", "zh", TC_CLI_HELP, None)
-            .await?
-            .data;
+        let translated = translator.translate("en", "zh", TC_CLI_HELP, None).await?.data;
 
         println!("===== 翻译结果 =====");
         println!("{}", translated);

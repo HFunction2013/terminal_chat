@@ -1,13 +1,11 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = tonic_build::configure();
 
-    let protos: Vec<_> = glob::glob("./proto/**/*.proto")?
-        .filter_map(|e| e.ok())
-        .collect();
+    let protos: Vec<_> = glob::glob("./proto/**/*.proto")?.filter_map(|e| e.ok()).collect();
 
     let out_dir = std::env::var("OUT_DIR")?;
 
@@ -42,15 +40,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         for entry in &entries {
             let file_name = entry.path().file_stem().unwrap().to_string_lossy().to_string();
-            
+
             if file_name.contains('.') {
                 let parts: Vec<&str> = file_name.split('.').collect();
                 if parts.len() == 2 {
                     let parent = parts[0].to_string();
                     let child = parts[1].to_string();
-                    nested_modules.entry(parent)
-                        .or_default()
-                        .push((child, file_name.clone()));
+                    nested_modules.entry(parent).or_default().push((child, file_name.clone()));
                 }
             } else {
                 flat_files.push(file_name);

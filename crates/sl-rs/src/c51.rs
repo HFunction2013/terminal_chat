@@ -1,6 +1,6 @@
-use super::{ Config, Train };
-use crate::common::*;
+use super::{Config, Train};
 use crate::Terminal;
+use crate::common::*;
 
 const C51HEIGHT: i32 = 11;
 const C51FUNNEL: i32 = 7;
@@ -47,28 +47,40 @@ const C51WH12: &str = "------'|oOo|=[]=-      ||      ||      |  ||=======_|__";
 const C51WH13: &str = "/~\\____|___|/~\\_|  O=======O=======O   |__|+-/~\\_|     ";
 const C51WH14: &str = "\\_/         \\_/  \\____/  \\____/  \\____/      \\_/       ";
 
+const SL: [[&str; (C51HEIGHT + 1) as usize]; C51PATTERNS as usize] = [
+    [
+        C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH11, C51WH12, C51WH13,
+        C51WH14, C51DEL,
+    ],
+    [
+        C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH21, C51WH22, C51WH23,
+        C51WH24, C51DEL,
+    ],
+    [
+        C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH31, C51WH32, C51WH33,
+        C51WH34, C51DEL,
+    ],
+    [
+        C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH41, C51WH42, C51WH43,
+        C51WH44, C51DEL,
+    ],
+    [
+        C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH51, C51WH52, C51WH53,
+        C51WH54, C51DEL,
+    ],
+    [
+        C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7, C51WH61, C51WH62, C51WH63,
+        C51WH64, C51DEL,
+    ],
+];
 
-const SL: [[&str; (C51HEIGHT + 1) as usize]; C51PATTERNS as usize] =
-    [[C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7,
-        C51WH11, C51WH12, C51WH13, C51WH14, C51DEL],
-        [C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7,
-        C51WH21, C51WH22, C51WH23, C51WH24, C51DEL],
-        [C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7,
-        C51WH31, C51WH32, C51WH33, C51WH34, C51DEL],
-        [C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7,
-        C51WH41, C51WH42, C51WH43, C51WH44, C51DEL],
-        [C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7,
-        C51WH51, C51WH52, C51WH53, C51WH54, C51DEL],
-        [C51STR1, C51STR2, C51STR3, C51STR4, C51STR5, C51STR6, C51STR7,
-        C51WH61, C51WH62, C51WH63, C51WH64, C51DEL]];
-
-
-const COAL: [&str; (C51HEIGHT + 1) as usize] =
-    [COALDEL, COAL01, COAL02, COAL03, COAL04, COAL05,
-        COAL06, COAL07, COAL08, COAL09, COAL10, COALDEL];
+const COAL: [&str; (C51HEIGHT + 1) as usize] = [
+    COALDEL, COAL01, COAL02, COAL03, COAL04, COAL05, COAL06, COAL07, COAL08, COAL09, COAL10,
+    COALDEL,
+];
 
 pub struct C51 {
-    conf: Config
+    conf: Config,
 }
 
 impl C51 {
@@ -79,7 +91,9 @@ impl C51 {
 
 impl Train for C51 {
     fn update(&mut self, terminal: &mut Terminal, x: i32) -> bool {
-        if x < -C51LENGTH { return false }
+        if x < -C51LENGTH {
+            return false;
+        }
         let y;
         let dy;
 
@@ -111,7 +125,6 @@ impl Train for C51 {
     fn get_smoke_state(&mut self) -> &mut smoke::SmokeState {
         &mut self.conf.smoke_state
     }
-
 
     fn config(&self) -> &Config {
         &self.conf
