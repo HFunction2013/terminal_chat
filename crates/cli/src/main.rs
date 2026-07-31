@@ -36,6 +36,8 @@ use std::{
     thread,
     time::Duration,
 };
+mod fortune;
+const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 static IN_CMD: AtomicBool = AtomicBool::new(false);
 fn install_ctrlc_handler() {
@@ -112,9 +114,7 @@ impl Completer for ClapHelper {
             })
             .collect();
 
-        let start = line[..pos]
-            .rfind(char::is_whitespace)
-            .map_or(0, |i| i + 1);
+        let start = line[..pos].rfind(char::is_whitespace).map_or(0, |i| i + 1);
 
         Ok((start, pairs))
     }
@@ -209,12 +209,7 @@ impl Drop for CommandGuard {
 }
 fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
     let mut output = Vec::new();
-    let mut printer = Printer::new(
-        cfg,
-        true,
-        choose_color_mode(cfg),
-        initial_offset(cfg.seed),
-    );
+    let mut printer = Printer::new(cfg, true, choose_color_mode(cfg), initial_offset(cfg.seed));
 
     printer.print_text(input, &mut output)?;
     printer.finalize(&mut output)?;
@@ -290,13 +285,14 @@ fn prepare_startup() -> String {
                 let pos = ((i / freq) as usize) % note.len();
                 let mut chars: Vec<char> = note.chars().collect();
                 if let Some(c) = chars.get_mut(pos)
-                    && c.is_ascii_alphabetic() {
-                        *c = if c.is_ascii_uppercase() {
-                            c.to_ascii_lowercase()
-                        } else {
-                            c.to_ascii_uppercase()
-                        };
-                    }
+                    && c.is_ascii_alphabetic()
+                {
+                    *c = if c.is_ascii_uppercase() {
+                        c.to_ascii_lowercase()
+                    } else {
+                        c.to_ascii_uppercase()
+                    };
+                }
                 display = chars.into_iter().collect();
             }
             println!("{display}");
@@ -426,6 +422,14 @@ Because everyone deserves a good cup of coffee."
             "train" => {
                 let _ = sl::run_sl();
                 rl.clear_screen()?;
+                continue;
+            }
+            "saying" => {
+                match fortune::choose_fortune(FORTUNE_TEXT) {
+                    Some(msg) => println!("{msg}"),
+                    #[allow(non_snake_case)]
+                    None => eprintln!("Error choosing saying"),
+                }
                 continue;
             }
             _ => {}
