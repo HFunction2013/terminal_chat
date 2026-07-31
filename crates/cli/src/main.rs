@@ -47,7 +47,7 @@ fn install_ctrlc_handler() {
             let _ = execute!(stdout(), Show);
             std::process::exit(0);
         }
-        let _ = write!(std::io::stderr(), " (interrupt sent to current command)\n");
+        let _ = writeln!(std::io::stderr(), " (interrupt sent to current command)");
     })
     .expect("failed to install Ctrl+C handler");
 }
@@ -211,9 +211,9 @@ impl Drop for CommandGuard {
 fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
     let mut output = Vec::new();
     let mut printer = Printer::new(
-        &cfg,
+        cfg,
         true,
-        choose_color_mode(&cfg),
+        choose_color_mode(cfg),
         initial_offset(cfg.seed),
     );
 
@@ -267,8 +267,10 @@ fn prepare_startup() -> String {
         let note = String::from("Terminal Chat Starting");
         let font = FIGlet::standard().unwrap();
         let art = font.convert("Terminal Chat").unwrap();
-        let mut cfg = Config::default();
-        cfg.speed = 4000.0;
+        let mut cfg = Config {
+            speed: 4000.0,
+            ..Default::default()
+        };
         let mut display = note.clone();
 
         while running_anim.load(Ordering::SeqCst) {
@@ -285,18 +287,17 @@ fn prepare_startup() -> String {
             thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
             i = i.wrapping_add(1);
 
-            if i % freq == 0 {
+            if i.is_multiple_of(freq) {
                 let pos = ((i / freq) as usize) % note.len();
                 let mut chars: Vec<char> = note.chars().collect();
-                if let Some(c) = chars.get_mut(pos) {
-                    if c.is_ascii_alphabetic() {
+                if let Some(c) = chars.get_mut(pos)
+                    && c.is_ascii_alphabetic() {
                         *c = if c.is_ascii_uppercase() {
                             c.to_ascii_lowercase()
                         } else {
                             c.to_ascii_uppercase()
                         };
                     }
-                }
                 display = chars.into_iter().collect();
             }
             println!("{}", display);

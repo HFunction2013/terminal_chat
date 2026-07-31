@@ -5,13 +5,13 @@ use protos::connect::{
     connect_service_server::{ConnectService, ConnectServiceServer},
 };
 
-struct MyConnectService;
+struct ConnectServer;
 
 #[tonic::async_trait]
-impl ConnectService for MyConnectService {
+impl ConnectService for ConnectServer {
     async fn connect_server(
         &self,
-        request: tonic::Request<ConnectRequest>,
+        _request: tonic::Request<ConnectRequest>,
     ) -> Result<tonic::Response<ConnectResponse>, tonic::Status> {
         // 处理连接
         todo!()
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     println!("Listening on {}.", addr);
     Server::builder()
-        .add_service(ConnectServiceServer::new(MyConnectService))
+        .add_service(ConnectServiceServer::new(ConnectServer))
         .serve(addr)
         .await?;
 

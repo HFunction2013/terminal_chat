@@ -261,11 +261,11 @@ fn cleanup_orphaned_files(
         let file_path = Path::new(&path);
         if file_path.exists() {
             // 验证文件哈希是否匹配
-            if let Ok(content) = fs::read_to_string(&file_path) {
+            if let Ok(content) = fs::read_to_string(file_path) {
                 let current_hash = hash_content(&content);
                 if let Some(stored_hash) = lock_entries.get(&path) {
                     if current_hash == *stored_hash {
-                        fs::remove_file(&file_path)?;
+                        fs::remove_file(file_path)?;
                         println!("[DELETE] {}", file_path.display());
                     } else {
                         println!("[SKIP] {} (modified by user, not deleted)", file_path.display());
@@ -306,7 +306,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 加载 lock 文件
     let lock_path = Path::new("./crates/cli/commands.lock");
-    let mut lock_entries = read_lock_file(&lock_path);
+    let mut lock_entries = read_lock_file(lock_path);
 
     let mut mod_entries = Vec::new();
 
@@ -530,7 +530,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
     }
 
     // 保存 lock 文件
-    write_lock_file(&lock_path, &lock_entries)?;
+    write_lock_file(lock_path, &lock_entries)?;
     println!("[SAVE] commands.lock");
 
     println!("\nDone! {} commands processed.", mod_entries.len());
