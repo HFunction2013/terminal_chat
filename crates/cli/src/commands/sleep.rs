@@ -19,7 +19,7 @@ impl CommandExecutor for SleepCommand {
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         let total = _matches.get_one::<humantime::Duration>("milliseconds").copied().unwrap();
-        print_content(format!("[*] Aha... Sleep for {}.", total).as_str());
+        print_content(format!("[*] Aha... Sleep for {total}.").as_str());
         let start = std::time::Instant::now();
         while start.elapsed() < *total {
             if INTERRUPTED.load(Ordering::SeqCst) {

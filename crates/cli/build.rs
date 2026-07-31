@@ -13,7 +13,7 @@ struct CommandDef {
     about: String,
     args: Option<Vec<ArgDef>>,
     hidden: Option<bool>,
-    subcommands: Option<Vec<CommandDef>>,
+    subcommands: Option<Vec<Self>>,
     multiple_values: Option<bool>,
 
     #[serde(default)]
@@ -50,7 +50,7 @@ fn map_action(s: &str) -> &'static str {
     }
 }
 
-/// 解析num_args范围字符串，转为rust合法代码
+/// `解析num_args范围字符串，转为rust合法代码`
 fn parse_num_args(s: &str) -> String {
     match s {
         "0.." => "0..".to_string(),
@@ -58,7 +58,7 @@ fn parse_num_args(s: &str) -> String {
         "0..1" => "0..1".to_string(),
         "0..=" => "0..=".to_string(),
         val if val.parse::<usize>().is_ok() => val.to_string(),
-        _ => panic!("invalid num_args range: {}", s),
+        _ => panic!("invalid num_args range: {s}"),
     }
 }
 
@@ -97,7 +97,7 @@ fn build_command(c: &CommandDef) -> String {
         for arg in args {
             group.push_str(&format!(".arg(\"{}\")", escape_str(&arg.name)));
         }
-        code.push_str(&format!(".group({})", group));
+        code.push_str(&format!(".group({group})"));
     }
 
     if let Some(args) = &c.args {
@@ -105,7 +105,7 @@ fn build_command(c: &CommandDef) -> String {
             let mut arg = format!("Arg::new(\"{}\")", escape_str(&a.name));
 
             if let Some(c) = a.short {
-                arg.push_str(&format!(".short('{}')", c));
+                arg.push_str(&format!(".short('{c}')"));
             }
             if let Some(l) = &a.long {
                 arg.push_str(&format!(".long(\"{}\")", escape_str(l)));
@@ -116,12 +116,12 @@ fn build_command(c: &CommandDef) -> String {
             if let Some(vn) = &a.value_name {
                 arg.push_str(&format!(".value_name(\"{}\")", escape_str(vn)));
             }
-            if let Some(true) = a.required {
+            if a.required == Some(true) {
                 arg.push_str(".required(true)");
             }
             if let Some(n) = &a.num_args {
                 let range = parse_num_args(n);
-                arg.push_str(&format!(".num_args({})", range));
+                arg.push_str(&format!(".num_args({range})"));
             }
             if let Some(act) = &a.action {
                 arg.push_str(&format!(".action({})", map_action(act)));
@@ -133,8 +133,7 @@ fn build_command(c: &CommandDef) -> String {
             // ✅ 唯一新增生成逻辑
             if let Some(vp) = &a.value_parser {
                 arg.push_str(&format!(
-                    ".value_parser(clap::value_parser!({}))",
-                    vp
+                    ".value_parser(clap::value_parser!({vp}))"
                 ));
             }
 
@@ -142,7 +141,7 @@ fn build_command(c: &CommandDef) -> String {
                 arg.push_str(&format!(".conflicts_with(\"{}\")", escape_str(cf)));
             }
 
-            code.push_str(&format!(".arg({})", arg));
+            code.push_str(&format!(".arg({arg})"));
         }
     }
 
@@ -150,7 +149,7 @@ fn build_command(c: &CommandDef) -> String {
         subcommands.sort_by(|a, b| a.name.cmp(&b.name));
         for sub in subcommands {
             let sub_code = build_command(&sub);
-            code.push_str(&format!(".subcommand({})", sub_code));
+            code.push_str(&format!(".subcommand({sub_code})"));
         }
     }
 
@@ -184,7 +183,7 @@ fn main() {
 
     for c in commands {
         let cmd_code = build_command(&c);
-        code.push_str(&format!("    cmd = cmd.subcommand({});\n", cmd_code));
+        code.push_str(&format!("    cmd = cmd.subcommand({cmd_code});\n"));
     }
 
     code.push_str("    cmd\n");

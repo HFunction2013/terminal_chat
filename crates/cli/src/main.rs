@@ -57,7 +57,7 @@ mod built_info {
 mod command {
     include!(concat!(env!("OUT_DIR"), "/command.rs"));
 }
-/// rustyline Helper：桥接 clap_complete
+/// rustyline Helper：桥接 `clap_complete`
 struct ClapHelper {
     cli: Command,
 }
@@ -114,8 +114,7 @@ impl Completer for ClapHelper {
 
         let start = line[..pos]
             .rfind(char::is_whitespace)
-            .map(|i| i + 1)
-            .unwrap_or(0);
+            .map_or(0, |i| i + 1);
 
         Ok((start, pairs))
     }
@@ -154,7 +153,7 @@ fn welcome(b: bool) {
 
 fn build_info() {
     let out = format!(
-        r#"=== built::info ===
+        r"=== built::info ===
 PKG_NAME: {}
 PKG_VERSION: {}
 TARGET: {}
@@ -167,7 +166,7 @@ GIT_VERSION: {:?}
 GIT_DIRTY: {:?}
 GIT_COMMIT_HASH: {:?}
 === end of built::info ===
-"#,
+",
         built_info::PKG_NAME,
         built_info::PKG_VERSION,
         built_info::TARGET,
@@ -190,7 +189,7 @@ fn print_copyright() {
     println!("Copyright (c) 2026 HZFY. All Rights Reserved.");
 }
 fn print_license() {
-    let _ = io::stdout().write_all(include_str!("../../../LICENSE").as_bytes());
+    let _ = io::stdout().write_all(include_bytes!("../../../LICENSE"));
     println!();
     let _ = io::stdout().flush();
 }
@@ -200,7 +199,7 @@ fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
     format!("{:x}", hasher.finalize())
 }
 fn print_banner(colored: &String) {
-    print!("{}", colored);
+    print!("{colored}");
 }
 struct CommandGuard;
 impl Drop for CommandGuard {
@@ -259,7 +258,7 @@ fn prepare_startup() -> String {
     let colored = Arc::new(Mutex::new(String::new()));
     let colored_anim = colored.clone();
     let pb_anim = pb.clone();
-    let pb_task = pb.clone();
+    let pb_task = pb;
     let anim_handle = thread::spawn(move || {
         let mut rng = rand::thread_rng();
         let mut i: u64 = rng.r#gen();
@@ -279,7 +278,7 @@ fn prepare_startup() -> String {
                 execute!(stdout(), MoveTo(0, 0)).unwrap();
                 let result = colorize_string(&cfg, &art.as_str()).unwrap();
                 *colored_anim.lock().unwrap() = result.clone();
-                println!("{}", result);
+                println!("{result}");
             });
 
             pb_anim.set_position(progress_pb.load(Ordering::Relaxed));
@@ -300,7 +299,7 @@ fn prepare_startup() -> String {
                     }
                 display = chars.into_iter().collect();
             }
-            println!("{}", display);
+            println!("{display}");
         }
     });
 
@@ -360,7 +359,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
             Err(err) => {
-                eprintln!("Readline error: {}", err);
+                eprintln!("Readline error: {err}");
                 break;
             }
         };
@@ -410,13 +409,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "coffee" => {
                 println!(
-                    r#"                  ( (
+                    r"                  ( (
                    ) )
                  ........
                  |      |]
                  \      /
                   `----'
-Because everyone deserves a good cup of coffee."#
+Because everyone deserves a good cup of coffee."
                 );
                 continue;
             }
@@ -435,7 +434,7 @@ Because everyone deserves a good cup of coffee."#
         let args = match shell_words::split(input) {
             Ok(args) => args,
             Err(e) => {
-                eprintln!("Parse error: {}", e);
+                eprintln!("Parse error: {e}");
                 continue;
             }
         };
@@ -449,11 +448,11 @@ Because everyone deserves a good cup of coffee."#
                 IN_CMD.store(true, Ordering::SeqCst);
                 let _guard = CommandGuard;
                 if let Err(e) = commands::dispatch(&matches) {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Error: {e}");
                 }
             }
             Err(err) => {
-                eprintln!("{}", err);
+                eprintln!("{err}");
             }
         }
     }

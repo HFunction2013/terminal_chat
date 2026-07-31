@@ -21,7 +21,7 @@ impl CommandExecutor for SetgCommand {
             .ok_or_else(|| anyhow!("Missing required argument: key"))?;
         let use_password = _matches.get_flag("password");
         let value = if use_password {
-            rpassword::prompt_password(format!("Enter value for '{}': ", key))?
+            rpassword::prompt_password(format!("Enter value for '{key}': "))?
                 .trim()
                 .to_string()
         } else {
@@ -33,9 +33,9 @@ impl CommandExecutor for SetgCommand {
         let option = GlobalOption::new(key, &value);
         set_global_option(option);
         if use_password {
-            print_content(format!("{} => ******", key).as_str());
+            print_content(format!("{key} => ******").as_str());
         } else {
-            print_content(format!("{} => {}", key, value).as_str());
+            print_content(format!("{key} => {value}").as_str());
         }
         Ok(())
     }
