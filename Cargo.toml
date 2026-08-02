@@ -18,6 +18,8 @@ resolver = "2"
 edition = "2024"
 license = "MIT"
 rust-version = "1.93"
+version = "0.1.0"
+authors = ["HZFY"]
 
 [profile.release]
 opt-level = 3

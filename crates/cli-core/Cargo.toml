@@ -1,8 +1,10 @@
 [package]
 name = "cli_core"
-version = "0.1.0"
-edition = "2024"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
 
 [lib]
 crate-type = ["dylib"]
