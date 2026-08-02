@@ -3,8 +3,9 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core::global_settings::get_global_option;
 
 pub struct GetgCommand;
 
@@ -15,7 +16,16 @@ impl CommandExecutor for GetgCommand {
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
         // TODO: Get global options
-        println!("Command `getg` is not yet implemented.");
+        let key = _matches
+            .get_one::<String>("key")
+            .ok_or_else(|| anyhow!("Missing required argument: key"))?;
+        let val = get_global_option(key);
+        if val.is_some() {
+            println!("{key} => {}", val.unwrap());
+        } else {
+            println!("Key {key} doesn't exists");
+            return Ok(());
+        }
         Ok(())
     }
 }
