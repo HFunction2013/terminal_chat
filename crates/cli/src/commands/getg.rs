@@ -15,13 +15,12 @@ impl CommandExecutor for GetgCommand {
     }
 
     fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Get global options
         let key = _matches
             .get_one::<String>("key")
             .ok_or_else(|| anyhow!("Missing required argument: key"))?;
         let val = get_global_option(key);
-        if val.is_some() {
-            println!("{key} => {}", val.unwrap());
+        if let Some(v) = val {
+            println!("{key} => {v}");
         } else {
             println!("Key {key} doesn't exists");
             return Ok(());

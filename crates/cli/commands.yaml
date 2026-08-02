@@ -650,3 +650,15 @@ commands:
         help: Aha... sleepy!
         default_value: "1000"
         value_parser: "humantime::Duration"
+  - name: editor
+    about: just opens an editor
+    args:
+      - name: file
+        value_name: FILE
+        required: false
+        help: file to open, optional.
+      - name: editor
+        long: editor
+        short: e
+        help: set editor
+        action: set

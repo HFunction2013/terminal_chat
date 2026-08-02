@@ -20,6 +20,7 @@
 ./crates/cli/src/commands/disband.rs:10821693627115934359
 ./crates/cli/src/commands/disconnect.rs:1307165808967939447
 ./crates/cli/src/commands/download.rs:2146213254402999770
+./crates/cli/src/commands/editor.rs:13216647092666712447
 ./crates/cli/src/commands/file_info.rs:18428778547717018215
 ./crates/cli/src/commands/foreground.rs:7747165108198079366
 ./crates/cli/src/commands/freq_info.rs:15715864479471978851
@@ -35,7 +36,7 @@
 ./crates/cli/src/commands/logs.rs:4019622791443400812
 ./crates/cli/src/commands/ls.rs:14344287000770988574
 ./crates/cli/src/commands/mkdir.rs:8580176302924499871
-./crates/cli/src/commands/mod.rs:10856348180507959511
+./crates/cli/src/commands/mod.rs:15936197374729041767
 ./crates/cli/src/commands/msg.rs:470962352861905962
 ./crates/cli/src/commands/mute.rs:939108864484916493
 ./crates/cli/src/commands/op.rs:2110205297879741793

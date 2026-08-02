@@ -29,6 +29,7 @@ prost = "0.13"
 protos = { path = "../protos" }
 # prost-types = "0.14"
 tonic = "0.12"
+which = "8.0.5"
 
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }

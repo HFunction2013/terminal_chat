@@ -510,6 +510,7 @@ dependencies = [
  "shell-words",
  "sl-rs",
  "tonic",
+ "which",
 ]
 
 [[package]]
@@ -3229,6 +3230,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5e8f38b596e2a359b755342473520a99421e43658548c79489ee221b728c107"
 dependencies = [
  "hashbrown 0.15.5",
+]
+
+[[package]]
+name = "which"
+version = "8.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3ef584124b911bcc3875c2f1472e80f24361ceb789bd1c62b3e9a3df9ff43c"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

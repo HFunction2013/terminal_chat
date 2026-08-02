@@ -25,6 +25,7 @@ pub mod deop;
 pub mod disband;
 pub mod disconnect;
 pub mod download;
+pub mod editor;
 pub mod file_info;
 pub mod foreground;
 pub mod freq_info;
@@ -130,6 +131,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(trop::TropCommand),
         Arc::new(disband::DisbandCommand),
         Arc::new(sleep::SleepCommand),
+        Arc::new(editor::EditorCommand),
     ]
 }
 
