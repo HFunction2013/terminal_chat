@@ -11,5 +11,6 @@ crate::define_hook_system!(
     &mut String,
     &String,
     &String,
-    String
+    String,
+    ()
 );

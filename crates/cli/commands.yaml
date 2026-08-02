@@ -429,7 +429,7 @@ commands:
     about: Unset session variable.
     args:
       - name: key
-        required: true
+        required: false
         value_name: KEY
         help: Config key name
       - name: all
@@ -446,7 +446,7 @@ commands:
     about: Unset global variable.
     args:
       - name: key
-        required: true
+        required: false
         value_name: KEY
         help: Config key name
       - name: all

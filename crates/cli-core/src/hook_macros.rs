@@ -31,7 +31,8 @@ macro_rules! define_hook_system {
         $fn:ident,
         $pfx:literal,
         $bm:ident, $om:ident, $am:ident, $cm:ident,
-        $bt:ty, $ot:ty, $at:ty, $ct:ty
+        $bt:ty, $ot:ty, $at:ty, $ct:ty,
+        $ret:ty
     ) => {
         paste::paste! {
             type [<Before $pfx:camel Hook>] = $crate::hook::Hook<Box<dyn Fn($bt) -> bool + Send + Sync>>;
@@ -48,7 +49,6 @@ macro_rules! define_hook_system {
             static [<IN_ $pfx:upper>]: once_cell::sync::Lazy<std::sync::Mutex<bool>>
                 = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(false));
 
-            // 注册API 完全不变
             pub fn [<register_before_ $pfx>]<F>(name: &'static str, f: F)
             where F: Fn($bt) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<BEFORE_ $pfx:upper _HOOKS>].lock() {
@@ -107,21 +107,21 @@ macro_rules! define_hook_system {
             }
 
             #[allow(unused_assignments)]
-            pub fn [<$pfx:snake>](content: impl Into<$ct>) where $ct: Clone {
+            pub fn [<$pfx:snake>](content: impl Into<$ct>) -> $ret
+            where $ct: Clone {
                 let content = content.into();
                 let mut reenter_guard = [<IN_ $pfx:upper>].lock().unwrap();
                 let reenter = *reenter_guard;
                 if reenter {
                     drop(reenter_guard);
                     let tmp = content.clone();
-                    $crate::__call!($cm, $fn, tmp);
-                    return;
+                    return $crate::__call!($cm, $fn, tmp);
                 }
                 *reenter_guard = true;
                 drop(reenter_guard);
 
                 let mut interrupted = false;
-                match stringify!($bm) {
+                let result = match stringify!($bm) {
                     "M" => {
                         let mut buf = content.clone();
                         interrupted = [<run_before_ $pfx _chain>](&mut buf);
@@ -129,24 +129,30 @@ macro_rules! define_hook_system {
                             interrupted = [<run_on_ $pfx _chain>](&buf);
                         }
                         if !interrupted {
-                            $crate::__call!($cm, $fn, buf);
+                            let res = $crate::__call!($cm, $fn, buf);
                             let _ = [<run_after_ $pfx _chain>](&buf);
+                            res
+                        } else {
+                            #[allow(invalid_value)]
+                            unsafe { std::mem::zeroed() }
                         }
                     }
                     _ => {
                         let buf = content.clone();
-                        interrupted = false;
+                        interrupted = [<run_on_ $pfx _chain>](&buf);
                         if !interrupted {
-                            interrupted = [<run_on_ $pfx _chain>](&buf);
-                        }
-                        if !interrupted {
-                            $crate::__call!($cm, $fn, buf);
+                            let res = $crate::__call!($cm, $fn, buf);
                             let _ = [<run_after_ $pfx _chain>](&buf);
+                            res
+                        } else {
+                            #[allow(invalid_value)]
+                            unsafe { std::mem::zeroed() }
                         }
                     }
-                }
+                };
 
                 *[<IN_ $pfx:upper>].lock().unwrap() = false;
+                result
             }
         }
     };
