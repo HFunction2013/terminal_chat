@@ -35,11 +35,13 @@
 ./crates/cli/src/commands/logs.rs:4019622791443400812
 ./crates/cli/src/commands/ls.rs:14344287000770988574
 ./crates/cli/src/commands/mkdir.rs:8580176302924499871
-./crates/cli/src/commands/mod.rs:1117270380363596171
+./crates/cli/src/commands/mod.rs:10856348180507959511
 ./crates/cli/src/commands/msg.rs:470962352861905962
 ./crates/cli/src/commands/mute.rs:939108864484916493
 ./crates/cli/src/commands/op.rs:2110205297879741793
-./crates/cli/src/commands/proxy_off.rs:11472395819972568471
+./crates/cli/src/commands/proxy/mod.rs:15733980604387225294
+./crates/cli/src/commands/proxy/off.rs:16023214314817460475
+./crates/cli/src/commands/proxy/on.rs:10734664134148654964
 ./crates/cli/src/commands/pwd.rs:9428849491484642839
 ./crates/cli/src/commands/reconnect.rs:14883140859107254038
 ./crates/cli/src/commands/reply.rs:17779772937793220552

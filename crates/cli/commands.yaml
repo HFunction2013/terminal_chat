@@ -43,8 +43,13 @@ commands:
         help: Session config value
   - name: route
     about: Trace route to server
-  - name: proxy_off
-    about: Turn off system proxy
+  - name: proxy
+    about: Turn on/off system proxy
+    subcommands:
+      - name: 'on'
+        about: Turn on system proxy.
+      - name: 'off'
+        about: Turn off system proxy.
   - name: show
     about: Show runtime information
     subcommands:
@@ -427,6 +432,16 @@ commands:
         required: true
         value_name: KEY
         help: Config key name
+      - name: all
+        long: all
+        short: a
+        action: set_true
+        help: Clear all session options.
+      - name: force
+        long: force
+        short: f
+        action: set_true
+        help: action without confirm.
   - name: unsetg
     about: Unset global variable.
     args:
@@ -434,6 +449,16 @@ commands:
         required: true
         value_name: KEY
         help: Config key name
+      - name: all
+        long: all
+        short: a
+        action: set_true
+        help: Clear all global options.
+      - name: force
+        long: force
+        short: f
+        action: set_true
+        help: action without confirm.
   - name: create
     about: Create alias or macro
     subcommands:

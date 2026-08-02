@@ -42,7 +42,7 @@ pub mod mkdir;
 pub mod msg;
 pub mod mute;
 pub mod op;
-pub mod proxy_off;
+pub mod proxy;
 pub mod pwd;
 pub mod reconnect;
 pub mod reply;
@@ -76,7 +76,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(getg::GetgCommand),
         Arc::new(set::SetCommand),
         Arc::new(route::RouteCommand),
-        Arc::new(proxy_off::ProxyOffCommand),
+        Arc::new(proxy::ProxyCommand),
         Arc::new(show::ShowCommand),
         Arc::new(join_freq::JoinFreqCommand),
         Arc::new(create_freq::CreateFreqCommand),

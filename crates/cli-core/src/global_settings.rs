@@ -64,3 +64,39 @@ crate::define_hook_system!(
     Void,
     Void
 );
+crate::define_hook_system!(
+    internal_get_all_options,
+    "get_all_options",
+    V,
+    V,
+    V,
+    V,
+    Void,
+    Void,
+    Void,
+    Void
+);
+crate::define_hook_system!(
+    internal_get_global_option,
+    "get_global_option",
+    M,
+    R,
+    R,
+    R,
+    &mut String,
+    &String,
+    &String,
+    String
+);
+crate::define_hook_system!(
+    internal_remove_global_option,
+    "remove_global_option",
+    M,
+    R,
+    R,
+    R,
+    &mut String,
+    &String,
+    &String,
+    String
+);
