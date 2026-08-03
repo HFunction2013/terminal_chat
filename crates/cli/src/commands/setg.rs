@@ -4,8 +4,10 @@
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core::global_settings::{GlobalOption, set_global_option};
+use cli_core::print_content::print_content;
 
 pub struct SetgCommand;
 
@@ -14,28 +16,39 @@ impl SetgCommand {
     /// `value` - Target config value, value_name: VALUE
     /// `password` - use rpassword to read the value, conflicts with: value
     #[allow(unused_variables)]
-	fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
-		// TODO: Set global options
-		println!("Command `setg` is not yet implemented.");
-		Ok(())
-	}
+    fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
+        let value = if password {
+            rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()
+        } else {
+            value
+            .ok_or_else(|| anyhow!("Missing required argument: value. Use --password flag if you want to input securely."))?
+            .clone()
+        };
+
+        let option = GlobalOption::new(&key, &value);
+        set_global_option(option);
+        if password {
+            print_content(format!("{key} => ******").as_str());
+        } else {
+            print_content(format!("{key} => {value}").as_str());
+        }
+        Ok(())
+    }
 }
 
 impl CommandExecutor for SetgCommand {
-	fn name(&self) -> &'static str {
-		"setg"
-	}
+    fn name(&self) -> &'static str {
+        "setg"
+    }
 
-	#[allow(unused_variables)]
-	fn run(&self, matches: &ArgMatches) -> Result<()> {
+    #[allow(unused_variables)]
+    fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches
             .get_one::<String>("key")
             .ok_or_else(|| anyhow!("Missing required argument: key"))?
             .clone();
-        let value = matches
-            .get_one::<String>("value")
-            .cloned();
+        let value = matches.get_one::<String>("value").cloned();
         let password = matches.get_flag("password");
         self.execute(key, value, password)
-	}
+    }
 }
