@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct LocalsCommand;
 
-impl CommandExecutor for LocalsCommand {
-    fn name(&self) -> &'static str {
-        "locals"
-    }
+impl LocalsCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Show value of all local variables
+		println!("Command `locals` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Show value of all local variables
-        println!("Command `locals` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for LocalsCommand {
+	fn name(&self) -> &'static str {
+		"locals"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

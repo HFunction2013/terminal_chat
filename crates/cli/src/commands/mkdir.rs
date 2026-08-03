@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct MkdirCommand;
 
-impl CommandExecutor for MkdirCommand {
-    fn name(&self) -> &'static str {
-        "mkdir"
-    }
+impl MkdirCommand {
+    /// `directory` - DIR to make., required, value_name: DIR
+    #[allow(unused_variables)]
+	fn execute(&self, directory: String) -> Result<()> {
+		// TODO: Make directory in remote server.
+		println!("Command `mkdir` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Make directory in remote server.
-        println!("Command `mkdir` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for MkdirCommand {
+	fn name(&self) -> &'static str {
+		"mkdir"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let directory = matches
+            .get_one::<String>("directory")
+            .ok_or_else(|| anyhow!("Missing required argument: directory"))?
+            .clone();
+        self.execute(directory)
+	}
 }

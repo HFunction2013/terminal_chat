@@ -3,19 +3,44 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct ScheduleMsgCommand;
 
-impl CommandExecutor for ScheduleMsgCommand {
-    fn name(&self) -> &'static str {
-        "schedule_msg"
-    }
+impl ScheduleMsgCommand {
+    /// `time` - send time, required, value_name: TIME
+    /// `message` - Your message, send #EDITOR# to open editor, required, value_name: MSG
+    /// `users` - The users, default everybody., value_name: USERS
+    #[allow(unused_variables)]
+	fn execute(&self, time: String, message: String, users: Vec<String>) -> Result<()> {
+		// TODO: Schedules message.
+		println!("Command `schedule_msg` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Schedules message.
-        println!("Command `schedule_msg` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for ScheduleMsgCommand {
+	fn name(&self) -> &'static str {
+		"schedule_msg"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let time = matches
+            .get_one::<String>("time")
+            .ok_or_else(|| anyhow!("Missing required argument: time"))?
+            .clone();
+        let message = matches
+            .get_one::<String>("message")
+            .ok_or_else(|| anyhow!("Missing required argument: message"))?
+            .clone();
+        let users = matches
+            .get_many::<String>("users")
+            .unwrap_or_default()
+            .map(|s| s.clone())
+            .collect::<Vec<_>>();
+        self.execute(time, message, users)
+	}
 }

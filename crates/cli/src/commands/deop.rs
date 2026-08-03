@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct DeopCommand;
 
-impl CommandExecutor for DeopCommand {
-    fn name(&self) -> &'static str {
-        "deop"
-    }
+impl DeopCommand {
+    /// `user` - the full username, e.g., HZFY@192.168.78.91, required, value_name: USER
+    #[allow(unused_variables)]
+	fn execute(&self, user: String) -> Result<()> {
+		// TODO: take mod permission from a certain user, noone can deop creator.
+		println!("Command `deop` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: take mod permission from a certain user, noone can deop creator.
-        println!("Command `deop` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for DeopCommand {
+	fn name(&self) -> &'static str {
+		"deop"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let user = matches
+            .get_one::<String>("user")
+            .ok_or_else(|| anyhow!("Missing required argument: user"))?
+            .clone();
+        self.execute(user)
+	}
 }

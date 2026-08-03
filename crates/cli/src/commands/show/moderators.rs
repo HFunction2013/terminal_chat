@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct ModeratorsCommand;
 
-impl CommandExecutor for ModeratorsCommand {
-    fn name(&self) -> &'static str {
-        "moderators"
-    }
+impl ModeratorsCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Show moderators in current frequency
+		println!("Command `moderators` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Show moderators in current frequency
-        println!("Command `moderators` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for ModeratorsCommand {
+	fn name(&self) -> &'static str {
+		"moderators"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

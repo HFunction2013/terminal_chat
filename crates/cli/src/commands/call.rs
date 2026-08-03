@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct CallCommand;
 
-impl CommandExecutor for CallCommand {
-    fn name(&self) -> &'static str {
-        "call"
-    }
+impl CallCommand {
+    /// `user` - The user, required, value_name: USER
+    #[allow(unused_variables)]
+	fn execute(&self, user: String) -> Result<()> {
+		// TODO: Call an user
+		println!("Command `call` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Call an user
-        println!("Command `call` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for CallCommand {
+	fn name(&self) -> &'static str {
+		"call"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let user = matches
+            .get_one::<String>("user")
+            .ok_or_else(|| anyhow!("Missing required argument: user"))?
+            .clone();
+        self.execute(user)
+	}
 }

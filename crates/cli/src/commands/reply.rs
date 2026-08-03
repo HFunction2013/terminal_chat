@@ -3,19 +3,32 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct ReplyCommand;
 
-impl CommandExecutor for ReplyCommand {
-    fn name(&self) -> &'static str {
-        "reply"
-    }
+impl ReplyCommand {
+    /// `message` - Your message, if not given, fallback to editor mode. Also switch to editor if MSG==#EDITOR#, value_name: MSG
+    #[allow(unused_variables)]
+	fn execute(&self, message: Option<String>) -> Result<()> {
+		// TODO: Reply to the user who has just spoken quickly
+		println!("Command `reply` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Reply to the user who has just spoken quickly
-        println!("Command `reply` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for ReplyCommand {
+	fn name(&self) -> &'static str {
+		"reply"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let message = matches
+            .get_one::<String>("message")
+            .cloned();
+        self.execute(message)
+	}
 }

@@ -1,21 +1,38 @@
 // unset.rs
-// Unset variable.
+// Unset session variable.
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct UnsetCommand;
 
-impl CommandExecutor for UnsetCommand {
-    fn name(&self) -> &'static str {
-        "unset"
-    }
+impl UnsetCommand {
+    /// `key` - Config key name, value_name: KEY
+    /// `all` - Clear all session options.
+    /// `force` - action without confirm.
+    #[allow(unused_variables)]
+	fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
+		// TODO: Unset session variable.
+		println!("Command `unset` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Unset variable.
-        println!("Command `unset` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for UnsetCommand {
+	fn name(&self) -> &'static str {
+		"unset"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let key = matches
+            .get_one::<String>("key")
+            .cloned();
+        let all = matches.get_flag("all");
+        let force = matches.get_flag("force");
+        self.execute(key, all, force)
+	}
 }

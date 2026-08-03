@@ -3,19 +3,32 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct AwayCommand;
 
-impl CommandExecutor for AwayCommand {
-    fn name(&self) -> &'static str {
-        "away"
-    }
+impl AwayCommand {
+    /// `status` - Your status, only away and busy avaliable. Auto replies private messages. Like:   [bot-reply] I am busy now. Contact me later. , value_name: STATUS, default: away
+    #[allow(unused_variables)]
+	fn execute(&self, status: Option<String>) -> Result<()> {
+		// TODO: Set your status to be busy or away
+		println!("Command `away` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Set your status to be busy or away
-        println!("Command `away` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for AwayCommand {
+	fn name(&self) -> &'static str {
+		"away"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let status = matches
+            .get_one::<String>("status")
+            .cloned();
+        self.execute(status)
+	}
 }

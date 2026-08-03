@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct PwdCommand;
 
-impl CommandExecutor for PwdCommand {
-    fn name(&self) -> &'static str {
-        "pwd"
-    }
+impl PwdCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Get current remote directory.
+		println!("Command `pwd` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Get current remote directory.
-        println!("Command `pwd` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for PwdCommand {
+	fn name(&self) -> &'static str {
+		"pwd"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

@@ -1,8 +1,9 @@
-use crate::INTERRUPTED;
-use crate::commands::CommandExecutor;
-use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use crate::commands::CommandExecutor;
+use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct ShowCommand;
@@ -17,13 +18,13 @@ impl CommandExecutor for ShowCommand {
     }
 }
 
-pub mod active_freqs;
-pub mod active_users;
+pub mod options;
 pub mod globals;
 pub mod locals;
-pub mod moderators;
-pub mod options;
 pub mod variables;
+pub mod active_freqs;
+pub mod active_users;
+pub mod moderators;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
@@ -34,6 +35,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(active_freqs::ActiveFreqsCommand),
         Arc::new(active_users::ActiveUsersCommand),
         Arc::new(moderators::ModeratorsCommand),
+
     ]
 }
 

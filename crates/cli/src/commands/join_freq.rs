@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct JoinFreqCommand;
 
-impl CommandExecutor for JoinFreqCommand {
-    fn name(&self) -> &'static str {
-        "join_freq"
-    }
+impl JoinFreqCommand {
+    /// `freq` - Target frequency id, required, value_name: FREQ_ID
+    #[allow(unused_variables)]
+	fn execute(&self, freq: String) -> Result<()> {
+		// TODO: Join a target frequency channel
+		println!("Command `join_freq` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Join a target frequency channel
-        println!("Command `join_freq` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for JoinFreqCommand {
+	fn name(&self) -> &'static str {
+		"join_freq"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let freq = matches
+            .get_one::<String>("freq")
+            .ok_or_else(|| anyhow!("Missing required argument: freq"))?
+            .clone();
+        self.execute(freq)
+	}
 }

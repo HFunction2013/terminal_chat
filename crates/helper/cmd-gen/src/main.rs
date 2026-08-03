@@ -23,6 +23,35 @@ struct CommandDef {
 
     #[serde(default)]
     subcommands: Vec<CommandDef>,
+
+    // 新增：支持 args 字段
+    #[serde(default)]
+    args: Vec<ArgDef>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ArgDef {
+    name: String,
+    #[serde(default)]
+    short: Option<char>,
+    #[serde(default)]
+    long: Option<String>,
+    #[serde(default)]
+    help: Option<String>,
+    #[serde(default)]
+    value_name: Option<String>,
+    #[serde(default)]
+    required: bool,
+    #[serde(default)]
+    num_args: Option<String>,
+    #[serde(default)]
+    action: Option<String>,
+    #[serde(default)]
+    default_value: Option<String>,
+    #[serde(default)]
+    conflicts_with: Option<String>,
+    #[serde(default)]
+    value_parser: Option<String>,
 }
 
 /// 把命令名转成 Rust 结构体名
@@ -85,50 +114,226 @@ fn write_lock_file(
     Ok(())
 }
 
-/// 生成单个命令模块
-fn generate_module(name: &str, about: &str, debug_only: bool) -> String {
-    let struct_name = to_struct_name(name);
+/// 判断文件是否需要更新（基于 hash 校验）
+fn should_update_file(path: &Path, content: &str, lock_entries: &HashMap<String, u64>) -> bool {
+    let relative_path = path.to_string_lossy().to_string();
+    let new_hash = hash_content(content);
 
+    if !path.exists() {
+        return true;
+    }
+
+    if let Some(&old_hash) = lock_entries.get(&relative_path) {
+        if let Ok(current_content) = fs::read_to_string(path) {
+            let current_hash = hash_content(&current_content);
+
+            if current_hash == old_hash && current_hash != new_hash {
+                // 文件未被手动修改且需要更新
+                return true;
+            } else if current_hash == new_hash {
+                // 已经是最新
+                return false;
+            } else {
+                // 文件被手动修改，跳过
+                println!("[SKIP] {} (modified by user)", relative_path);
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
+/// 生成单个命令模块（带 execute 方法和变量提取）
+fn generate_module(name: &str, about: &str, debug_only: bool, args: &[ArgDef]) -> String {
+    let struct_name = to_struct_name(name);
     let cfg_attr = if debug_only { "#[cfg(debug_assertions)]\n" } else { "" };
 
-    // 把 about 转成 Rust 注释，每行加 //
+    // 把 about 转成 Rust 注释
     let comment_lines: Vec<&str> = about.lines().collect();
     let comment =
         comment_lines.iter().map(|line| format!("// {}", line)).collect::<Vec<_>>().join("\n");
-    let todo = comment_lines
-        .iter()
-        .map(|line| format!("        // TODO: {}", line))
-        .collect::<Vec<_>>()
-        .join("\n");
-    format!(
-        r#"{cfg_attr}// {name}.rs
-{comment}
-use clap::ArgMatches;
-use anyhow::Result;
-use crate::commands::CommandExecutor;
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 
-pub struct {struct_name};
+    // 构建 execute 方法的参数和文档注释
+    let mut execute_params = Vec::new();
+    let mut doc_comments = Vec::new();
+    let mut extract_vars = Vec::new();
+    let mut execute_call_args = Vec::new();
 
-impl CommandExecutor for {struct_name} {{
-    fn name(&self) -> &'static str {{
-        "{name}"
-    }}
+    for arg in args {
+        // 确定参数类型
+        let param_type = if let Some(vp) = &arg.value_parser {
+            vp.clone()
+        } else if let Some(action) = &arg.action {
+            match action.as_str() {
+                "set_true" | "set_false" => "bool".to_string(),
+                "count" => "u8".to_string(),
+                _ => "String".to_string(),
+            }
+        } else {
+            "String".to_string()
+        };
+        let is_num_args =
+            arg.num_args.as_deref() == Some("0..") || arg.num_args.as_deref() == Some("0..=");
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {{
-{todo}
-        println!("Command `{name}` is not yet implemented.");
-        Ok(())
-    }}
-}}
-"#,
-        cfg_attr = cfg_attr,
+        let param_type1 =
+            if is_num_args { format!("Vec<{}>", param_type) } else { param_type.clone() };
+
+        // 生成文档注释
+        let mut doc_parts = Vec::new();
+
+        // 基础描述
+        if let Some(help) = &arg.help {
+            let normalized = help.replace("\r\n", " ").replace('\n', " ");
+            doc_parts.push(normalized);
+        }
+
+        // 必要信息
+        if arg.required {
+            doc_parts.push("required".to_string());
+        }
+
+        // value_name
+        if let Some(vn) = &arg.value_name {
+            doc_parts.push(format!("value_name: {}", vn));
+        }
+
+        // default_value
+        if let Some(dv) = &arg.default_value {
+            doc_parts.push(format!("default: {}", dv));
+        }
+
+        // conflicts_with
+        if let Some(cf) = &arg.conflicts_with {
+            doc_parts.push(format!("conflicts with: {}", cf));
+        }
+
+        let doc = if doc_parts.is_empty() {
+            format!("    /// `{}`", arg.name)
+        } else {
+            format!("    /// `{}` - {}", arg.name, doc_parts.join(", "))
+        };
+
+        doc_comments.push(doc);
+
+        // 生成提取变量的代码
+        let extract = if let Some(action) = &arg.action {
+            match action.as_str() {
+                "set_true" => {
+                    format!("        let {} = matches.get_flag(\"{}\");", arg.name, arg.name)
+                }
+                "set_false" => {
+                    format!("        let {} = !matches.get_flag(\"{}\");", arg.name, arg.name)
+                }
+                "count" => {
+                    format!("        let {} = matches.get_count(\"{}\");", arg.name, arg.name)
+                }
+                _ => format!(
+                    "        let {} = matches\n            .get_one::<{}>(\"{}\")\n            .ok_or_else(|| anyhow!(\"Missing required argument: {}\"))?\n            .clone();",
+                    arg.name, param_type, arg.name, arg.name
+                ),
+            }
+        } else if is_num_args {
+            format!(
+                "        let {} = matches\n            .get_many::<{}>(\"{}\")\n            .unwrap_or_default()\n            .map(|s| s.clone())\n            .collect::<Vec<_>>();",
+                arg.name, param_type, arg.name
+            )
+        } else if arg.required {
+            format!(
+                "        let {} = matches\n            .get_one::<{}>(\"{}\")\n            .ok_or_else(|| anyhow!(\"Missing required argument: {}\"))?\n            .clone();",
+                arg.name, param_type, arg.name, arg.name
+            )
+        } else {
+            format!(
+                "        let {} = matches\n            .get_one::<{}>(\"{}\")\n            .cloned();",
+                arg.name, param_type, arg.name
+            )
+        };
+        extract_vars.push(extract);
+
+        // 生成 execute 参数
+        if arg.required || arg.long.is_some() || arg.short.is_some() || arg.num_args.is_some() {
+            execute_params.push(format!("{}: {}", arg.name, param_type1));
+        } else {
+            execute_params.push(format!("{}: Option<{}>", arg.name, param_type1));
+        }
+        execute_call_args.push(arg.name.clone());
+    }
+
+    // 组装 execute 方法签名
+    let execute_sig = if execute_params.is_empty() {
+        "\tfn execute(&self) -> Result<()>".to_string()
+    } else {
+        format!("\tfn execute(&self, {}) -> Result<()>", execute_params.join(", "))
+    };
+
+    // 组装 execute 调用
+    let execute_call = if execute_call_args.is_empty() {
+        "self.execute()".to_string()
+    } else {
+        format!("self.execute({})", execute_call_args.join(", "))
+    };
+
+    // 生成完整的模块代码
+    let mut code = String::new();
+    code.push_str(&format!(
+        "{cfg_attr}// {name}.rs\n\
+         {comment}\n\
+         #[allow(unused_imports)]\n\
+         use crate::INTERRUPTED;\n\
+         use crate::commands::CommandExecutor;\n\
+         #[allow(unused_imports)]\n\
+         use anyhow::{{anyhow, Result}};\n\
+         use clap::ArgMatches;\n\
+         \n\
+         pub struct {struct_name};\n\
+         \n\
+         impl {struct_name} {{\n"
+    ));
+
+    // 添加文档注释
+    for doc in &doc_comments {
+        code.push_str(&format!("{}\n", doc));
+    }
+    // 生成 TODO 注释（多行）
+    let todo_lines: Vec<String> =
+        comment_lines.iter().map(|line| format!("\t\t// TODO: {}", line)).collect();
+    let todo_block = todo_lines.join("\n");
+
+    code.push_str(&format!(
+        "    #[allow(unused_variables)]\n\
+  {} {{\n\
+{todo_block}\n\
+      \t\tprintln!(\"Command `{name}` is not yet implemented.\");\n\
+      \t\tOk(())\n\
+  \t}}\n\
+  }}\n\
+  \n\
+  impl CommandExecutor for {struct_name} {{\n\
+      \tfn name(&self) -> &'static str {{\n\
+          \t\t\"{name}\"\n\
+      \t}}\n\
+      \n\
+      \t#[allow(unused_variables)]\n\
+      \tfn run(&self, matches: &ArgMatches) -> Result<()> {{\n",
+        execute_sig,
+        todo_block = todo_block,
         name = name,
-        comment = comment,
-        struct_name = struct_name,
-        todo = todo
-    )
+    ));
+
+    // 添加变量提取代码
+    for extract in &extract_vars {
+        code.push_str(&format!("{}\n", extract));
+    }
+
+    code.push_str(&format!(
+        "        {}\n\
+         \t}}\n\
+         }}\n",
+        execute_call
+    ));
+
+    code
 }
 
 /// 递归处理命令及其 subcommands
@@ -163,7 +368,7 @@ fn process_commands(
                 lock_entries,
             )?;
         } else {
-            let content = generate_module(&cmd.name, &cmd.about, cmd.debug_only);
+            let content = generate_module(&cmd.name, &cmd.about, cmd.debug_only, &cmd.args);
             let new_hash = hash_content(&content);
 
             if file_path.exists() {
@@ -324,7 +529,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     mod_rs.push_str(
         r#"use clap::ArgMatches;
 use std::sync::Arc;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use std::sync::atomic::Ordering;
 use crate::INTERRUPTED;
 
@@ -355,7 +561,6 @@ pub trait CommandExecutor {
                 mod_rs.push_str("#[cfg(debug_assertions)]\n");
             }
 
-            // &str 转 String 再 into_safe
             mod_rs.push_str(&format!("pub mod {};\n", cmd_name.to_string().into_safe()));
         }
     }
@@ -365,7 +570,6 @@ pub trait CommandExecutor {
     mod_rs.push_str("    vec![\n");
 
     for (entry, _has_sub) in &mod_entries {
-        // 只跳过嵌套的子命令（如 "parent::child"），保留所有顶级命令
         if entry.contains("::") {
             continue;
         }
@@ -401,7 +605,6 @@ pub trait CommandExecutor {
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {
     for cmd in all_commands() {
         if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
-            // 每次执行前清零
             INTERRUPTED.store(false, Ordering::SeqCst);
             return cmd.run(sub_matches);
         }
@@ -412,11 +615,16 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
 "#,
     );
 
-    // 计算 mod.rs 的哈希并更新锁
-    let mod_rs_hash = hash_content(&mod_rs);
-    fs::write(out_dir.join("mod.rs"), mod_rs)?;
-    println!("[CREATE] mod.rs (top-level)");
-    lock_entries.insert(out_dir.join("mod.rs").to_string_lossy().to_string(), mod_rs_hash);
+    // 使用 hash 校验决定是否写入 mod.rs
+    let mod_rs_path = out_dir.join("mod.rs");
+    if should_update_file(&mod_rs_path, &mod_rs, &lock_entries) {
+        let mod_rs_hash = hash_content(&mod_rs);
+        fs::write(&mod_rs_path, &mod_rs)?;
+        println!("[UPDATE] mod.rs (top-level)");
+        lock_entries.insert(mod_rs_path.to_string_lossy().to_string(), mod_rs_hash);
+    } else {
+        println!("[SKIP] mod.rs (top-level, already up-to-date)");
+    }
 
     // 为有子命令的文件夹生成内部的 mod.rs
     for (entry, has_sub) in &mod_entries {
@@ -451,12 +659,12 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
             if let Some(cmd) = cmd {
                 sub_mod_rs.push_str("use clap::ArgMatches;\n");
                 sub_mod_rs.push_str("use std::sync::Arc;\n");
-                sub_mod_rs.push_str("use anyhow::Result;\n");
+                sub_mod_rs.push_str("#[allow(unused_imports)]\n");
+                sub_mod_rs.push_str("use anyhow::{anyhow, Result};\n");
                 sub_mod_rs.push_str("use crate::commands::CommandExecutor;\n");
                 sub_mod_rs.push_str("use crate::INTERRUPTED;\n");
                 sub_mod_rs.push_str("use std::sync::atomic::Ordering;\n\n");
 
-                // ==== 新增：导出父命令自身的 Executor ====
                 let parent_struct_name = to_struct_name(dir_name);
                 sub_mod_rs.push_str(&format!(
                     r#"pub struct {parent_struct_name};
@@ -475,7 +683,6 @@ impl CommandExecutor for {parent_struct_name} {{
                     parent_struct_name = parent_struct_name,
                     dir_name = dir_name,
                 ));
-                // ========================================
 
                 for sub in &cmd.subcommands {
                     if sub.debug_only {
@@ -485,7 +692,6 @@ impl CommandExecutor for {parent_struct_name} {{
                     sub_mod_rs.push_str(&format!("pub mod {};\n", sub.name.clone().into_safe()));
                 }
 
-                // ==== 新增：子目录的 all_commands ====
                 sub_mod_rs.push_str(&format!(
                     r#"
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
@@ -497,9 +703,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
 "#,
                     generate_sub_all_commands(cmd, 8)
                 ));
-                // ========================================
 
-                // ==== 修改：dispatch 使用 all_commands 方式 ====
                 sub_mod_rs.push_str("pub fn dispatch(matches: &ArgMatches) -> Result<()> {\n");
                 sub_mod_rs.push_str("    for cmd in all_commands() {\n");
                 sub_mod_rs.push_str(
@@ -510,17 +714,20 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
                 sub_mod_rs.push_str("        }\n");
                 sub_mod_rs.push_str("    }\n");
                 sub_mod_rs.push_str("    eprintln!(\"No matching command found. Use --help for usage information.\");\n");
-
                 sub_mod_rs.push_str("    Ok(())\n");
                 sub_mod_rs.push_str("}\n");
             }
 
-            // 计算子 mod.rs 的哈希并更新锁
-            let sub_mod_rs_hash = hash_content(&sub_mod_rs);
-            fs::write(dir_path.join("mod.rs"), sub_mod_rs)?;
-            println!("[CREATE] {}/mod.rs", dir_name);
-            lock_entries
-                .insert(dir_path.join("mod.rs").to_string_lossy().to_string(), sub_mod_rs_hash);
+            // 使用 hash 校验决定是否写入子 mod.rs
+            let sub_mod_rs_path = dir_path.join("mod.rs");
+            if should_update_file(&sub_mod_rs_path, &sub_mod_rs, &lock_entries) {
+                let sub_mod_rs_hash = hash_content(&sub_mod_rs);
+                fs::write(&sub_mod_rs_path, &sub_mod_rs)?;
+                println!("[UPDATE] {}/mod.rs", dir_name);
+                lock_entries.insert(sub_mod_rs_path.to_string_lossy().to_string(), sub_mod_rs_hash);
+            } else {
+                println!("[SKIP] {}/mod.rs (already up-to-date)", dir_name);
+            }
         }
     }
 

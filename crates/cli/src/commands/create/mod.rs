@@ -1,8 +1,9 @@
-use crate::INTERRUPTED;
-use crate::commands::CommandExecutor;
-use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use crate::commands::CommandExecutor;
+use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct CreateCommand;
@@ -21,7 +22,11 @@ pub mod alias;
 pub mod r#macro;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
-    vec![Arc::new(alias::AliasCommand), Arc::new(r#macro::MacroCommand)]
+    vec![
+        Arc::new(alias::AliasCommand),
+        Arc::new(r#macro::MacroCommand),
+
+    ]
 }
 
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {

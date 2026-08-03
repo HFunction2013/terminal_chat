@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct RouteCommand;
 
-impl CommandExecutor for RouteCommand {
-    fn name(&self) -> &'static str {
-        "route"
-    }
+impl RouteCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Trace route to server
+		println!("Command `route` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Trace route to server
-        println!("Command `route` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for RouteCommand {
+	fn name(&self) -> &'static str {
+		"route"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

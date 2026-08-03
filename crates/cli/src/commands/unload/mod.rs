@@ -1,8 +1,9 @@
-use crate::INTERRUPTED;
-use crate::commands::CommandExecutor;
-use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use crate::commands::CommandExecutor;
+use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct UnloadCommand;
@@ -17,11 +18,15 @@ impl CommandExecutor for UnloadCommand {
     }
 }
 
-pub mod namespace;
 pub mod plugin;
+pub mod namespace;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
-    vec![Arc::new(plugin::PluginCommand), Arc::new(namespace::NamespaceCommand)]
+    vec![
+        Arc::new(plugin::PluginCommand),
+        Arc::new(namespace::NamespaceCommand),
+
+    ]
 }
 
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {

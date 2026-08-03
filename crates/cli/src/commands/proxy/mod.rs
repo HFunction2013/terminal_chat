@@ -1,8 +1,9 @@
-use crate::INTERRUPTED;
-use crate::commands::CommandExecutor;
-use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use crate::commands::CommandExecutor;
+use crate::INTERRUPTED;
 use std::sync::atomic::Ordering;
 
 pub struct ProxyCommand;
@@ -17,11 +18,15 @@ impl CommandExecutor for ProxyCommand {
     }
 }
 
-pub mod off;
 pub mod on;
+pub mod off;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
-    vec![Arc::new(on::OnCommand), Arc::new(off::OffCommand)]
+    vec![
+        Arc::new(on::OnCommand),
+        Arc::new(off::OffCommand),
+
+    ]
 }
 
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {

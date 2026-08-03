@@ -3,19 +3,38 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct MacroCommand;
 
-impl CommandExecutor for MacroCommand {
-    fn name(&self) -> &'static str {
-        "macro"
-    }
+impl MacroCommand {
+    /// `macro_name` - macro name, required, value_name: macro_NAME
+    /// `macro_body` - macro body, #EDITOR# to open editor, required, value_name: macro_BODY
+    #[allow(unused_variables)]
+	fn execute(&self, macro_name: String, macro_body: String) -> Result<()> {
+		// TODO: Create macro
+		println!("Command `macro` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Create macro
-        println!("Command `macro` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for MacroCommand {
+	fn name(&self) -> &'static str {
+		"macro"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let macro_name = matches
+            .get_one::<String>("macro_name")
+            .ok_or_else(|| anyhow!("Missing required argument: macro_name"))?
+            .clone();
+        let macro_body = matches
+            .get_one::<String>("macro_body")
+            .ok_or_else(|| anyhow!("Missing required argument: macro_body"))?
+            .clone();
+        self.execute(macro_name, macro_body)
+	}
 }

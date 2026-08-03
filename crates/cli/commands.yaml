@@ -369,7 +369,7 @@ commands:
   - name: call
     about: Call an user
     args:
-      - name: USER
+      - name: user
         value_name: USER
         help: The user
         required: true 

@@ -3,19 +3,35 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct ShowCommand;
 
-impl CommandExecutor for ShowCommand {
-    fn name(&self) -> &'static str {
-        "show"
-    }
+impl ShowCommand {
+    /// `plugin` - Plugin to show, required, value_name: PLUGIN_NAME
+    /// `local` - Show plugin from local storage instead of registry
+    #[allow(unused_variables)]
+	fn execute(&self, plugin: String, local: bool) -> Result<()> {
+		// TODO: Show plugin information from registry(default)
+		println!("Command `show` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Show plugin information from registry(default)
-        println!("Command `show` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for ShowCommand {
+	fn name(&self) -> &'static str {
+		"show"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let plugin = matches
+            .get_one::<String>("plugin")
+            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .clone();
+        let local = matches.get_flag("local");
+        self.execute(plugin, local)
+	}
 }

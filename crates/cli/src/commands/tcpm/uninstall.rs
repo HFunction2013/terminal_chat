@@ -3,19 +3,35 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct UninstallCommand;
 
-impl CommandExecutor for UninstallCommand {
-    fn name(&self) -> &'static str {
-        "uninstall"
-    }
+impl UninstallCommand {
+    /// `plugin` - Plugin to uninstall, required, value_name: PLUGIN
+    /// `delete_local` - Delete local file
+    #[allow(unused_variables)]
+	fn execute(&self, plugin: String, delete_local: bool) -> Result<()> {
+		// TODO: Uninstall plugin
+		println!("Command `uninstall` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Uninstall plugin
-        println!("Command `uninstall` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for UninstallCommand {
+	fn name(&self) -> &'static str {
+		"uninstall"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let plugin = matches
+            .get_one::<String>("plugin")
+            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .clone();
+        let delete_local = matches.get_flag("delete_local");
+        self.execute(plugin, delete_local)
+	}
 }

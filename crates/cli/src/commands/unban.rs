@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct UnbanCommand;
 
-impl CommandExecutor for UnbanCommand {
-    fn name(&self) -> &'static str {
-        "unban"
-    }
+impl UnbanCommand {
+    /// `user` - the full username, e.g., HZFY@192.168.78.91, required, value_name: USER
+    #[allow(unused_variables)]
+	fn execute(&self, user: String) -> Result<()> {
+		// TODO: unban banned users
+		println!("Command `unban` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: unban banned users
-        println!("Command `unban` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for UnbanCommand {
+	fn name(&self) -> &'static str {
+		"unban"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let user = matches
+            .get_one::<String>("user")
+            .ok_or_else(|| anyhow!("Missing required argument: user"))?
+            .clone();
+        self.execute(user)
+	}
 }

@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct AliasCommand;
 
-impl CommandExecutor for AliasCommand {
-    fn name(&self) -> &'static str {
-        "alias"
-    }
+impl AliasCommand {
+    /// `alias` - alias to delete, required, value_name: ALIAS
+    #[allow(unused_variables)]
+	fn execute(&self, alias: String) -> Result<()> {
+		// TODO: Delete alias
+		println!("Command `alias` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Delete alias
-        println!("Command `alias` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for AliasCommand {
+	fn name(&self) -> &'static str {
+		"alias"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let alias = matches
+            .get_one::<String>("alias")
+            .ok_or_else(|| anyhow!("Missing required argument: alias"))?
+            .clone();
+        self.execute(alias)
+	}
 }

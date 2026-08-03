@@ -3,19 +3,38 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct SetCommand;
 
-impl CommandExecutor for SetCommand {
-    fn name(&self) -> &'static str {
-        "set"
-    }
+impl SetCommand {
+    /// `key` - Session config key, required, value_name: KEY
+    /// `value` - Session config value, required, value_name: VALUE
+    #[allow(unused_variables)]
+	fn execute(&self, key: String, value: String) -> Result<()> {
+		// TODO: Set session options
+		println!("Command `set` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Set session options
-        println!("Command `set` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for SetCommand {
+	fn name(&self) -> &'static str {
+		"set"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let key = matches
+            .get_one::<String>("key")
+            .ok_or_else(|| anyhow!("Missing required argument: key"))?
+            .clone();
+        let value = matches
+            .get_one::<String>("value")
+            .ok_or_else(|| anyhow!("Missing required argument: value"))?
+            .clone();
+        self.execute(key, value)
+	}
 }

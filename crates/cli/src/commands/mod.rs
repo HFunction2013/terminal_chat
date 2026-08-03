@@ -1,74 +1,75 @@
-use crate::INTERRUPTED;
-use anyhow::Result;
 use clap::ArgMatches;
 use std::sync::Arc;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use std::sync::atomic::Ordering;
+use crate::INTERRUPTED;
 
 pub trait CommandExecutor {
     fn name(&self) -> &'static str;
 
     fn run(&self, matches: &ArgMatches) -> Result<()>;
 }
-pub mod away;
-pub mod background;
-pub mod ban;
-pub mod call;
-pub mod cancel;
-pub mod cd;
-pub mod checksum;
-pub mod clear;
-pub mod connect;
-pub mod create;
-pub mod create_freq;
-pub mod delete;
-pub mod deop;
-pub mod disband;
-pub mod disconnect;
-pub mod download;
-pub mod editor;
-pub mod file_info;
-pub mod foreground;
-pub mod freq_info;
+pub mod setg;
 pub mod get;
 pub mod getg;
-pub mod ignore;
+pub mod set;
+pub mod route;
+pub mod proxy;
+pub mod show;
 pub mod join_freq;
-pub mod kick;
-pub mod leave_freq;
+pub mod create_freq;
+pub mod background;
+pub mod sessions;
 pub mod load;
-#[cfg(debug_assertions)]
-pub mod logs;
+pub mod unload;
+pub mod clear;
+pub mod tcpm;
+pub mod upload;
+pub mod download;
+pub mod checksum;
+pub mod cd;
+pub mod pwd;
 pub mod ls;
 pub mod mkdir;
+pub mod file_info;
+pub mod leave_freq;
+pub mod call;
 pub mod msg;
-pub mod mute;
-pub mod op;
-pub mod proxy;
-pub mod pwd;
-pub mod reconnect;
-pub mod reply;
-pub mod route;
-pub mod run;
-pub mod schedule;
 pub mod schedule_msg;
-pub mod sessions;
-pub mod set;
-pub mod setg;
-pub mod show;
-pub mod sleep;
-pub mod status;
+pub mod cancel;
+pub mod schedule;
 pub mod tasks;
-pub mod tcpm;
-pub mod trop;
-pub mod unban;
-pub mod unignore;
-pub mod unload;
-pub mod unmute;
+pub mod whoami;
 pub mod unset;
 pub mod unsetg;
-pub mod upload;
+pub mod create;
+pub mod run;
+pub mod delete;
+pub mod status;
+pub mod freq_info;
+pub mod reply;
+pub mod ignore;
+pub mod unignore;
 pub mod user_info;
-pub mod whoami;
+pub mod away;
+pub mod foreground;
+pub mod disconnect;
+pub mod reconnect;
+pub mod connect;
+#[cfg(debug_assertions)]
+pub mod logs;
+pub mod kick;
+pub mod ban;
+pub mod unban;
+pub mod mute;
+pub mod unmute;
+pub mod op;
+pub mod deop;
+pub mod trop;
+pub mod disband;
+pub mod sleep;
+pub mod editor;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
@@ -138,7 +139,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {
     for cmd in all_commands() {
         if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
-            // 每次执行前清零
             INTERRUPTED.store(false, Ordering::SeqCst);
             return cmd.run(sub_matches);
         }

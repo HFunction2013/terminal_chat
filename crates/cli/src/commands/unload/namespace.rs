@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct NamespaceCommand;
 
-impl CommandExecutor for NamespaceCommand {
-    fn name(&self) -> &'static str {
-        "namespace"
-    }
+impl NamespaceCommand {
+    /// `namespace_name` - namespace to unload, required, value_name: NAMESPACE_NAME
+    #[allow(unused_variables)]
+	fn execute(&self, namespace_name: String) -> Result<()> {
+		// TODO: unload namespace
+		println!("Command `namespace` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: unload namespace
-        println!("Command `namespace` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for NamespaceCommand {
+	fn name(&self) -> &'static str {
+		"namespace"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let namespace_name = matches
+            .get_one::<String>("namespace_name")
+            .ok_or_else(|| anyhow!("Missing required argument: namespace_name"))?
+            .clone();
+        self.execute(namespace_name)
+	}
 }

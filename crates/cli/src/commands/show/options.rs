@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct OptionsCommand;
 
-impl CommandExecutor for OptionsCommand {
-    fn name(&self) -> &'static str {
-        "options"
-    }
+impl OptionsCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Show available set/setg options
+		println!("Command `options` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Show available set/setg options
-        println!("Command `options` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for OptionsCommand {
+	fn name(&self) -> &'static str {
+		"options"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct ChecksumCommand;
 
-impl CommandExecutor for ChecksumCommand {
-    fn name(&self) -> &'static str {
-        "checksum"
-    }
+impl ChecksumCommand {
+    /// `file` - Remote file to check. NO FOLDERS!, required, value_name: FILE
+    #[allow(unused_variables)]
+	fn execute(&self, file: String) -> Result<()> {
+		// TODO: Get checksum of remote file (SHA256).
+		println!("Command `checksum` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Get checksum of remote file (SHA256).
-        println!("Command `checksum` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for ChecksumCommand {
+	fn name(&self) -> &'static str {
+		"checksum"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let file = matches
+            .get_one::<String>("file")
+            .ok_or_else(|| anyhow!("Missing required argument: file"))?
+            .clone();
+        self.execute(file)
+	}
 }

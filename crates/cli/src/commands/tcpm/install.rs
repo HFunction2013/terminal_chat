@@ -3,19 +3,47 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct InstallCommand;
 
-impl CommandExecutor for InstallCommand {
-    fn name(&self) -> &'static str {
-        "install"
-    }
+impl InstallCommand {
+    /// `plugin` - Plugin to install, required, value_name: PLUGIN_NAME
+    /// `registry` - Set plugin registry
+    /// `uload` - Use plugin's namespace when start
+    /// `local` - Path to local plugin file or directory, value_name: PATH
+    /// `force` - Override old one (if exists).
+    #[allow(unused_variables)]
+	fn execute(&self, plugin: String, registry: String, uload: bool, local: String, force: bool) -> Result<()> {
+		// TODO: Install plugin
+		println!("Command `install` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Install plugin
-        println!("Command `install` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for InstallCommand {
+	fn name(&self) -> &'static str {
+		"install"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let plugin = matches
+            .get_one::<String>("plugin")
+            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .clone();
+        let registry = matches
+            .get_one::<String>("registry")
+            .ok_or_else(|| anyhow!("Missing required argument: registry"))?
+            .clone();
+        let uload = matches.get_flag("uload");
+        let local = matches
+            .get_one::<String>("local")
+            .ok_or_else(|| anyhow!("Missing required argument: local"))?
+            .clone();
+        let force = matches.get_flag("force");
+        self.execute(plugin, registry, uload, local, force)
+	}
 }

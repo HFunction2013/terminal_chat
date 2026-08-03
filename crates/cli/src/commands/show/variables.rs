@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct VariablesCommand;
 
-impl CommandExecutor for VariablesCommand {
-    fn name(&self) -> &'static str {
-        "variables"
-    }
+impl VariablesCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Show value of all variables
+		println!("Command `variables` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Show value of all variables
-        println!("Command `variables` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for VariablesCommand {
+	fn name(&self) -> &'static str {
+		"variables"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

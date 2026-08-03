@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct TasksCommand;
 
-impl CommandExecutor for TasksCommand {
-    fn name(&self) -> &'static str {
-        "tasks"
-    }
+impl TasksCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: Get scheduled tasks.
+		println!("Command `tasks` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Get scheduled tasks.
-        println!("Command `tasks` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for TasksCommand {
+	fn name(&self) -> &'static str {
+		"tasks"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

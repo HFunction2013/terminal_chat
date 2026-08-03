@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct CdCommand;
 
-impl CommandExecutor for CdCommand {
-    fn name(&self) -> &'static str {
-        "cd"
-    }
+impl CdCommand {
+    /// `dir` - DIR to change., required, value_name: DIR
+    #[allow(unused_variables)]
+	fn execute(&self, dir: String) -> Result<()> {
+		// TODO: Change the current remote directory to DIR.
+		println!("Command `cd` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Change the current remote directory to DIR.
-        println!("Command `cd` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for CdCommand {
+	fn name(&self) -> &'static str {
+		"cd"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let dir = matches
+            .get_one::<String>("dir")
+            .ok_or_else(|| anyhow!("Missing required argument: dir"))?
+            .clone();
+        self.execute(dir)
+	}
 }

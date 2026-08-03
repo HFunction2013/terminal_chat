@@ -3,19 +3,28 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct LoadedCommand;
 
-impl CommandExecutor for LoadedCommand {
-    fn name(&self) -> &'static str {
-        "loaded"
-    }
+impl LoadedCommand {
+    #[allow(unused_variables)]
+	fn execute(&self) -> Result<()> {
+		// TODO: show all loaded plugins.
+		println!("Command `loaded` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: show all loaded plugins.
-        println!("Command `loaded` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for LoadedCommand {
+	fn name(&self) -> &'static str {
+		"loaded"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        self.execute()
+	}
 }

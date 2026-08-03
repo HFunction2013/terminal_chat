@@ -3,19 +3,37 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct DownloadCommand;
 
-impl CommandExecutor for DownloadCommand {
-    fn name(&self) -> &'static str {
-        "download"
-    }
+impl DownloadCommand {
+    /// `remote_path` - Remote path to download., required, value_name: REMOTE_PATH
+    /// `local_path` - Local path to store downloads., value_name: LOCAL_PATH
+    #[allow(unused_variables)]
+	fn execute(&self, remote_path: String, local_path: Option<String>) -> Result<()> {
+		// TODO: Download file or folder to server.
+		println!("Command `download` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Download file or folder to server.
-        println!("Command `download` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for DownloadCommand {
+	fn name(&self) -> &'static str {
+		"download"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let remote_path = matches
+            .get_one::<String>("remote_path")
+            .ok_or_else(|| anyhow!("Missing required argument: remote_path"))?
+            .clone();
+        let local_path = matches
+            .get_one::<String>("local_path")
+            .cloned();
+        self.execute(remote_path, local_path)
+	}
 }

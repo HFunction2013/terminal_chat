@@ -1,22 +1,35 @@
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
-use crate::commands::CommandExecutor;
-use anyhow::Result;
 #[cfg(debug_assertions)]
 // logs.rs
 // open/close logging
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct LogsCommand;
 
-impl CommandExecutor for LogsCommand {
-    fn name(&self) -> &'static str {
-        "logs"
-    }
+impl LogsCommand {
+    /// `operation` - Operation (open|close)., value_name: OP, default: open
+    #[allow(unused_variables)]
+	fn execute(&self, operation: Option<String>) -> Result<()> {
+		// TODO: open/close logging
+		println!("Command `logs` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: open/close logging
-        println!("Command `logs` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for LogsCommand {
+	fn name(&self) -> &'static str {
+		"logs"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let operation = matches
+            .get_one::<String>("operation")
+            .cloned();
+        self.execute(operation)
+	}
 }

@@ -3,19 +3,42 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct DownloadCommand;
 
-impl CommandExecutor for DownloadCommand {
-    fn name(&self) -> &'static str {
-        "download"
-    }
+impl DownloadCommand {
+    /// `plugin` - Plugin to download, required, value_name: PLUGIN
+    /// `registry` - Set plugin registry
+    /// `load` - load plugin after download
+    /// `use_namespace` - load plugin and namespace after download, conflicts with: load
+    #[allow(unused_variables)]
+	fn execute(&self, plugin: String, registry: String, load: bool, use_namespace: bool) -> Result<()> {
+		// TODO: Download plugin
+		println!("Command `download` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Download plugin
-        println!("Command `download` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for DownloadCommand {
+	fn name(&self) -> &'static str {
+		"download"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let plugin = matches
+            .get_one::<String>("plugin")
+            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .clone();
+        let registry = matches
+            .get_one::<String>("registry")
+            .ok_or_else(|| anyhow!("Missing required argument: registry"))?
+            .clone();
+        let load = matches.get_flag("load");
+        let use_namespace = matches.get_flag("use_namespace");
+        self.execute(plugin, registry, load, use_namespace)
+	}
 }

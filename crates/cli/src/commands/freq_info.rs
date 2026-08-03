@@ -3,19 +3,33 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-use anyhow::Result;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use clap::ArgMatches;
 
 pub struct FreqInfoCommand;
 
-impl CommandExecutor for FreqInfoCommand {
-    fn name(&self) -> &'static str {
-        "freq_info"
-    }
+impl FreqInfoCommand {
+    /// `frequency` - freq ID, required, value_name: FREQ
+    #[allow(unused_variables)]
+	fn execute(&self, frequency: f64) -> Result<()> {
+		// TODO: Get frequency information
+		println!("Command `freq_info` is not yet implemented.");
+		Ok(())
+	}
+}
 
-    fn run(&self, _matches: &ArgMatches) -> Result<()> {
-        // TODO: Get frequency information
-        println!("Command `freq_info` is not yet implemented.");
-        Ok(())
-    }
+impl CommandExecutor for FreqInfoCommand {
+	fn name(&self) -> &'static str {
+		"freq_info"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let frequency = matches
+            .get_one::<f64>("frequency")
+            .ok_or_else(|| anyhow!("Missing required argument: frequency"))?
+            .clone();
+        self.execute(frequency)
+	}
 }
