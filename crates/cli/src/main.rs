@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Command;
 use clap_complete::engine::complete;
+use cli::cli_command;
 use rustyline::{
     Context, Editor, Helper,
     completion::{Completer, Pair},
@@ -25,7 +26,6 @@ use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use std::{
-    env,
     ffi::OsString,
     io::{self, Write, stdout},
     path::Path,
@@ -38,8 +38,7 @@ use std::{
 };
 mod fortune;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
-static INTERRUPTED: AtomicBool = AtomicBool::new(false);
-static IN_CMD: AtomicBool = AtomicBool::new(false);
+use cli::{IN_CMD, INTERRUPTED};
 fn install_ctrlc_handler() {
     ctrlc::set_handler(move || {
         INTERRUPTED.store(true, Ordering::SeqCst);
@@ -55,9 +54,6 @@ fn install_ctrlc_handler() {
 }
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}
-mod command {
-    include!(concat!(env!("OUT_DIR"), "/command.rs"));
 }
 /// rustyline Helper：桥接 `clap_complete`
 struct ClapHelper {
@@ -321,11 +317,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     execute!(stdout(), Hide)?;
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
-    let cli = command::add_commands(
-        Command::new(env!("CARGO_PKG_NAME"))
-            .version(env!("CARGO_PKG_VERSION"))
-            .about(env!("CARGO_PKG_DESCRIPTION")),
-    );
+    let cli = (*cli_command::CLI).clone();
 
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
