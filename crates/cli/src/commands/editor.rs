@@ -13,7 +13,7 @@ impl EditorCommand {
     /// `file` - file to open, optional., value_name: FILE
     /// `editor` - set editor
     #[allow(unused_variables)]
-	fn execute(&self, file: Option<String>, editor: String) -> Result<()> {
+	fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
 		// TODO: just opens an editor
 		println!("Command `editor` is not yet implemented.");
 		Ok(())
@@ -32,8 +32,7 @@ impl CommandExecutor for EditorCommand {
             .cloned();
         let editor = matches
             .get_one::<String>("editor")
-            .ok_or_else(|| anyhow!("Missing required argument: editor"))?
-            .clone();
+            .cloned();
         self.execute(file, editor)
 	}
 }

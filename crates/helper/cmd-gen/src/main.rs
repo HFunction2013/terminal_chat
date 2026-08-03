@@ -228,10 +228,19 @@ fn generate_module(name: &str, about: &str, debug_only: bool, args: &[ArgDef]) -
                 "count" => {
                     format!("        let {} = matches.get_count(\"{}\");", arg.name, arg.name)
                 }
-                _ => format!(
-                    "        let {} = matches\n            .get_one::<{}>(\"{}\")\n            .ok_or_else(|| anyhow!(\"Missing required argument: {}\"))?\n            .clone();",
-                    arg.name, param_type, arg.name, arg.name
-                ),
+                _ => {
+                    if arg.required {
+                        format!(
+                            "        let {} = matches\n            .get_one::<{}>(\"{}\")\n            .ok_or_else(|| anyhow!(\"Missing required argument: {}\"))?\n            .clone();",
+                            arg.name, param_type, arg.name, arg.name
+                        )
+                    } else {
+                        format!(
+                            "        let {} = matches\n            .get_one::<{}>(\"{}\")\n            .cloned();",
+                            arg.name, param_type, arg.name
+                        )
+                    }
+                }
             }
         } else if is_num_args {
             format!(
@@ -252,7 +261,12 @@ fn generate_module(name: &str, about: &str, debug_only: bool, args: &[ArgDef]) -
         extract_vars.push(extract);
 
         // 生成 execute 参数
-        if arg.required || arg.long.is_some() || arg.short.is_some() || arg.num_args.is_some() {
+        if (arg.long.is_some() || arg.short.is_some()) && arg.required {
+            execute_params.push(format!("{}: {}", arg.name, param_type1));
+        } else if arg.required
+            || arg.num_args.is_some()
+            || matches!(arg.action.as_deref(), Some("set_true" | "set_false" | "count"))
+        {
             execute_params.push(format!("{}: {}", arg.name, param_type1));
         } else {
             execute_params.push(format!("{}: Option<{}>", arg.name, param_type1));

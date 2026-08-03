@@ -15,7 +15,7 @@ impl DownloadCommand {
     /// `load` - load plugin after download
     /// `use_namespace` - load plugin and namespace after download, conflicts with: load
     #[allow(unused_variables)]
-	fn execute(&self, plugin: String, registry: String, load: bool, use_namespace: bool) -> Result<()> {
+	fn execute(&self, plugin: String, registry: Option<String>, load: bool, use_namespace: bool) -> Result<()> {
 		// TODO: Download plugin
 		println!("Command `download` is not yet implemented.");
 		Ok(())
@@ -35,8 +35,7 @@ impl CommandExecutor for DownloadCommand {
             .clone();
         let registry = matches
             .get_one::<String>("registry")
-            .ok_or_else(|| anyhow!("Missing required argument: registry"))?
-            .clone();
+            .cloned();
         let load = matches.get_flag("load");
         let use_namespace = matches.get_flag("use_namespace");
         self.execute(plugin, registry, load, use_namespace)

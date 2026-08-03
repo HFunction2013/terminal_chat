@@ -14,7 +14,7 @@ impl SessionsCommand {
     /// `interact` - Switch to target session, value_name: SESSION_ID
     /// `kill` - Close and destroy target session, value_name: SESSION_ID
     #[allow(unused_variables)]
-	fn execute(&self, list: bool, interact: String, kill: String) -> Result<()> {
+	fn execute(&self, list: bool, interact: Option<String>, kill: Option<String>) -> Result<()> {
 		// TODO: Multi-session manager
 		println!("Command `sessions` is not yet implemented.");
 		Ok(())
@@ -31,12 +31,10 @@ impl CommandExecutor for SessionsCommand {
         let list = matches.get_flag("list");
         let interact = matches
             .get_one::<String>("interact")
-            .ok_or_else(|| anyhow!("Missing required argument: interact"))?
-            .clone();
+            .cloned();
         let kill = matches
             .get_one::<String>("kill")
-            .ok_or_else(|| anyhow!("Missing required argument: kill"))?
-            .clone();
+            .cloned();
         self.execute(list, interact, kill)
 	}
 }

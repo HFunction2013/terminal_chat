@@ -16,7 +16,7 @@ impl UpdateCommand {
     /// `reload` - Reload after update
     /// `force` - Override old one (if exists).
     #[allow(unused_variables)]
-	fn execute(&self, plugin: String, registry: String, reload: bool, force: bool) -> Result<()> {
+	fn execute(&self, plugin: String, registry: Option<String>, reload: bool, force: bool) -> Result<()> {
 		// TODO: Update plugins.
 		// TODO: 'standard' means main program.
 		println!("Command `update` is not yet implemented.");
@@ -37,8 +37,7 @@ impl CommandExecutor for UpdateCommand {
             .clone();
         let registry = matches
             .get_one::<String>("registry")
-            .ok_or_else(|| anyhow!("Missing required argument: registry"))?
-            .clone();
+            .cloned();
         let reload = matches.get_flag("reload");
         let force = matches.get_flag("force");
         self.execute(plugin, registry, reload, force)

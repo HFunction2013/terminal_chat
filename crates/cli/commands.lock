@@ -11,7 +11,7 @@
 ./crates/cli/src/commands/create/alias.rs:18170669510658806105
 ./crates/cli/src/commands/create/macro.rs:3039859137286783773
 ./crates/cli/src/commands/create/mod.rs:10091588179115084047
-./crates/cli/src/commands/create_freq.rs:4556681023321239097
+./crates/cli/src/commands/create_freq.rs:6409726042994614676
 ./crates/cli/src/commands/delete/alias.rs:6956351875673923464
 ./crates/cli/src/commands/delete/macro.rs:14487848896780435751
 ./crates/cli/src/commands/delete/mod.rs:6679492433316870091
@@ -19,7 +19,7 @@
 ./crates/cli/src/commands/disband.rs:16747975906835762748
 ./crates/cli/src/commands/disconnect.rs:14698152888826965056
 ./crates/cli/src/commands/download.rs:8526668261473976282
-./crates/cli/src/commands/editor.rs:3514710087354234800
+./crates/cli/src/commands/editor.rs:15381619488510733241
 ./crates/cli/src/commands/file_info.rs:3669036939076403684
 ./crates/cli/src/commands/foreground.rs:15666339923773781488
 ./crates/cli/src/commands/freq_info.rs:6940366674650806943
@@ -49,7 +49,7 @@
 ./crates/cli/src/commands/run.rs:7504741474751107023
 ./crates/cli/src/commands/schedule.rs:17413519625884319170
 ./crates/cli/src/commands/schedule_msg.rs:10247586106862870107
-./crates/cli/src/commands/sessions.rs:13170608909258712325
+./crates/cli/src/commands/sessions.rs:3399118555464392060
 ./crates/cli/src/commands/set.rs:3651046048718810620
 ./crates/cli/src/commands/setg.rs:14461018311613285589
 ./crates/cli/src/commands/show/active_freqs.rs:11580992236714506043
@@ -63,8 +63,8 @@
 ./crates/cli/src/commands/sleep.rs:9563677334794726569
 ./crates/cli/src/commands/status.rs:10539139349158782487
 ./crates/cli/src/commands/tasks.rs:4811305320822449013
-./crates/cli/src/commands/tcpm/download.rs:12590965356586411394
-./crates/cli/src/commands/tcpm/install.rs:4117992408792135904
+./crates/cli/src/commands/tcpm/download.rs:4131577759134164675
+./crates/cli/src/commands/tcpm/install.rs:8624454220885064485
 ./crates/cli/src/commands/tcpm/list/downloaded.rs:18299592339897897638
 ./crates/cli/src/commands/tcpm/list/installed.rs:3249925335650682069
 ./crates/cli/src/commands/tcpm/list/loaded.rs:9441603626014532273
@@ -75,7 +75,7 @@
 ./crates/cli/src/commands/tcpm/search.rs:13538044925759804962
 ./crates/cli/src/commands/tcpm/show.rs:15958774271128529505
 ./crates/cli/src/commands/tcpm/uninstall.rs:13822567671714642746
-./crates/cli/src/commands/tcpm/update.rs:3460557488411274985
+./crates/cli/src/commands/tcpm/update.rs:11665322278960517894
 ./crates/cli/src/commands/trop.rs:10144105197000495021
 ./crates/cli/src/commands/unban.rs:3798956652252298741
 ./crates/cli/src/commands/unignore.rs:16617133504543463373

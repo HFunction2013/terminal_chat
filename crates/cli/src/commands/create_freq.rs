@@ -14,7 +14,7 @@ impl CreateFreqCommand {
     /// `p` - Create frequency with password
     /// `max_people` - Max online user limit, value_name: NUM
     #[allow(unused_variables)]
-	fn execute(&self, freq: String, p: bool, max_people: String) -> Result<()> {
+	fn execute(&self, freq: String, p: bool, max_people: Option<String>) -> Result<()> {
 		// TODO: Create a new frequency channel
 		println!("Command `create_freq` is not yet implemented.");
 		Ok(())
@@ -35,8 +35,7 @@ impl CommandExecutor for CreateFreqCommand {
         let p = matches.get_flag("p");
         let max_people = matches
             .get_one::<String>("max_people")
-            .ok_or_else(|| anyhow!("Missing required argument: max_people"))?
-            .clone();
+            .cloned();
         self.execute(freq, p, max_people)
 	}
 }

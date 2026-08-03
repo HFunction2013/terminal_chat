@@ -16,7 +16,7 @@ impl InstallCommand {
     /// `local` - Path to local plugin file or directory, value_name: PATH
     /// `force` - Override old one (if exists).
     #[allow(unused_variables)]
-	fn execute(&self, plugin: String, registry: String, uload: bool, local: String, force: bool) -> Result<()> {
+	fn execute(&self, plugin: String, registry: Option<String>, uload: bool, local: Option<String>, force: bool) -> Result<()> {
 		// TODO: Install plugin
 		println!("Command `install` is not yet implemented.");
 		Ok(())
@@ -36,13 +36,11 @@ impl CommandExecutor for InstallCommand {
             .clone();
         let registry = matches
             .get_one::<String>("registry")
-            .ok_or_else(|| anyhow!("Missing required argument: registry"))?
-            .clone();
+            .cloned();
         let uload = matches.get_flag("uload");
         let local = matches
             .get_one::<String>("local")
-            .ok_or_else(|| anyhow!("Missing required argument: local"))?
-            .clone();
+            .cloned();
         let force = matches.get_flag("force");
         self.execute(plugin, registry, uload, local, force)
 	}
