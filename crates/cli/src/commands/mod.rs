@@ -23,7 +23,6 @@ pub mod background;
 pub mod sessions;
 pub mod load;
 pub mod unload;
-pub mod clear;
 pub mod tcpm;
 pub mod upload;
 pub mod download;
@@ -86,7 +85,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(sessions::SessionsCommand),
         Arc::new(load::LoadCommand),
         Arc::new(unload::UnloadCommand),
-        Arc::new(clear::ClearCommand),
         Arc::new(tcpm::TcpmCommand),
         Arc::new(upload::UploadCommand),
         Arc::new(download::DownloadCommand),

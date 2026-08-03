@@ -7,7 +7,6 @@
 ./crates/cli/src/commands/cancel.rs:8045308864743507503
 ./crates/cli/src/commands/cd.rs:7527913056664076923
 ./crates/cli/src/commands/checksum.rs:1885268293057372104
-./crates/cli/src/commands/clear.rs:3793076848877327083
 ./crates/cli/src/commands/connect.rs:3511887510117537854
 ./crates/cli/src/commands/create/alias.rs:18170669510658806105
 ./crates/cli/src/commands/create/macro.rs:3039859137286783773
@@ -36,7 +35,7 @@
 ./crates/cli/src/commands/logs.rs:4956916495490392648
 ./crates/cli/src/commands/ls.rs:15232238063544168610
 ./crates/cli/src/commands/mkdir.rs:860767817300729308
-./crates/cli/src/commands/mod.rs:5220056803938420836
+./crates/cli/src/commands/mod.rs:12598747599176088500
 ./crates/cli/src/commands/msg.rs:932769714094031429
 ./crates/cli/src/commands/mute.rs:15801975711266665776
 ./crates/cli/src/commands/op.rs:1873381539913553235

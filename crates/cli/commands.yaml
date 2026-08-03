@@ -168,8 +168,6 @@ commands:
             value_name: NAMESPACE_NAME
             required: true
             help: namespace to unload
-  - name: clear
-    about: Clear the Screen
   - name: tcpm
     about: Terminal Chat Package Manager
     subcommands:
