@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Command;
 use clap_complete::engine::complete;
-use cli::cli_command;
+use cli_core::cli_command;
 use rustyline::{
     Context, Editor, Helper,
     completion::{Completer, Pair},
@@ -11,7 +11,7 @@ use rustyline::{
     validate::Validator,
 };
 use shell_words::split;
-mod commands;
+use cli_core::commands;
 use base64::{Engine as _, engine::general_purpose};
 #[allow(unused_imports)]
 use crossterm::{
@@ -38,7 +38,7 @@ use std::{
 };
 mod fortune;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
-use cli::{IN_CMD, INTERRUPTED};
+use cli_core::{IN_CMD, INTERRUPTED};
 fn install_ctrlc_handler() {
     ctrlc::set_handler(move || {
         INTERRUPTED.store(true, Ordering::SeqCst);

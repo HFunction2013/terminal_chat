@@ -496,7 +496,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manifest = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     let yaml_path =
-        Path::new(&manifest).parent().unwrap().parent().unwrap().join("cli").join("commands.yaml");
+        Path::new(&manifest).parent().unwrap().parent().unwrap().join("cli-core").join("commands.yaml");
     println!("{}", yaml_path.display());
 
     if !yaml_path.exists() {
@@ -507,13 +507,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let yaml = fs::read_to_string(&yaml_path)?;
     let config: Config = serde_yaml::from_str(&yaml)?;
 
-    let out_dir = Path::new("./crates/cli/src/commands");
+    let out_dir = Path::new("./crates/cli-core/src/commands");
     if !out_dir.exists() {
         fs::create_dir_all(out_dir)?;
     }
 
     // 加载 lock 文件
-    let lock_path = Path::new("./crates/cli/commands.lock");
+    let lock_path = Path::new("./crates/cli-core/commands.lock");
     let mut lock_entries = read_lock_file(lock_path);
 
     let mut mod_entries = Vec::new();

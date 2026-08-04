@@ -6,7 +6,7 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core::{
+use crate::{
     VOID,
     global_settings::{clear_all_options, exists_global_option, remove_global_option},
 };

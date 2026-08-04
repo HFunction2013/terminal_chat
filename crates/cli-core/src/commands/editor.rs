@@ -6,7 +6,7 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Context, Result, anyhow};
 use clap::ArgMatches;
-use cli_core::global_settings::get_global_option;
+use crate::global_settings::get_global_option;
 use std::path::PathBuf;
 use std::process::Command;
 use which::which;

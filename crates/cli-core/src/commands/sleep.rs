@@ -7,7 +7,7 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use std::sync::atomic::Ordering;
-use cli_core::print_content::print_content;
+use crate::print_content::print_content;
 use std::time::Duration;
 use std::thread;
 

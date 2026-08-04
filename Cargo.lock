@@ -495,30 +495,32 @@ dependencies = [
  "crossterm",
  "ctrlc",
  "figlet-rs",
- "humantime",
  "indicatif",
  "libc",
  "lolcat",
  "prost",
  "protos",
  "rand 0.8.7",
- "rpassword",
  "rustyline",
- "serde",
- "serde_yaml",
  "sha2",
  "shell-words",
  "sl-rs",
  "tonic",
- "which",
 ]
 
 [[package]]
 name = "cli_core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap",
+ "humantime",
  "once_cell",
  "paste",
+ "rpassword",
+ "serde",
+ "serde_yaml",
+ "which",
 ]
 
 [[package]]

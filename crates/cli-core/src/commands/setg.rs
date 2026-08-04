@@ -6,8 +6,8 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core::global_settings::{GlobalOption, set_global_option};
-use cli_core::print_content::print_content;
+use crate::global_settings::{GlobalOption, set_global_option};
+use crate::print_content::print_content;
 
 pub struct SetgCommand;
 
