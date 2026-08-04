@@ -69,6 +69,8 @@ pub mod trop;
 pub mod disband;
 pub mod sleep;
 pub mod editor;
+pub mod workspace;
+pub mod feedback;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
     vec![
@@ -131,6 +133,8 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(disband::DisbandCommand),
         Arc::new(sleep::SleepCommand),
         Arc::new(editor::EditorCommand),
+        Arc::new(workspace::WorkspaceCommand),
+        Arc::new(feedback::FeedbackCommand),
     ]
 }
 

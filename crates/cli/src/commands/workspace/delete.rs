@@ -1,0 +1,36 @@
+// delete.rs
+// Delete workspace. Default: current workspace
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use clap::ArgMatches;
+
+pub struct DeleteCommand;
+
+impl DeleteCommand {
+    /// `workspace_name` - workspace name.
+    /// `force` - action without confirm.
+    #[allow(unused_variables)]
+	fn execute(&self, workspace_name: Option<String>, force: bool) -> Result<()> {
+		// TODO: Delete workspace. Default: current workspace
+		println!("Command `delete` is not yet implemented.");
+		Ok(())
+	}
+}
+
+impl CommandExecutor for DeleteCommand {
+	fn name(&self) -> &'static str {
+		"delete"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let workspace_name = matches
+            .get_one::<String>("workspace_name")
+            .cloned();
+        let force = matches.get_flag("force");
+        self.execute(workspace_name, force)
+	}
+}

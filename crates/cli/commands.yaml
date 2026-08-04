@@ -660,3 +660,115 @@ commands:
         short: e
         help: set editor
         action: set
+  - name: workspace
+    about: Workspace support.
+    subcommands:
+      - name: new
+        about: New workspace
+        args:
+          - name: workspace_name
+            value_name: WORKSPACE_NAME
+            help: >
+              workspace name.
+              Defaults: Workspace-xxx
+          - name: enter
+            long: enter
+            short: e
+            help: Create and enter.
+      - name: rename
+        about: >
+          Rename a workspace.
+          Default: current workspace
+        args:
+          - name: source
+            long: source
+            short: s
+            help: Original workspace name.
+          - name: target
+            long: target
+            short: t
+            required: true
+            help: Final workspace name.
+        aliases: 
+          - mv
+      - name: delete
+        about: >
+          Delete workspace.
+          Default: current workspace
+        aliases:
+          - del
+        args:
+          - name: workspace_name
+            long: workspace
+            short: w
+            help: workspace name.
+          - name: force
+            long: force
+            short: f
+            action: set_true
+            help: action without confirm.
+      - name: switch
+        about: Switch to another workspace.
+        aliases:
+          - sw
+          - use
+        args:
+          - name: workspace_name
+            value_name: WORKSPACE_NAME
+            required: true
+            help: workspace name.
+      - name: list
+        about: List all workspaces.
+        aliases:
+            - ls
+      - name: show
+        aliases:
+          - info
+          - get
+        about: >
+          Show information for a certain workspace.
+          Default: current workspace.
+        args:
+          - name: workspace_name
+            value_name: WORKSPACE_NAME
+            help: workspace name.
+      - name: clone
+        about: >
+          Clone a workspace.
+          Default: current workspace.
+        aliases:
+          - cp
+        args:
+          - name: source
+            long: source
+            short: s
+            help: Original workspace name.
+          - name: target
+            long: target
+            short: t
+            required: true
+            help: Final workspace name.
+      - name: export
+        about: >
+          Export workspace information to a file.
+          Default: current workspace.
+        args:
+          - name: workspace_name
+            long: name
+            short: 'n'
+            help: workspace name.
+          - name: output
+            long: output
+            short: o
+            help: >
+              workspace output file.
+              Default: <PROGRAM_DIR>/workspaces/<WORKSPACE_NAME>.toml
+      - name: import
+        about: Import workspace information.
+        args:
+          - name: workspace_file
+            required: true
+            value_name: WORKSPACE_FILE
+            help: workspace file.
+  - name: feedback
+    about: Send feedback.

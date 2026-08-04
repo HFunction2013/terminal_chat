@@ -1,0 +1,39 @@
+// clone.rs
+// Clone a workspace. Default: current workspace.
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use clap::ArgMatches;
+
+pub struct CloneCommand;
+
+impl CloneCommand {
+    /// `source` - Original workspace name.
+    /// `target` - Final workspace name., required
+    #[allow(unused_variables)]
+	fn execute(&self, source: Option<String>, target: String) -> Result<()> {
+		// TODO: Clone a workspace. Default: current workspace.
+		println!("Command `clone` is not yet implemented.");
+		Ok(())
+	}
+}
+
+impl CommandExecutor for CloneCommand {
+	fn name(&self) -> &'static str {
+		"clone"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let source = matches
+            .get_one::<String>("source")
+            .cloned();
+        let target = matches
+            .get_one::<String>("target")
+            .ok_or_else(|| anyhow!("Missing required argument: target"))?
+            .clone();
+        self.execute(source, target)
+	}
+}

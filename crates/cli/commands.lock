@@ -20,6 +20,7 @@
 ./crates/cli/src/commands/disconnect.rs:14698152888826965056
 ./crates/cli/src/commands/download.rs:8526668261473976282
 ./crates/cli/src/commands/editor.rs:15381619488510733241
+./crates/cli/src/commands/feedback.rs:11837305146705910603
 ./crates/cli/src/commands/file_info.rs:3669036939076403684
 ./crates/cli/src/commands/foreground.rs:15666339923773781488
 ./crates/cli/src/commands/freq_info.rs:6940366674650806943
@@ -35,7 +36,7 @@
 ./crates/cli/src/commands/logs.rs:4956916495490392648
 ./crates/cli/src/commands/ls.rs:15232238063544168610
 ./crates/cli/src/commands/mkdir.rs:860767817300729308
-./crates/cli/src/commands/mod.rs:12598747599176088500
+./crates/cli/src/commands/mod.rs:11948234663628348479
 ./crates/cli/src/commands/msg.rs:932769714094031429
 ./crates/cli/src/commands/mute.rs:15801975711266665776
 ./crates/cli/src/commands/op.rs:1873381539913553235
@@ -88,3 +89,13 @@
 ./crates/cli/src/commands/upload.rs:12257317332519869593
 ./crates/cli/src/commands/user_info.rs:11054306640355038062
 ./crates/cli/src/commands/whoami.rs:12654474317567778135
+./crates/cli/src/commands/workspace/clone.rs:15859829554538385787
+./crates/cli/src/commands/workspace/delete.rs:11200039149097980438
+./crates/cli/src/commands/workspace/export.rs:2724623630256346822
+./crates/cli/src/commands/workspace/import.rs:12296201167347188679
+./crates/cli/src/commands/workspace/list.rs:13166077116463831357
+./crates/cli/src/commands/workspace/mod.rs:5851879057425630249
+./crates/cli/src/commands/workspace/new.rs:14740642403617337693
+./crates/cli/src/commands/workspace/rename.rs:2669816700375391098
+./crates/cli/src/commands/workspace/show.rs:17612075925032927193
+./crates/cli/src/commands/workspace/switch.rs:16194474642173183396

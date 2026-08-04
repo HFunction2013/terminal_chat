@@ -1,0 +1,38 @@
+// new.rs
+// New workspace
+#[allow(unused_imports)]
+use crate::INTERRUPTED;
+use crate::commands::CommandExecutor;
+#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
+use clap::ArgMatches;
+
+pub struct NewCommand;
+
+impl NewCommand {
+    /// `workspace_name` - workspace name. Defaults: Workspace-xxx , value_name: WORKSPACE_NAME
+    /// `enter` - Create and enter.
+    #[allow(unused_variables)]
+	fn execute(&self, workspace_name: Option<String>, enter: Option<String>) -> Result<()> {
+		// TODO: New workspace
+		println!("Command `new` is not yet implemented.");
+		Ok(())
+	}
+}
+
+impl CommandExecutor for NewCommand {
+	fn name(&self) -> &'static str {
+		"new"
+	}
+
+	#[allow(unused_variables)]
+	fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let workspace_name = matches
+            .get_one::<String>("workspace_name")
+            .cloned();
+        let enter = matches
+            .get_one::<String>("enter")
+            .cloned();
+        self.execute(workspace_name, enter)
+	}
+}
