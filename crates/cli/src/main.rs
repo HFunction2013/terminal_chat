@@ -1,18 +1,8 @@
 use anyhow::Result;
+use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
-use cli_core::cli_command;
-use rustyline::{
-    Context, Editor, Helper,
-    completion::{Completer, Pair},
-    error::ReadlineError,
-    highlight::Highlighter,
-    hint::Hinter,
-    validate::Validator,
-};
-use shell_words::split;
-use cli_core::commands;
-use base64::{Engine as _, engine::general_purpose};
+use cli_core::run_commands;
 #[allow(unused_imports)]
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -24,7 +14,16 @@ use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
+use rustyline::{
+    Context, Editor, Helper,
+    completion::{Completer, Pair},
+    error::ReadlineError,
+    highlight::Highlighter,
+    hint::Hinter,
+    validate::Validator,
+};
 use sha2::{Digest, Sha256};
+use shell_words::split;
 use std::{
     ffi::OsString,
     io::{self, Write, stdout},
@@ -190,12 +189,6 @@ fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
 fn print_banner(colored: &String) {
     print!("{colored}");
 }
-struct CommandGuard;
-impl Drop for CommandGuard {
-    fn drop(&mut self) {
-        IN_CMD.store(false, Ordering::SeqCst);
-    }
-}
 fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
     let mut output = Vec::new();
     let mut printer = Printer::new(cfg, true, choose_color_mode(cfg), initial_offset(cfg.seed));
@@ -317,7 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     execute!(stdout(), Hide)?;
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
-    let cli = (*cli_command::CLI).clone();
+    let cli = (*run_commands::CLI).clone();
 
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
@@ -422,22 +415,12 @@ Because everyone deserves a good cup of coffee."
                 continue;
             }
         };
-
-        let full_args: Vec<&str> =
-            std::iter::once("tc-cli").chain(args.iter().map(String::as_str)).collect();
-
-        match cli.clone().try_get_matches_from(&full_args) {
-            Ok(matches) => {
-                IN_CMD.store(true, Ordering::SeqCst);
-                let _guard = CommandGuard;
-                if let Err(e) = commands::dispatch(&matches) {
-                    eprintln!("Error: {e}");
-                }
-            }
+        match run_commands::run_command(args) {
+            Ok(_) => {},
             Err(err) => {
-                eprintln!("{err}");
+                eprintln!("Command failed: {err}");
             }
-        }
+        };
     }
 
     Ok(())
