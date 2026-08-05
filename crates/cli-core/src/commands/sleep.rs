@@ -3,13 +3,13 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
+use crate::print_content::print_content;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use std::sync::atomic::Ordering;
-use crate::print_content::print_content;
-use std::time::Duration;
 use std::thread;
+use std::time::Duration;
 
 pub struct SleepCommand;
 
@@ -40,10 +40,9 @@ impl CommandExecutor for SleepCommand {
 
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let milliseconds = matches
+        let milliseconds = *matches
             .get_one::<humantime::Duration>("milliseconds")
-            .ok_or_else(|| anyhow!("Missing required argument: milliseconds"))?
-            .clone();
+            .ok_or_else(|| anyhow!("Missing required argument: milliseconds"))?;
         self.execute(milliseconds)
     }
 }

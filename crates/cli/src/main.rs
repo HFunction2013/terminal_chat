@@ -416,7 +416,7 @@ Because everyone deserves a good cup of coffee."
             }
         };
         match run_commands::run_command(args) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => {
                 eprintln!("Command failed: {err}");
             }

@@ -3,11 +3,11 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
+use crate::global_settings::{GlobalOption, set_global_option};
+use crate::print_content::print_content;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use crate::global_settings::{GlobalOption, set_global_option};
-use crate::print_content::print_content;
 
 pub struct SetgCommand;
 

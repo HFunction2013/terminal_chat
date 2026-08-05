@@ -3,13 +3,13 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
-#[allow(unused_imports)]
-use anyhow::{Result, anyhow};
-use clap::ArgMatches;
 use crate::{
     VOID,
     global_settings::{clear_all_options, exists_global_option, remove_global_option},
 };
+#[allow(unused_imports)]
+use anyhow::{Result, anyhow};
+use clap::ArgMatches;
 use std::io;
 
 pub struct UnsetgCommand;
@@ -45,8 +45,8 @@ impl UnsetgCommand {
         }
 
         let key = key.ok_or_else(|| anyhow!("Missing required argument: key"))?;
-        
-		if !exists_global_option(&key) {
+
+        if !exists_global_option(&key) {
             println!("Key {key} doesn't exists");
             return Ok(());
         }

@@ -3,10 +3,10 @@
 #[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
+use crate::global_settings::get_global_option;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use crate::global_settings::get_global_option;
 
 pub struct GetgCommand;
 

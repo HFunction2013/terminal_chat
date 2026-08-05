@@ -8,7 +8,7 @@ mod hook_macros;
 
 use std::sync::atomic::AtomicBool;
 
-pub mod run_commands;
 pub mod commands;
+pub mod run_commands;
 pub static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 pub static IN_CMD: AtomicBool = AtomicBool::new(false);

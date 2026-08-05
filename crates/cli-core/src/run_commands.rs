@@ -1,9 +1,9 @@
+use crate::IN_CMD;
+use crate::commands;
+use anyhow::Result;
 use clap::Command;
 use std::sync::LazyLock;
-use crate::commands;
-use std::sync::atomic::{Ordering};
-use anyhow::Result;
-use crate::IN_CMD;
+use std::sync::atomic::Ordering;
 mod command {
     include!(concat!(env!("OUT_DIR"), "/command.rs"));
 }
@@ -15,13 +15,10 @@ impl Drop for CommandGuard {
     }
 }
 pub fn build_cli() -> Command {
-    command::add_commands(
-        Command::new("tc-cli")
-            .version(env!("CARGO_PKG_VERSION"))
-    )
+    command::add_commands(Command::new("tc-cli").version(env!("CARGO_PKG_VERSION")))
 }
 pub static CLI: LazyLock<Command> = LazyLock::new(build_cli);
-fn internal_run_command(args: &Vec<String>) -> Result<()> {
+fn internal_run_command(args: &[String]) -> Result<()> {
     let full_args: Vec<&str> =
         std::iter::once("tc-cli").chain(args.iter().map(String::as_str)).collect();
 
@@ -33,11 +30,9 @@ fn internal_run_command(args: &Vec<String>) -> Result<()> {
             if let Err(ref e) = result {
                 eprintln!("Error: {e}");
             }
-            return result;
+            result
         }
-        Err(err) => {
-            Err(err.into())
-        }
+        Err(err) => Err(err.into()),
     }
 }
 crate::define_hook_system!(
