@@ -375,9 +375,10 @@ commands:
     about: send message
     args:
       - name: message
-        value_name: MSG
-        required: true
-        help: 'Your message, send #EDITOR# to open editor'
+        long: message
+        short: m
+        required: false
+        help: 'Your message, fallback to editor'
       - name: users
         value_name: USERS
         num_args: "0.."
@@ -390,9 +391,10 @@ commands:
         help: send time
         required: true
       - name: message
-        value_name: MSG
-        required: true
-        help: 'Your message, send #EDITOR# to open editor'
+        long: message
+        short: m
+        required: false
+        help: 'Your message, fallback to editor.'
       - name: users
         value_name: USERS
         num_args: "0.."
@@ -416,9 +418,10 @@ commands:
         help: send time
         required: true
       - name: cmd
-        value_name: CMD
-        help: 'Dest CMD, #EDITOR# to open editor'
-        required: true
+        long: code
+        short: c
+        required: false
+        help: 'Dest CMD, fallback to editor'
   - name: tasks
     about: Get scheduled tasks.
   - name: whoami
@@ -479,9 +482,10 @@ commands:
             required: true 
             help: macro name
           - name: macro_body
-            value_name: macro_BODY
-            required: true 
-            help: 'macro body, #EDITOR# to open editor'
+            long: code
+            short: c
+            required: false 
+            help: 'macro body, default: open editor to get input'
   - name: run
     about: run a certain macro
     args:
@@ -520,9 +524,10 @@ commands:
     about: Reply to the user who has just spoken quickly
     args:
       - name: message
-        value_name: MSG
+        long: message
+        short: m
         required: false
-        help: 'Your message, if not given, fallback to editor mode. Also switch to editor if MSG==#EDITOR#'
+        help: 'Your message, if not given, fallback to editor mode.'
   - name: ignore
     about: Ignore comments of certain user
     args:
@@ -772,3 +777,9 @@ commands:
             help: workspace file.
   - name: feedback
     about: Send feedback.
+    args:
+      - name: content
+        long: message
+        short: m
+        required: false
+        help: Your feedback content. fallbacks to editor.

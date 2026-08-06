@@ -12,9 +12,9 @@ pub struct MacroCommand;
 
 impl MacroCommand {
     /// `macro_name` - macro name, required, value_name: macro_NAME
-    /// `macro_body` - macro body, #EDITOR# to open editor, required, value_name: macro_BODY
+    /// `macro_body` - macro body, default: open editor to get input
     #[allow(unused_variables)]
-    fn execute(&self, macro_name: String, macro_body: String) -> Result<()> {
+    fn execute(&self, macro_name: String, macro_body: Option<String>) -> Result<()> {
         // TODO: Create macro
         println!("Command `macro` is not yet implemented.");
         Ok(())
@@ -32,10 +32,7 @@ impl CommandExecutor for MacroCommand {
             .get_one::<String>("macro_name")
             .ok_or_else(|| anyhow!("Missing required argument: macro_name"))?
             .clone();
-        let macro_body = matches
-            .get_one::<String>("macro_body")
-            .ok_or_else(|| anyhow!("Missing required argument: macro_body"))?
-            .clone();
+        let macro_body = matches.get_one::<String>("macro_body").cloned();
         self.execute(macro_name, macro_body)
     }
 }

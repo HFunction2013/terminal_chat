@@ -11,8 +11,9 @@ use clap::ArgMatches;
 pub struct FeedbackCommand;
 
 impl FeedbackCommand {
+    /// `content` - Your feedback content. fallbacks to editor.
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    fn execute(&self, content: Option<String>) -> Result<()> {
         // TODO: Send feedback.
         println!("Command `feedback` is not yet implemented.");
         Ok(())
@@ -26,6 +27,7 @@ impl CommandExecutor for FeedbackCommand {
 
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        self.execute()
+        let content = matches.get_one::<String>("content").cloned();
+        self.execute(content)
     }
 }

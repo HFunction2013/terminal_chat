@@ -13,9 +13,9 @@ pub struct ScheduleCommand;
 impl ScheduleCommand {
     /// `session` - The certain session, 0 for main console., required, value_name: SESSION
     /// `time` - send time, required, value_name: TIME
-    /// `cmd` - Dest CMD, #EDITOR# to open editor, required, value_name: CMD
+    /// `cmd` - Dest CMD, fallback to editor
     #[allow(unused_variables)]
-    fn execute(&self, session: String, time: String, cmd: String) -> Result<()> {
+    fn execute(&self, session: String, time: String, cmd: Option<String>) -> Result<()> {
         // TODO: schedule a task
         println!("Command `schedule` is not yet implemented.");
         Ok(())
@@ -37,10 +37,7 @@ impl CommandExecutor for ScheduleCommand {
             .get_one::<String>("time")
             .ok_or_else(|| anyhow!("Missing required argument: time"))?
             .clone();
-        let cmd = matches
-            .get_one::<String>("cmd")
-            .ok_or_else(|| anyhow!("Missing required argument: cmd"))?
-            .clone();
+        let cmd = matches.get_one::<String>("cmd").cloned();
         self.execute(session, time, cmd)
     }
 }

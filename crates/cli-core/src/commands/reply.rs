@@ -11,7 +11,7 @@ use clap::ArgMatches;
 pub struct ReplyCommand;
 
 impl ReplyCommand {
-    /// `message` - Your message, if not given, fallback to editor mode. Also switch to editor if MSG==#EDITOR#, value_name: MSG
+    /// `message` - Your message, if not given, fallback to editor mode.
     #[allow(unused_variables)]
     fn execute(&self, message: Option<String>) -> Result<()> {
         // TODO: Reply to the user who has just spoken quickly

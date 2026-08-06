@@ -11,10 +11,10 @@ use clap::ArgMatches;
 pub struct MsgCommand;
 
 impl MsgCommand {
-    /// `message` - Your message, send #EDITOR# to open editor, required, value_name: MSG
+    /// `message` - Your message, fallback to editor
     /// `users` - The users, default everybody., value_name: USERS
     #[allow(unused_variables)]
-    fn execute(&self, message: String, users: Vec<String>) -> Result<()> {
+    fn execute(&self, message: Option<String>, users: Vec<String>) -> Result<()> {
         // TODO: send message
         println!("Command `msg` is not yet implemented.");
         Ok(())
@@ -28,12 +28,11 @@ impl CommandExecutor for MsgCommand {
 
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let message = matches
-            .get_one::<String>("message")
-            .ok_or_else(|| anyhow!("Missing required argument: message"))?
-            .clone();
-        let users =
-            matches.get_many::<String>("users").unwrap_or_default().cloned().collect::<Vec<_>>();
+        let message = matches.get_one::<String>("message").cloned();
+        let users = matches
+            .get_many::<String>("users")
+            .unwrap_or_default().cloned()
+            .collect::<Vec<_>>();
         self.execute(message, users)
     }
 }
