@@ -3,11 +3,11 @@ use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
 use cli_core::run_commands;
-#[allow(unused_imports)]
+#[cfg(not(debug_assertions))]
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use figlet_rs::FIGlet;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -400,7 +400,6 @@ Because everyone deserves a good cup of coffee."
             "saying" => {
                 match fortune::choose_fortune(FORTUNE_TEXT) {
                     Some(msg) => println!("{msg}"),
-                    #[allow(non_snake_case)]
                     None => eprintln!("Error choosing saying"),
                 }
                 continue;

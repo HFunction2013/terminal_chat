@@ -15,9 +15,10 @@ struct CommandDef {
     subcommands: Option<Vec<Self>>,
     multiple_values: Option<bool>,
 
+    #[cfg(not(debug_assertions))]
     #[serde(default)]
-    #[allow(dead_code)]
     debug_only: bool,
+
     aliases: Option<Vec<String>>,
 }
 

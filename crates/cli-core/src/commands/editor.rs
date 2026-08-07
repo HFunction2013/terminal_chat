@@ -49,7 +49,10 @@ impl EditorCommand {
 
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
-            &["micro", "vim", "hx", "nvim", "nano", "edit", "emacs", "code", "subl", "zed", "kak", "gedit"]
+            &[
+                "micro", "vim", "hx", "nvim", "nano", "edit", "emacs", "code", "subl", "zed",
+                "kak", "gedit",
+            ]
         }
     };
 

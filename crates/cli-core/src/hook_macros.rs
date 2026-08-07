@@ -49,22 +49,22 @@ macro_rules! define_hook_system {
             static [<IN_ $pfx:upper>]: once_cell::sync::Lazy<std::sync::Mutex<bool>>
                 = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(false));
 
-            pub fn [<register_before_ $pfx>]<F>(name: &'static str, f: F)
+            pub fn [<register_before_ $pfx>]<F>(f: F)
             where F: Fn($bt) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<BEFORE_ $pfx:upper _HOOKS>].lock() {
-                    hooks.push($crate::hook::Hook { name, f: Box::new(f) });
+                    hooks.push($crate::hook::Hook { f: Box::new(f) });
                 }
             }
-            pub fn [<register_on_ $pfx>]<F>(name: &'static str, f: F)
+            pub fn [<register_on_ $pfx>]<F>(f: F)
             where F: Fn($ot) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<ON_ $pfx:upper _HOOKS>].lock() {
-                    hooks.push($crate::hook::Hook { name, f: Box::new(f) });
+                    hooks.push($crate::hook::Hook { f: Box::new(f) });
                 }
             }
-            pub fn [<register_after_ $pfx>]<F>(name: &'static str, f: F)
+            pub fn [<register_after_ $pfx>]<F>(f: F)
             where F: Fn($at) -> bool + Send + Sync + 'static {
                 if let Ok(mut hooks) = [<AFTER_ $pfx:upper _HOOKS>].lock() {
-                    hooks.push($crate::hook::Hook { name, f: Box::new(f) });
+                    hooks.push($crate::hook::Hook { f: Box::new(f) });
                 }
             }
 
@@ -74,8 +74,7 @@ macro_rules! define_hook_system {
                 let _ = [<AFTER_ $pfx:upper _HOOKS>].lock().map(|mut h| h.clear());
             }
 
-            #[allow(unused_mut)]
-            fn [<run_before_ $pfx _chain>](mut buf: &mut $ct) -> bool {
+            fn [<run_before_ $pfx _chain>](buf: &mut $ct) -> bool {
                 if let Ok(list) = [<BEFORE_ $pfx:upper _HOOKS>].lock() {
                     for h in list.iter() {
                         if (h.f)($crate::__buf!($bm, buf)) {
@@ -106,7 +105,6 @@ macro_rules! define_hook_system {
                 false
             }
 
-            #[allow(unused_assignments)]
             pub fn [<$pfx:snake>](content: impl Into<$ct>) -> $ret
             where $ct: Clone {
                 let content = content.into();
@@ -120,7 +118,7 @@ macro_rules! define_hook_system {
                 *reenter_guard = true;
                 drop(reenter_guard);
 
-                let mut interrupted = false;
+                let mut interrupted;
                 let result = match stringify!($bm) {
                     "M" => {
                         let mut buf = content.clone();
