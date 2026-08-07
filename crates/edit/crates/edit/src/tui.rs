@@ -276,7 +276,7 @@ impl ButtonStyle {
     pub fn accelerator(self, char: char) -> Self {
         Self { accelerator: Some(char), ..self }
     }
-    /// Draw a checkbox prefix: `[🗹 Example Button]`
+    /// Draw a checkbox prefix: `[◼ Example Button]`
     pub fn checked(self, checked: bool) -> Self {
         Self { checked: Some(checked), ..self }
     }
@@ -363,6 +363,10 @@ pub struct Tui {
     /// need to scroll the node into view if it's within a scrollarea.
     focused_node_for_scrolling: u64,
 
+    /// The menubar button whose menu is open and can be closed by clicking it again.
+    /// Only set once the press that opened the menu has ended.
+    menubar_toggle_id: u64,
+
     /// A list of cached text buffers used for [`Context::editline()`].
     cached_text_buffers: Vec<CachedTextBuffer>,
 
@@ -415,6 +419,7 @@ impl Tui {
 
             focused_node_path: Vec::with_capacity(16),
             focused_node_for_scrolling: ROOT_ID,
+            menubar_toggle_id: 0,
 
             cached_text_buffers: Vec::with_capacity(16),
 
@@ -2077,7 +2082,7 @@ impl<'a> Context<'a, '_> {
         if self.is_focused() {
             self.attr_reverse();
         }
-        self.styled_label_add_text(if *checked { "[🗹 " } else { "[☐ " });
+        self.styled_label_add_text(if *checked { "[◼ " } else { "[◻ " });
         self.styled_label_add_text(text);
         self.styled_label_add_text("]");
         self.styled_label_end();
@@ -3208,7 +3213,21 @@ impl<'a> Context<'a, '_> {
             && !contains_focus
             && self.consume_shortcut(kbmod::ALT | InputKey::new(accelerator as u32));
 
+        let button_id = self.tree.last_node.borrow().id;
+
+        if self.button_activated() && self.tui.menubar_toggle_id == button_id {
+            self.tui.menubar_toggle_id = 0;
+            self.toss_focus_up();
+            return false;
+        }
+
         if contains_focus || keyboard_focus {
+            // Arming this only while no button is held keeps the press
+            // that opened the menu from closing it again right away.
+            if self.tui.mouse_state != InputMouseState::Left {
+                self.tui.menubar_toggle_id = button_id;
+            }
+
             self.attr_background_rgba(self.tui.floater_default_bg);
             self.attr_foreground_rgba(self.tui.floater_default_fg);
 
@@ -3321,6 +3340,10 @@ impl<'a> Context<'a, '_> {
     /// Ends the current menubar.
     pub fn menubar_end(&mut self) {
         self.table_end();
+
+        if !self.contains_focus() {
+            self.tui.menubar_toggle_id = 0;
+        }
     }
 
     /// Renders a button label with an optional accelerator character
@@ -3332,7 +3355,7 @@ impl<'a> Context<'a, '_> {
             self.styled_label_add_text("[");
         }
         if let Some(checked) = style.checked {
-            self.styled_label_add_text(if checked { "🗹 " } else { "  " });
+            self.styled_label_add_text(if checked { "◼ " } else { "  " });
         }
         // Label text
         match style.accelerator {
