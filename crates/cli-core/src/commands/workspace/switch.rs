@@ -13,7 +13,7 @@ pub struct SwitchCommand;
 impl SwitchCommand {
     /// `workspace_name` - workspace name., required, value_name: WORKSPACE_NAME
     #[allow(unused_variables)]
-    fn execute(&self, workspace_name: String) -> Result<()> {
+    pub fn execute(&self, workspace_name: String) -> Result<()> {
         // TODO: Switch to another workspace.
         println!("Command `switch` is not yet implemented.");
         Ok(())

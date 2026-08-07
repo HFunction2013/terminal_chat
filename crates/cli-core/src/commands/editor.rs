@@ -67,7 +67,7 @@ impl EditorCommand {
     /// `file` - file to open, optional., value_name: FILE
     /// `editor` - set editor
     #[allow(unused_variables)]
-    fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
+    pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
         let editor_name =
             editor.clone().or_else(|| get_global_option("EDITOR")).or_else(Self::choose_editor);
         let editor_path = match editor_name {

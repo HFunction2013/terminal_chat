@@ -13,7 +13,7 @@ pub struct ReplyCommand;
 impl ReplyCommand {
     /// `message` - Your message, if not given, fallback to editor mode.
     #[allow(unused_variables)]
-    fn execute(&self, message: Option<String>) -> Result<()> {
+    pub fn execute(&self, message: Option<String>) -> Result<()> {
         // TODO: Reply to the user who has just spoken quickly
         println!("Command `reply` is not yet implemented.");
         Ok(())

@@ -14,7 +14,7 @@ impl MsgCommand {
     /// `message` - Your message, fallback to editor
     /// `users` - The users, default everybody., value_name: USERS
     #[allow(unused_variables)]
-    fn execute(&self, message: Option<String>, users: Vec<String>) -> Result<()> {
+    pub fn execute(&self, message: Option<String>, users: Vec<String>) -> Result<()> {
         // TODO: send message
         println!("Command `msg` is not yet implemented.");
         Ok(())
@@ -29,10 +29,8 @@ impl CommandExecutor for MsgCommand {
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let message = matches.get_one::<String>("message").cloned();
-        let users = matches
-            .get_many::<String>("users")
-            .unwrap_or_default().cloned()
-            .collect::<Vec<_>>();
+        let users =
+            matches.get_many::<String>("users").unwrap_or_default().cloned().collect::<Vec<_>>();
         self.execute(message, users)
     }
 }

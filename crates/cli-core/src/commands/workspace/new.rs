@@ -14,7 +14,7 @@ impl NewCommand {
     /// `workspace_name` - workspace name. Defaults: Workspace-xxx , value_name: WORKSPACE_NAME
     /// `enter` - Create and enter.
     #[allow(unused_variables)]
-    fn execute(&self, workspace_name: Option<String>, enter: Option<String>) -> Result<()> {
+    pub fn execute(&self, workspace_name: Option<String>, enter: Option<String>) -> Result<()> {
         // TODO: New workspace
         println!("Command `new` is not yet implemented.");
         Ok(())

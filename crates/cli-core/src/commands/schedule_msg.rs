@@ -15,7 +15,7 @@ impl ScheduleMsgCommand {
     /// `message` - Your message, fallback to editor.
     /// `users` - The users, default everybody., value_name: USERS
     #[allow(unused_variables)]
-    fn execute(&self, time: String, message: Option<String>, users: Vec<String>) -> Result<()> {
+    pub fn execute(&self, time: String, message: Option<String>, users: Vec<String>) -> Result<()> {
         // TODO: Schedules message.
         println!("Command `schedule_msg` is not yet implemented.");
         Ok(())
@@ -34,10 +34,8 @@ impl CommandExecutor for ScheduleMsgCommand {
             .ok_or_else(|| anyhow!("Missing required argument: time"))?
             .clone();
         let message = matches.get_one::<String>("message").cloned();
-        let users = matches
-            .get_many::<String>("users")
-            .unwrap_or_default().cloned()
-            .collect::<Vec<_>>();
+        let users =
+            matches.get_many::<String>("users").unwrap_or_default().cloned().collect::<Vec<_>>();
         self.execute(time, message, users)
     }
 }

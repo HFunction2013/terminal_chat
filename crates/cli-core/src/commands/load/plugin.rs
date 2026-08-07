@@ -14,7 +14,7 @@ impl PluginCommand {
     /// `load_namespace` - load plugin's namespace while loading the plugin
     /// `plugin` - Plugin to load, required, value_name: PLUGIN
     #[allow(unused_variables)]
-    fn execute(&self, load_namespace: bool, plugin: String) -> Result<()> {
+    pub fn execute(&self, load_namespace: bool, plugin: String) -> Result<()> {
         // TODO: load plugin
         println!("Command `plugin` is not yet implemented.");
         Ok(())

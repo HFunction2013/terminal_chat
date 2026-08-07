@@ -16,7 +16,7 @@ pub struct SleepCommand;
 impl SleepCommand {
     /// `milliseconds` - Aha... sleepy!, required, value_name: TIME, default: 1000
     #[allow(unused_variables)]
-    fn execute(&self, milliseconds: humantime::Duration) -> Result<()> {
+    pub fn execute(&self, milliseconds: humantime::Duration) -> Result<()> {
         print_content(format!("[*] Aha... Sleep for {milliseconds}.").as_str());
         let start = std::time::Instant::now();
         while start.elapsed() < *milliseconds {

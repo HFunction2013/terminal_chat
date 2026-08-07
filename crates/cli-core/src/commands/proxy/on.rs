@@ -12,7 +12,7 @@ pub struct OnCommand;
 
 impl OnCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Turn on system proxy.
         println!("Command `on` is not yet implemented.");
         Ok(())

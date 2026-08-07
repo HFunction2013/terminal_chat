@@ -13,7 +13,7 @@ pub struct RegistryCommand;
 
 impl RegistryCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show all plugins from registry.
         // TODO: Use this carefully.
         println!("Command `registry` is not yet implemented.");

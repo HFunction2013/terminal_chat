@@ -17,7 +17,7 @@ impl InstallCommand {
     /// `local` - Path to local plugin file or directory, value_name: PATH
     /// `force` - Override old one (if exists).
     #[allow(unused_variables)]
-    fn execute(
+    pub fn execute(
         &self,
         plugin: String,
         registry: Option<String>,

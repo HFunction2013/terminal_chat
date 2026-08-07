@@ -12,7 +12,7 @@ pub struct BackgroundCommand;
 
 impl BackgroundCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Background current session and return to main console
         println!("Command `background` is not yet implemented.");
         Ok(())

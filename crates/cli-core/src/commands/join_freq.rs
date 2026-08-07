@@ -13,7 +13,7 @@ pub struct JoinFreqCommand;
 impl JoinFreqCommand {
     /// `freq` - Target frequency id, required, value_name: FREQ_ID
     #[allow(unused_variables)]
-    fn execute(&self, freq: String) -> Result<()> {
+    pub fn execute(&self, freq: String) -> Result<()> {
         // TODO: Join a target frequency channel
         println!("Command `join_freq` is not yet implemented.");
         Ok(())

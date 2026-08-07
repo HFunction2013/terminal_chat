@@ -12,7 +12,7 @@ pub struct ModeratorsCommand;
 
 impl ModeratorsCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show moderators in current frequency
         println!("Command `moderators` is not yet implemented.");
         Ok(())

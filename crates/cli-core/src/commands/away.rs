@@ -13,7 +13,7 @@ pub struct AwayCommand;
 impl AwayCommand {
     /// `status` - Your status, only away and busy avaliable. Auto replies private messages. Like:   [bot-reply] I am busy now. Contact me later. , value_name: STATUS, default: away
     #[allow(unused_variables)]
-    fn execute(&self, status: Option<String>) -> Result<()> {
+    pub fn execute(&self, status: Option<String>) -> Result<()> {
         // TODO: Set your status to be busy or away
         println!("Command `away` is not yet implemented.");
         Ok(())

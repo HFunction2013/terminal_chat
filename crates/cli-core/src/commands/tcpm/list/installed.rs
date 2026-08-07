@@ -12,7 +12,7 @@ pub struct InstalledCommand;
 
 impl InstalledCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: show all installed plugins.
         println!("Command `installed` is not yet implemented.");
         Ok(())

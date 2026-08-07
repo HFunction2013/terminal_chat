@@ -15,7 +15,12 @@ impl SessionsCommand {
     /// `interact` - Switch to target session, value_name: SESSION_ID
     /// `kill` - Close and destroy target session, value_name: SESSION_ID
     #[allow(unused_variables)]
-    fn execute(&self, list: bool, interact: Option<String>, kill: Option<String>) -> Result<()> {
+    pub fn execute(
+        &self,
+        list: bool,
+        interact: Option<String>,
+        kill: Option<String>,
+    ) -> Result<()> {
         // TODO: Multi-session manager
         println!("Command `sessions` is not yet implemented.");
         Ok(())

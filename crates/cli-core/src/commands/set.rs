@@ -14,7 +14,7 @@ impl SetCommand {
     /// `key` - Session config key, required, value_name: KEY
     /// `value` - Session config value, required, value_name: VALUE
     #[allow(unused_variables)]
-    fn execute(&self, key: String, value: String) -> Result<()> {
+    pub fn execute(&self, key: String, value: String) -> Result<()> {
         // TODO: Set session options
         println!("Command `set` is not yet implemented.");
         Ok(())

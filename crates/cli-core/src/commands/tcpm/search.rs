@@ -13,7 +13,7 @@ pub struct SearchCommand;
 impl SearchCommand {
     /// `plugin_name` - plugin name to search, required, value_name: PLUGIN_NAME
     #[allow(unused_variables)]
-    fn execute(&self, plugin_name: String) -> Result<()> {
+    pub fn execute(&self, plugin_name: String) -> Result<()> {
         // TODO: Search plugin in registry
         println!("Command `search` is not yet implemented.");
         Ok(())

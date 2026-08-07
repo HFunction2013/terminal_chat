@@ -14,7 +14,7 @@ impl RenameCommand {
     /// `source` - Original workspace name.
     /// `target` - Final workspace name., required
     #[allow(unused_variables)]
-    fn execute(&self, source: Option<String>, target: String) -> Result<()> {
+    pub fn execute(&self, source: Option<String>, target: String) -> Result<()> {
         // TODO: Rename a workspace. Default: current workspace
         println!("Command `rename` is not yet implemented.");
         Ok(())

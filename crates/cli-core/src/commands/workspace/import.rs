@@ -13,7 +13,7 @@ pub struct ImportCommand;
 impl ImportCommand {
     /// `workspace_file` - workspace file., required, value_name: WORKSPACE_FILE
     #[allow(unused_variables)]
-    fn execute(&self, workspace_file: String) -> Result<()> {
+    pub fn execute(&self, workspace_file: String) -> Result<()> {
         // TODO: Import workspace information.
         println!("Command `import` is not yet implemented.");
         Ok(())

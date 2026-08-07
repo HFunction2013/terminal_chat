@@ -14,7 +14,7 @@ impl DownloadCommand {
     /// `remote_path` - Remote path to download., required, value_name: REMOTE_PATH
     /// `local_path` - Local path to store downloads., value_name: LOCAL_PATH
     #[allow(unused_variables)]
-    fn execute(&self, remote_path: String, local_path: Option<String>) -> Result<()> {
+    pub fn execute(&self, remote_path: String, local_path: Option<String>) -> Result<()> {
         // TODO: Download file or folder to server.
         println!("Command `download` is not yet implemented.");
         Ok(())

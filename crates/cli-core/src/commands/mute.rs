@@ -13,7 +13,7 @@ pub struct MuteCommand;
 impl MuteCommand {
     /// `user` - the full username, e.g., HZFY@192.168.78.91, required, value_name: USER
     #[allow(unused_variables)]
-    fn execute(&self, user: String) -> Result<()> {
+    pub fn execute(&self, user: String) -> Result<()> {
         // TODO: mute a certain user, use `set QUIET true` to mute everyboy except mods.
         println!("Command `mute` is not yet implemented.");
         Ok(())

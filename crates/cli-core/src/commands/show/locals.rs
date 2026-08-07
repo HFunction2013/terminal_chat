@@ -12,7 +12,7 @@ pub struct LocalsCommand;
 
 impl LocalsCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show value of all local variables
         println!("Command `locals` is not yet implemented.");
         Ok(())

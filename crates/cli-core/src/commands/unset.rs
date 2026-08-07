@@ -15,7 +15,7 @@ impl UnsetCommand {
     /// `all` - Clear all session options.
     /// `force` - action without confirm.
     #[allow(unused_variables)]
-    fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
+    pub fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
         // TODO: Unset session variable.
         println!("Command `unset` is not yet implemented.");
         Ok(())

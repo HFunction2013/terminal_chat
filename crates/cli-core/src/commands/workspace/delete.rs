@@ -14,7 +14,7 @@ impl DeleteCommand {
     /// `workspace_name` - workspace name.
     /// `force` - action without confirm.
     #[allow(unused_variables)]
-    fn execute(&self, workspace_name: Option<String>, force: bool) -> Result<()> {
+    pub fn execute(&self, workspace_name: Option<String>, force: bool) -> Result<()> {
         // TODO: Delete workspace. Default: current workspace
         println!("Command `delete` is not yet implemented.");
         Ok(())

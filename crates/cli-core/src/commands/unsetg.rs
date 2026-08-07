@@ -33,7 +33,7 @@ impl UnsetgCommand {
     /// `all` - Clear all global options.
     /// `force` - action without confirm.
     #[allow(unused_variables)]
-    fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
+    pub fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
         if all {
             if Self::confirm(force) {
                 clear_all_options(VOID);

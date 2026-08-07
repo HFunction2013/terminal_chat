@@ -12,7 +12,7 @@ pub struct VariablesCommand;
 
 impl VariablesCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show value of all variables
         println!("Command `variables` is not yet implemented.");
         Ok(())

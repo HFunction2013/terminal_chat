@@ -13,7 +13,7 @@ pub struct GetgCommand;
 impl GetgCommand {
     /// `key` - Config key name, required, value_name: KEY
     #[allow(unused_variables)]
-    fn execute(&self, key: String) -> Result<()> {
+    pub fn execute(&self, key: String) -> Result<()> {
         let val = get_global_option(&key);
         if let Some(v) = val {
             println!("{key} => {v}");

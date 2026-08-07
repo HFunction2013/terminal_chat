@@ -13,7 +13,7 @@ pub struct NamespaceCommand;
 impl NamespaceCommand {
     /// `namespace_name` - namespace to unload, required, value_name: NAMESPACE_NAME
     #[allow(unused_variables)]
-    fn execute(&self, namespace_name: String) -> Result<()> {
+    pub fn execute(&self, namespace_name: String) -> Result<()> {
         // TODO: unload namespace
         println!("Command `namespace` is not yet implemented.");
         Ok(())

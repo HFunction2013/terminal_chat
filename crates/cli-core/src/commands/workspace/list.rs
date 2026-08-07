@@ -12,7 +12,7 @@ pub struct ListCommand;
 
 impl ListCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: List all workspaces.
         println!("Command `list` is not yet implemented.");
         Ok(())

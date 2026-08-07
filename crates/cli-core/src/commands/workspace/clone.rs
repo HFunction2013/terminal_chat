@@ -14,7 +14,7 @@ impl CloneCommand {
     /// `source` - Original workspace name.
     /// `target` - Final workspace name., required
     #[allow(unused_variables)]
-    fn execute(&self, source: Option<String>, target: String) -> Result<()> {
+    pub fn execute(&self, source: Option<String>, target: String) -> Result<()> {
         // TODO: Clone a workspace. Default: current workspace.
         println!("Command `clone` is not yet implemented.");
         Ok(())

@@ -12,7 +12,7 @@ pub struct OffCommand;
 
 impl OffCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Turn off system proxy.
         println!("Command `off` is not yet implemented.");
         Ok(())

@@ -12,7 +12,7 @@ pub struct OptionsCommand;
 
 impl OptionsCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show available set/setg options
         println!("Command `options` is not yet implemented.");
         Ok(())

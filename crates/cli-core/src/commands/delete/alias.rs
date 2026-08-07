@@ -13,7 +13,7 @@ pub struct AliasCommand;
 impl AliasCommand {
     /// `alias` - alias to delete, required, value_name: ALIAS
     #[allow(unused_variables)]
-    fn execute(&self, alias: String) -> Result<()> {
+    pub fn execute(&self, alias: String) -> Result<()> {
         // TODO: Delete alias
         println!("Command `alias` is not yet implemented.");
         Ok(())

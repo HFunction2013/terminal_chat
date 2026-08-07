@@ -12,7 +12,7 @@ pub struct WhoamiCommand;
 
 impl WhoamiCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Get username.
         println!("Command `whoami` is not yet implemented.");
         Ok(())

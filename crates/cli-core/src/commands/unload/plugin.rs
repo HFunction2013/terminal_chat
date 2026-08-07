@@ -13,7 +13,7 @@ pub struct PluginCommand;
 impl PluginCommand {
     /// `plugin_name` - Plugin to unload, required, value_name: PLUGIN_NAME
     #[allow(unused_variables)]
-    fn execute(&self, plugin_name: String) -> Result<()> {
+    pub fn execute(&self, plugin_name: String) -> Result<()> {
         // TODO: unload plugin
         println!("Command `plugin` is not yet implemented.");
         Ok(())

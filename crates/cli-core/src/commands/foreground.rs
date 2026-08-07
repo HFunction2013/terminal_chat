@@ -12,7 +12,7 @@ pub struct ForegroundCommand;
 
 impl ForegroundCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Switch to session if there is only one.
         println!("Command `foreground` is not yet implemented.");
         Ok(())

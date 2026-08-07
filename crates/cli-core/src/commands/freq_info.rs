@@ -13,7 +13,7 @@ pub struct FreqInfoCommand;
 impl FreqInfoCommand {
     /// `frequency` - freq ID, required, value_name: FREQ
     #[allow(unused_variables)]
-    fn execute(&self, frequency: f64) -> Result<()> {
+    pub fn execute(&self, frequency: f64) -> Result<()> {
         // TODO: Get frequency information
         println!("Command `freq_info` is not yet implemented.");
         Ok(())

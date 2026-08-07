@@ -13,7 +13,7 @@ pub struct GetCommand;
 impl GetCommand {
     /// `key` - Config key name, required, value_name: KEY
     #[allow(unused_variables)]
-    fn execute(&self, key: String) -> Result<()> {
+    pub fn execute(&self, key: String) -> Result<()> {
         // TODO: Get session options
         println!("Command `get` is not yet implemented.");
         Ok(())

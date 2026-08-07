@@ -12,7 +12,7 @@ pub struct LsCommand;
 
 impl LsCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: List files in current directory.
         println!("Command `ls` is not yet implemented.");
         Ok(())

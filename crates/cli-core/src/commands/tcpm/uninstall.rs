@@ -14,7 +14,7 @@ impl UninstallCommand {
     /// `plugin` - Plugin to uninstall, required, value_name: PLUGIN
     /// `delete_local` - Delete local file
     #[allow(unused_variables)]
-    fn execute(&self, plugin: String, delete_local: bool) -> Result<()> {
+    pub fn execute(&self, plugin: String, delete_local: bool) -> Result<()> {
         // TODO: Uninstall plugin
         println!("Command `uninstall` is not yet implemented.");
         Ok(())

@@ -15,7 +15,7 @@ impl CreateFreqCommand {
     /// `p` - Create frequency with password
     /// `max_people` - Max online user limit, value_name: NUM
     #[allow(unused_variables)]
-    fn execute(&self, freq: String, p: bool, max_people: Option<String>) -> Result<()> {
+    pub fn execute(&self, freq: String, p: bool, max_people: Option<String>) -> Result<()> {
         // TODO: Create a new frequency channel
         println!("Command `create_freq` is not yet implemented.");
         Ok(())

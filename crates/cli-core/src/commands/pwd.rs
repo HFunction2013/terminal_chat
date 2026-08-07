@@ -12,7 +12,7 @@ pub struct PwdCommand;
 
 impl PwdCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Get current remote directory.
         println!("Command `pwd` is not yet implemented.");
         Ok(())

@@ -13,7 +13,7 @@ pub struct ShowCommand;
 impl ShowCommand {
     /// `workspace_name` - workspace name., value_name: WORKSPACE_NAME
     #[allow(unused_variables)]
-    fn execute(&self, workspace_name: Option<String>) -> Result<()> {
+    pub fn execute(&self, workspace_name: Option<String>) -> Result<()> {
         // TODO: Show information for a certain workspace. Default: current workspace.
         println!("Command `show` is not yet implemented.");
         Ok(())

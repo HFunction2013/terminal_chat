@@ -16,7 +16,7 @@ impl DownloadCommand {
     /// `load` - load plugin after download
     /// `use_namespace` - load plugin and namespace after download, conflicts with: load
     #[allow(unused_variables)]
-    fn execute(
+    pub fn execute(
         &self,
         plugin: String,
         registry: Option<String>,

@@ -17,7 +17,7 @@ impl UpdateCommand {
     /// `reload` - Reload after update
     /// `force` - Override old one (if exists).
     #[allow(unused_variables)]
-    fn execute(
+    pub fn execute(
         &self,
         plugin: String,
         registry: Option<String>,

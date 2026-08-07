@@ -12,7 +12,7 @@ pub struct UpdatesCommand;
 
 impl UpdatesCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show all avaliable updates.
         println!("Command `updates` is not yet implemented.");
         Ok(())

@@ -14,7 +14,7 @@ impl ShowCommand {
     /// `plugin` - Plugin to show, required, value_name: PLUGIN_NAME
     /// `local` - Show plugin from local storage instead of registry
     #[allow(unused_variables)]
-    fn execute(&self, plugin: String, local: bool) -> Result<()> {
+    pub fn execute(&self, plugin: String, local: bool) -> Result<()> {
         // TODO: Show plugin information from registry(default)
         println!("Command `show` is not yet implemented.");
         Ok(())

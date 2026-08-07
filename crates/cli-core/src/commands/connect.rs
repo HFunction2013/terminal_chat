@@ -12,7 +12,7 @@ pub struct ConnectCommand;
 
 impl ConnectCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Connect the server
         println!("Command `connect` is not yet implemented.");
         Ok(())

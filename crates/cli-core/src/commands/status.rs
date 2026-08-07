@@ -12,7 +12,7 @@ pub struct StatusCommand;
 
 impl StatusCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Test network
         println!("Command `status` is not yet implemented.");
         Ok(())

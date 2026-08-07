@@ -13,7 +13,7 @@ pub struct FileInfoCommand;
 impl FileInfoCommand {
     /// `file` - The remote file, required, value_name: FILE
     #[allow(unused_variables)]
-    fn execute(&self, file: String) -> Result<()> {
+    pub fn execute(&self, file: String) -> Result<()> {
         // TODO: Get remote file infomation.
         println!("Command `file_info` is not yet implemented.");
         Ok(())

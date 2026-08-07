@@ -15,7 +15,7 @@ impl ScheduleCommand {
     /// `time` - send time, required, value_name: TIME
     /// `cmd` - Dest CMD, fallback to editor
     #[allow(unused_variables)]
-    fn execute(&self, session: String, time: String, cmd: Option<String>) -> Result<()> {
+    pub fn execute(&self, session: String, time: String, cmd: Option<String>) -> Result<()> {
         // TODO: schedule a task
         println!("Command `schedule` is not yet implemented.");
         Ok(())

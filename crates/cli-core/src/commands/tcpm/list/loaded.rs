@@ -12,7 +12,7 @@ pub struct LoadedCommand;
 
 impl LoadedCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: show all loaded plugins.
         println!("Command `loaded` is not yet implemented.");
         Ok(())

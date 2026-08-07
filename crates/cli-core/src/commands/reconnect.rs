@@ -12,7 +12,7 @@ pub struct ReconnectCommand;
 
 impl ReconnectCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Reconnect the server
         println!("Command `reconnect` is not yet implemented.");
         Ok(())

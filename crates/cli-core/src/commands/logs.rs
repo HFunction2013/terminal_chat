@@ -14,7 +14,7 @@ pub struct LogsCommand;
 impl LogsCommand {
     /// `operation` - Operation (open|close)., value_name: OP, default: open
     #[allow(unused_variables)]
-    fn execute(&self, operation: Option<String>) -> Result<()> {
+    pub fn execute(&self, operation: Option<String>) -> Result<()> {
         // TODO: open/close logging
         println!("Command `logs` is not yet implemented.");
         Ok(())

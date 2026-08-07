@@ -13,7 +13,7 @@ pub struct CdCommand;
 impl CdCommand {
     /// `dir` - DIR to change., required, value_name: DIR
     #[allow(unused_variables)]
-    fn execute(&self, dir: String) -> Result<()> {
+    pub fn execute(&self, dir: String) -> Result<()> {
         // TODO: Change the current remote directory to DIR.
         println!("Command `cd` is not yet implemented.");
         Ok(())

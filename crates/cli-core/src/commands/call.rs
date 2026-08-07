@@ -13,7 +13,7 @@ pub struct CallCommand;
 impl CallCommand {
     /// `user` - The user, required, value_name: USER
     #[allow(unused_variables)]
-    fn execute(&self, user: String) -> Result<()> {
+    pub fn execute(&self, user: String) -> Result<()> {
         // TODO: Call an user
         println!("Command `call` is not yet implemented.");
         Ok(())

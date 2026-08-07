@@ -232,9 +232,9 @@ fn generate_module(name: &str, about: &str, debug_only: bool, args: &[ArgDef]) -
 
     // 组装 execute 方法签名
     let execute_sig = if execute_params.is_empty() {
-        "\tfn execute(&self) -> Result<()>".to_string()
+        "\tpub fn execute(&self) -> Result<()>".to_string()
     } else {
-        format!("\tfn execute(&self, {}) -> Result<()>", execute_params.join(", "))
+        format!("\tpub fn execute(&self, {}) -> Result<()>", execute_params.join(", "))
     };
 
     // 组装 execute 调用

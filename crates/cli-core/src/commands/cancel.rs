@@ -13,7 +13,7 @@ pub struct CancelCommand;
 impl CancelCommand {
     /// `task_id` - The task id, required, value_name: TASK_ID
     #[allow(unused_variables)]
-    fn execute(&self, task_id: String) -> Result<()> {
+    pub fn execute(&self, task_id: String) -> Result<()> {
         // TODO: cancel a task
         println!("Command `cancel` is not yet implemented.");
         Ok(())

@@ -12,7 +12,7 @@ pub struct DownloadedCommand;
 
 impl DownloadedCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: show all downloaded plugins.
         println!("Command `downloaded` is not yet implemented.");
         Ok(())

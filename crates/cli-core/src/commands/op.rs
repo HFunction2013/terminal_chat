@@ -13,7 +13,7 @@ pub struct OpCommand;
 impl OpCommand {
     /// `user` - the full username, e.g., HZFY@192.168.78.91, required, value_name: USER
     #[allow(unused_variables)]
-    fn execute(&self, user: String) -> Result<()> {
+    pub fn execute(&self, user: String) -> Result<()> {
         // TODO: give mod permission to a certain user.
         println!("Command `op` is not yet implemented.");
         Ok(())

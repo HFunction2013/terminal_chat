@@ -14,7 +14,7 @@ impl UploadCommand {
     /// `local_path` - Local path to upload., required, value_name: LOCAL_PATH
     /// `remote_path` - Remote path to upload., value_name: REMOTE_PATH
     #[allow(unused_variables)]
-    fn execute(&self, local_path: String, remote_path: Option<String>) -> Result<()> {
+    pub fn execute(&self, local_path: String, remote_path: Option<String>) -> Result<()> {
         // TODO: Upload file or folder to server.
         println!("Command `upload` is not yet implemented.");
         Ok(())

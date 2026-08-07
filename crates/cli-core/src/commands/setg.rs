@@ -16,7 +16,7 @@ impl SetgCommand {
     /// `value` - Target config value, value_name: VALUE
     /// `password` - use rpassword to read the value, conflicts with: value
     #[allow(unused_variables)]
-    fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
+    pub fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
         let value = if password {
             rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()
         } else {

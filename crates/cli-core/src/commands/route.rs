@@ -12,7 +12,7 @@ pub struct RouteCommand;
 
 impl RouteCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Trace route to server
         println!("Command `route` is not yet implemented.");
         Ok(())

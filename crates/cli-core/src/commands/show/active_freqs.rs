@@ -12,7 +12,7 @@ pub struct ActiveFreqsCommand;
 
 impl ActiveFreqsCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show all active frequencies
         println!("Command `active_freqs` is not yet implemented.");
         Ok(())

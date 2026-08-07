@@ -12,7 +12,7 @@ pub struct DisbandCommand;
 
 impl DisbandCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: disband current frequency.
         println!("Command `disband` is not yet implemented.");
         Ok(())

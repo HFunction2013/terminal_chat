@@ -14,7 +14,7 @@ impl ExportCommand {
     /// `workspace_name` - workspace name.
     /// `output` - workspace output file. Default: <PROGRAM_DIR>/workspaces/<WORKSPACE_NAME>.toml
     #[allow(unused_variables)]
-    fn execute(&self, workspace_name: Option<String>, output: Option<String>) -> Result<()> {
+    pub fn execute(&self, workspace_name: Option<String>, output: Option<String>) -> Result<()> {
         // TODO: Export workspace information to a file. Default: current workspace.
         println!("Command `export` is not yet implemented.");
         Ok(())

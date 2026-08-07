@@ -13,7 +13,7 @@ pub struct ChecksumCommand;
 impl ChecksumCommand {
     /// `file` - Remote file to check. NO FOLDERS!, required, value_name: FILE
     #[allow(unused_variables)]
-    fn execute(&self, file: String) -> Result<()> {
+    pub fn execute(&self, file: String) -> Result<()> {
         // TODO: Get checksum of remote file (SHA256).
         println!("Command `checksum` is not yet implemented.");
         Ok(())

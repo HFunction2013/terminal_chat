@@ -13,7 +13,7 @@ pub struct FeedbackCommand;
 impl FeedbackCommand {
     /// `content` - Your feedback content. fallbacks to editor.
     #[allow(unused_variables)]
-    fn execute(&self, content: Option<String>) -> Result<()> {
+    pub fn execute(&self, content: Option<String>) -> Result<()> {
         // TODO: Send feedback.
         println!("Command `feedback` is not yet implemented.");
         Ok(())

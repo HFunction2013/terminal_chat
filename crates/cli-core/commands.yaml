@@ -478,7 +478,7 @@ commands:
         about: Create macro
         args:
           - name: macro_name
-            value_name: macro_NAME
+            value_name: MACRO_NAME
             required: true 
             help: macro name
           - name: macro_body

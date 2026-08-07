@@ -13,7 +13,7 @@ pub struct MkdirCommand;
 impl MkdirCommand {
     /// `directory` - DIR to make., required, value_name: DIR
     #[allow(unused_variables)]
-    fn execute(&self, directory: String) -> Result<()> {
+    pub fn execute(&self, directory: String) -> Result<()> {
         // TODO: Make directory in remote server.
         println!("Command `mkdir` is not yet implemented.");
         Ok(())

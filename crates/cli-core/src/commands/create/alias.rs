@@ -14,7 +14,7 @@ impl AliasCommand {
     /// `cmd` - alias source, required, value_name: CMD
     /// `alias` - alias dest, required, value_name: ALIAS
     #[allow(unused_variables)]
-    fn execute(&self, cmd: String, alias: String) -> Result<()> {
+    pub fn execute(&self, cmd: String, alias: String) -> Result<()> {
         // TODO: Create alias
         println!("Command `alias` is not yet implemented.");
         Ok(())

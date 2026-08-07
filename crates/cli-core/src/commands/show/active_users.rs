@@ -12,7 +12,7 @@ pub struct ActiveUsersCommand;
 
 impl ActiveUsersCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Show active users in current frequency
         println!("Command `active_users` is not yet implemented.");
         Ok(())

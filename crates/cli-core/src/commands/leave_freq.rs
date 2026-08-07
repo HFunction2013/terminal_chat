@@ -12,7 +12,7 @@ pub struct LeaveFreqCommand;
 
 impl LeaveFreqCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Leave current frequency.
         println!("Command `leave_freq` is not yet implemented.");
         Ok(())

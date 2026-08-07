@@ -12,7 +12,7 @@ pub struct TasksCommand;
 
 impl TasksCommand {
     #[allow(unused_variables)]
-    fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<()> {
         // TODO: Get scheduled tasks.
         println!("Command `tasks` is not yet implemented.");
         Ok(())
