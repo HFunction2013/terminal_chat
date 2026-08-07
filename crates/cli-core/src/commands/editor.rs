@@ -39,17 +39,17 @@ impl EditorCommand {
     const CANDIDATES: &[&str] = {
         #[cfg(target_os = "windows")]
         {
-            &["vim", "hx", "nvim", "nano", "micro", "emacs", "notepad++", "notepad", "code"]
+            &["edit", "vim", "hx", "nvim", "nano", "micro", "emacs", "notepad++", "notepad", "code"]
         }
 
         #[cfg(target_os = "macos")]
         {
-            &["vim", "hx", "nvim", "nano", "micro", "emacs", "code", "subl", "zed"]
+            &["vim", "hx", "nvim", "nano", "edit", "micro", "emacs", "code", "subl", "zed"]
         }
 
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
-            &["micro", "vim", "hx", "nvim", "nano", "emacs", "code", "subl", "zed", "kak", "gedit"]
+            &["micro", "vim", "hx", "nvim", "nano", "edit", "emacs", "code", "subl", "zed", "kak", "gedit"]
         }
     };
 
