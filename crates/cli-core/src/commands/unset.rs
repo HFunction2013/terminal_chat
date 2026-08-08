@@ -13,9 +13,8 @@ pub struct UnsetCommand;
 impl UnsetCommand {
     /// `key` - Config key name, value_name: KEY
     /// `all` - Clear all session options.
-    /// `force` - action without confirm.
     #[allow(unused_variables)]
-    pub fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
+    pub fn execute(&self, key: Option<String>, all: bool) -> Result<()> {
         // TODO: Unset session variable.
         println!("Command `unset` is not yet implemented.");
         Ok(())
@@ -31,7 +30,6 @@ impl CommandExecutor for UnsetCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches.get_one::<String>("key").cloned();
         let all = matches.get_flag("all");
-        let force = matches.get_flag("force");
-        self.execute(key, all, force)
+        self.execute(key, all)
     }
 }

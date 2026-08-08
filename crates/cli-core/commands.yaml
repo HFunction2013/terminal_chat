@@ -438,11 +438,6 @@ commands:
         short: a
         action: set_true
         help: Clear all session options.
-      - name: force
-        long: force
-        short: f
-        action: set_true
-        help: action without confirm.
   - name: unsetg
     about: Unset global variable.
     args:
@@ -455,11 +450,6 @@ commands:
         short: a
         action: set_true
         help: Clear all global options.
-      - name: force
-        long: force
-        short: f
-        action: set_true
-        help: action without confirm.
   - name: create
     about: Create alias or macro
     subcommands:

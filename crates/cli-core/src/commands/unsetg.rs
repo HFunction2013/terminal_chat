@@ -5,60 +5,32 @@ use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 use crate::{
     VOID,
-    global_settings::{clear_all_options, exists_global_option, remove_global_option},
+    global_settings::{clear_all_options, remove_global_option},
+    print_content::print_content,
 };
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use std::io;
 
 pub struct UnsetgCommand;
 
 impl UnsetgCommand {
-    fn confirm(force: bool) -> bool {
-        if !force {
-            println!("Sure to proceed? This cannot be undone.(Y/N) ");
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).expect("fail to confirm");
-            let lower = input.trim().to_lowercase();
-            lower == "y" || lower == "yes"
-        } else {
-            true
-        }
-    }
-}
-
-impl UnsetgCommand {
     /// `key` - Config key name, value_name: KEY
     /// `all` - Clear all global options.
-    /// `force` - action without confirm.
     #[allow(unused_variables)]
-    pub fn execute(&self, key: Option<String>, all: bool, force: bool) -> Result<()> {
+    pub fn execute(&self, key: Option<String>, all: bool) -> Result<()> {
         if all {
-            if Self::confirm(force) {
-                clear_all_options(VOID);
-                println!("All global variables have been cleared.");
-            } else {
-                println!("Operation cancelled.");
-            }
+            clear_all_options(VOID);
+            print_content("All global variables have been cleared.");
             return Ok(());
         }
 
         let key = key.ok_or_else(|| anyhow!("Missing required argument: key"))?;
 
-        if !exists_global_option(&key) {
-            println!("Key {key} doesn't exists");
-            return Ok(());
-        }
-        if Self::confirm(force) {
-            let res = remove_global_option(&key);
-            match res {
-                #[allow(non_snake_case)]
-                None => println!("Key {key} doesn't exists"),
-                _ => println!("Global variable '{key}' has been removed."),
-            }
+        if let Some(_) = remove_global_option(&key) {
+            print_content(format!("Global variable '{key}' has been removed."));
         } else {
-            println!("Operation cancelled.");
+            print_content(format!("Key {key} doesn't exist."));
         }
 
         Ok(())
@@ -74,7 +46,6 @@ impl CommandExecutor for UnsetgCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches.get_one::<String>("key").cloned();
         let all = matches.get_flag("all");
-        let force = matches.get_flag("force");
-        self.execute(key, all, force)
+        self.execute(key, all)
     }
 }
