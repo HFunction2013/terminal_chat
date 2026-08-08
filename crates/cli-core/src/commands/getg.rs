@@ -1,10 +1,7 @@
 // getg.rs
 // Get global options
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 use crate::global_settings::get_global_option;
-#[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 
@@ -12,7 +9,6 @@ pub struct GetgCommand;
 
 impl GetgCommand {
     /// `key` - Config key name, required, value_name: KEY
-    #[allow(unused_variables)]
     pub fn execute(&self, key: String) -> Result<()> {
         let val = get_global_option(&key);
         if let Some(v) = val {
@@ -30,7 +26,6 @@ impl CommandExecutor for GetgCommand {
         "getg"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches
             .get_one::<String>("key")

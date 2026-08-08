@@ -1,11 +1,8 @@
 // setg.rs
 // Set global options
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 use crate::global_settings::{GlobalOption, set_global_option};
 use crate::print_content::print_content;
-#[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 
@@ -15,7 +12,6 @@ impl SetgCommand {
     /// `key` - Config key name, required, value_name: KEY
     /// `value` - Target config value, value_name: VALUE
     /// `password` - use rpassword to read the value, conflicts with: value
-    #[allow(unused_variables)]
     pub fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
         let value = if password {
             rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()
@@ -41,7 +37,6 @@ impl CommandExecutor for SetgCommand {
         "setg"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches
             .get_one::<String>("key")

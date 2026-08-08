@@ -1,12 +1,9 @@
 // macro.rs
 // Create macro
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 use crate::macros::MacroDef;
 use crate::macros::set_macro;
 use crate::print_content::print_content;
-#[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use std::env;
@@ -17,7 +14,6 @@ pub struct MacroCommand;
 impl MacroCommand {
     /// `macro_name` - macro name, required, value_name: MACRO_NAME
     /// `macro_body` - macro body, default: open editor to get input
-    #[allow(unused_variables)]
     pub fn execute(&self, macro_name: String, macro_body: Option<String>) -> Result<()> {
         let mut path = env::current_exe()?;
         path.pop();
@@ -47,7 +43,6 @@ impl CommandExecutor for MacroCommand {
         "macro"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let macro_name = matches
             .get_one::<String>("macro_name")

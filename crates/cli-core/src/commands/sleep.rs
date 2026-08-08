@@ -1,10 +1,8 @@
 // sleep.rs
 // Are you sleepy? Why not sleep for a while?
-#[allow(unused_imports)]
 use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 use crate::print_content::print_content;
-#[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use std::sync::atomic::Ordering;
@@ -15,7 +13,6 @@ pub struct SleepCommand;
 
 impl SleepCommand {
     /// `milliseconds` - Aha... sleepy!, required, value_name: TIME, default: 1000
-    #[allow(unused_variables)]
     pub fn execute(&self, milliseconds: humantime::Duration) -> Result<()> {
         print_content(format!("[*] Aha... Sleep for {milliseconds}.").as_str());
         let start = std::time::Instant::now();
@@ -38,7 +35,6 @@ impl CommandExecutor for SleepCommand {
         "sleep"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let milliseconds = *matches
             .get_one::<humantime::Duration>("milliseconds")

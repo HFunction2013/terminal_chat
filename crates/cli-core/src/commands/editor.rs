@@ -1,11 +1,8 @@
 // editor.rs
 // just opens an editor
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 use crate::global_settings::get_global_option;
-#[allow(unused_imports)]
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use clap::ArgMatches;
 use std::path::PathBuf;
 use std::process::Command;
@@ -69,7 +66,6 @@ impl EditorCommand {
 impl EditorCommand {
     /// `file` - file to open, optional., value_name: FILE
     /// `editor` - set editor
-    #[allow(unused_variables)]
     pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
         let editor_name =
             editor.clone().or_else(|| get_global_option("EDITOR")).or_else(Self::choose_editor);
@@ -109,7 +105,6 @@ impl CommandExecutor for EditorCommand {
         "editor"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let file = matches.get_one::<String>("file").cloned();
         let editor = matches.get_one::<String>("editor").cloned();
