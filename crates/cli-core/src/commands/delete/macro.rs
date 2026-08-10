@@ -11,12 +11,16 @@ pub struct MacroCommand;
 impl MacroCommand {
     /// `macro_name` - macro to delete, required, value_name: macro_NAME
     pub fn execute(&self, macro_name: String) -> Result<()> {
-        if !exists_macro(&macro_name) {
-            print_content(format!("Macro {macro_name} doesn't exist."));
+        if !unsafe { exists_macro(macro_name.clone().into()) } {
+            unsafe {
+                print_content(format!("Macro {macro_name} doesn't exist.").into());
+            }
             return Ok(());
         }
-        remove_macro(&macro_name);
-        print_content(format!("Macro {macro_name} deleted."));
+        unsafe {
+            remove_macro(macro_name.clone().into());
+            print_content(format!("Macro {macro_name} deleted.").into());
+        }
         Ok(())
     }
 }

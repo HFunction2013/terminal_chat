@@ -22,11 +22,15 @@ impl SetgCommand {
         };
 
         let option = GlobalOption::new(&key, &value);
-        set_global_option(option);
-        if password {
-            print_content(format!("{key} => ******").as_str());
-        } else {
-            print_content(format!("{key} => {value}").as_str());
+        unsafe {
+            set_global_option(option);
+        }
+        unsafe {
+            if password {
+                print_content(format!("{key} => ******").into());
+            } else {
+                print_content(format!("{key} => {value}").into());
+            }
         }
         Ok(())
     }

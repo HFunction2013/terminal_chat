@@ -17,17 +17,23 @@ impl SleepCommand {
     pub fn execute(&self, time: String) -> Result<()> {
         let time = if time.parse::<i32>().is_ok() { format!("{time}ms") } else { time };
         let duration = humantime::Duration::from_str(&time)?;
-        print_content(format!("[*] Aha... Sleep for {time}."));
+        unsafe {
+            print_content(format!("[*] Aha... Sleep for {time}.").into());
+        }
         let start = std::time::Instant::now();
         while start.elapsed() < *duration {
             if INTERRUPTED.load(Ordering::SeqCst) {
-                print_content("[!] All your fault! My dream was disturbed!");
+                unsafe {
+                    print_content("[!] All your fault! My dream was disturbed!".into());
+                }
                 INTERRUPTED.store(false, Ordering::SeqCst);
                 return Ok(());
             }
             thread::sleep(Duration::from_millis(1));
         }
-        print_content("[*] Aha... What a nice sleep!");
+        unsafe {
+            print_content("[*] Aha... What a nice sleep!".into());
+        }
 
         Ok(())
     }

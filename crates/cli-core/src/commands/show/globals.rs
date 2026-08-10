@@ -1,7 +1,7 @@
 // globals.rs
 // Show value of all global variables
 use crate::{
-    VOID, commands::CommandExecutor, global_settings::get_all_options, print_content::print_content,
+    commands::CommandExecutor, global_settings::get_all_options, print_content::print_content,
 };
 use anyhow::Result;
 use clap::ArgMatches;
@@ -10,12 +10,14 @@ pub struct GlobalsCommand;
 
 impl GlobalsCommand {
     fn execute(&self) -> Result<()> {
-        let ops = get_all_options(VOID);
+        let ops = unsafe { get_all_options() };
         if ops.is_empty() {
-            print_content("No options specified");
+            unsafe { print_content("No options specified".into()) };
         } else {
-            for (key, value) in &ops {
-                print_content(format!("Option {key} => {value}"));
+            for opt in ops.iter() {
+                unsafe {
+                    print_content(format!("Option {} => {}", opt.key, opt.value).into());
+                }
             }
         }
         Ok(())

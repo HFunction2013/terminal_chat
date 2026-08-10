@@ -2,7 +2,6 @@
 // Unset global variable.
 use crate::commands::CommandExecutor;
 use crate::{
-    VOID,
     global_settings::{clear_all_options, remove_global_option},
     print_content::print_content,
 };
@@ -16,17 +15,24 @@ impl UnsetgCommand {
     /// `all` - Clear all global options.
     pub fn execute(&self, key: Option<String>, all: bool) -> Result<()> {
         if all {
-            clear_all_options(VOID);
-            print_content("All global variables have been cleared.");
+            unsafe {
+                clear_all_options();
+                print_content("All global variables have been cleared.".into());
+            }
             return Ok(());
         }
 
         let key = key.ok_or_else(|| anyhow!("Missing required argument: key"))?;
 
-        if remove_global_option(&key).is_some() {
-            print_content(format!("Global variable '{key}' has been removed."));
-        } else {
-            print_content(format!("Key {key} doesn't exist."));
+        unsafe {
+            let key_for_display = key.clone();
+            if remove_global_option(key.into()).is_some() {
+                print_content(
+                    format!("Global variable '{key_for_display}' has been removed.").into(),
+                );
+            } else {
+                print_content(format!("Key {key_for_display} doesn't exist.").into());
+            }
         }
 
         Ok(())

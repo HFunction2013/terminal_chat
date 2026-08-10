@@ -29,11 +29,21 @@ impl MacroCommand {
             fs::read_to_string(&path)?
         };
         if code.is_empty() {
-            print_content("Macro body not specified. Cannot create macro.".to_string());
+            unsafe {
+                print_content("Macro body not specified. Cannot create macro.".into());
+            }
             return Ok(());
         }
-        set_macro(MacroDef { name: macro_name.clone(), code });
-        print_content(format!("Macro {macro_name} created."));
+        
+        let macro_def = MacroDef {
+            name: macro_name.clone().into(),
+            code: code.into(),
+        };
+        
+        unsafe {
+            set_macro(macro_def);
+            print_content(format!("Macro {macro_name} created.").into());
+        }
         Ok(())
     }
 }

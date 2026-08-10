@@ -4,6 +4,7 @@ use crate::commands::CommandExecutor;
 use crate::macros::get_macro;
 use crate::print_content::print_content;
 use crate::run_commands::run_command;
+use ::safer_ffi::prelude::*;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 pub struct RunCommand;
@@ -11,7 +12,8 @@ pub struct RunCommand;
 impl RunCommand {
     /// `macro_name` - macro name, required, value_name: macro_NAME
     pub fn execute(&self, macro_name: String) -> Result<()> {
-        if let Some(code) = get_macro(&macro_name) {
+        let macro_name_display = macro_name.clone();
+        if let Some(code) = unsafe { get_macro(macro_name.into()) } {
             let lines: Vec<&str> = code.split('\n').collect();
 
             for line in lines.iter() {
@@ -22,15 +24,17 @@ impl RunCommand {
                         continue;
                     }
                 };
-                match run_command(args) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        eprintln!("Command failed: {err}");
-                    }
-                };
+                let args_repr_c: Vec<repr_c::String> = args.into_iter().map(|s| s.into()).collect();
+                let args_ffi: safer_ffi::Vec<repr_c::String> = args_repr_c.into();
+                let result = unsafe { run_command(args_ffi) };
+                if result.code != 0 {
+                    eprintln!("Command failed: {}", result.message);
+                }
             }
         } else {
-            print_content(format!("Macro {macro_name} doesn't exists."));
+            unsafe {
+                print_content(format!("Macro {macro_name_display} doesn't exists.").into());
+            }
         }
         Ok(())
     }

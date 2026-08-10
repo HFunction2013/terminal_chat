@@ -2,6 +2,7 @@
 // Get global options
 use crate::commands::CommandExecutor;
 use crate::global_settings::get_global_option;
+use crate::print_content::print_content;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 
@@ -10,12 +11,13 @@ pub struct GetgCommand;
 impl GetgCommand {
     /// `key` - Config key name, required, value_name: KEY
     pub fn execute(&self, key: String) -> Result<()> {
-        let val = get_global_option(&key);
-        if let Some(v) = val {
-            println!("{key} => {v}");
-        } else {
-            println!("Key {key} doesn't exists");
-            return Ok(());
+        let val = unsafe { get_global_option(key.clone().into()) };
+        unsafe {
+            if let Some(v) = val {
+                print_content(format!("{key} => {v}").into());
+            } else {
+                print_content(format!("Key {key} doesn't exists").into());
+            }
         }
         Ok(())
     }
