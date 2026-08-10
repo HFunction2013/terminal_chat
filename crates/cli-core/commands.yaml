@@ -509,7 +509,6 @@ commands:
         value_name: FREQ
         required: true 
         help: freq ID
-        value_parser: "f64"
   - name: reply
     about: Reply to the user who has just spoken quickly
     args:
