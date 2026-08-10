@@ -1,9 +1,0 @@
-[target.'cfg(any())']
-rustflags = ["-C", "prefer-dynamic"]
-
-[target.'cfg(target_os = "macos")']
-rustflags = [
-    "-C", "prefer-dynamic",
-    "-C", "link-args=-Wl,-rpath,@executable_path",
-    "-C", "rpath=yes"
-]
