@@ -636,12 +636,10 @@ commands:
     hidden: true 
     about: Are you sleepy? Why not sleep for a while?
     args:
-      - name: milliseconds
+      - name: time
         value_name: TIME
         required: true 
         help: Aha... sleepy!
-        default_value: "1000"
-        value_parser: "humantime::Duration"
   - name: editor
     about: just opens an editor
     args:

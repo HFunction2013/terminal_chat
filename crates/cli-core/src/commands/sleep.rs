@@ -5,6 +5,7 @@ use crate::commands::CommandExecutor;
 use crate::print_content::print_content;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use std::str::FromStr;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
@@ -12,11 +13,13 @@ use std::time::Duration;
 pub struct SleepCommand;
 
 impl SleepCommand {
-    /// `milliseconds` - Aha... sleepy!, required, value_name: TIME, default: 1000
-    pub fn execute(&self, milliseconds: humantime::Duration) -> Result<()> {
-        print_content(format!("[*] Aha... Sleep for {milliseconds}.").as_str());
+    /// `time` - Aha... sleepy!, required, value_name: TIME, default: 1000
+    pub fn execute(&self, time: String) -> Result<()> {
+        let time = if time.parse::<i32>().is_ok() { format!("{time}ms") } else { time };
+        let duration = humantime::Duration::from_str(&time)?;
+        print_content(format!("[*] Aha... Sleep for {time}."));
         let start = std::time::Instant::now();
-        while start.elapsed() < *milliseconds {
+        while start.elapsed() < *duration {
             if INTERRUPTED.load(Ordering::SeqCst) {
                 print_content("[!] All your fault! My dream was disturbed!");
                 INTERRUPTED.store(false, Ordering::SeqCst);
@@ -36,9 +39,10 @@ impl CommandExecutor for SleepCommand {
     }
 
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let milliseconds = *matches
-            .get_one::<humantime::Duration>("milliseconds")
-            .ok_or_else(|| anyhow!("Missing required argument: milliseconds"))?;
-        self.execute(milliseconds)
+        let time = matches
+            .get_one::<String>("time")
+            .ok_or_else(|| anyhow!("Missing required argument: time"))?
+            .clone();
+        self.execute(time)
     }
 }
