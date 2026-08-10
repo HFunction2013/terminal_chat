@@ -1,7 +1,7 @@
 use ::safer_ffi::prelude::*;
 use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{LazyLock, Mutex};
 
 #[derive_ReprC]
 #[repr(C)]
@@ -13,10 +13,7 @@ pub struct GlobalOption {
 
 impl GlobalOption {
     pub fn new(key: &str, value: &str) -> Self {
-        GlobalOption { 
-            key: key.into(), 
-            value: value.into() 
-        }
+        GlobalOption { key: key.into(), value: value.into() }
     }
 }
 
@@ -27,11 +24,11 @@ type BeforeSetGlobalOptionHook = unsafe extern "C" fn(*mut GlobalOption) -> bool
 type OnSetGlobalOptionHook = unsafe extern "C" fn(*const GlobalOption) -> bool;
 type AfterSetGlobalOptionHook = unsafe extern "C" fn(*const GlobalOption) -> bool;
 
-static BEFORE_SET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeSetGlobalOptionHook>>> = 
+static BEFORE_SET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeSetGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_SET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnSetGlobalOptionHook>>> = 
+static ON_SET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnSetGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_SET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterSetGlobalOptionHook>>> = 
+static AFTER_SET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterSetGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_SET_GLOBAL_OPTION: AtomicBool = AtomicBool::new(false);
@@ -116,14 +113,14 @@ pub unsafe fn set_global_option(content: GlobalOption) -> GlobalOption {
         return set_global_option_impl(&content);
     }
     IN_SET_GLOBAL_OPTION.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_set_global_option_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_set_global_option_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = set_global_option_impl(&buf);
         unsafe { run_after_set_global_option_chain(&buf) };
@@ -131,7 +128,7 @@ pub unsafe fn set_global_option(content: GlobalOption) -> GlobalOption {
     } else {
         GlobalOption::new("", "")
     };
-    
+
     IN_SET_GLOBAL_OPTION.store(false, Ordering::SeqCst);
     result
 }
@@ -141,11 +138,11 @@ type BeforeExistsGlobalOptionHook = unsafe extern "C" fn(*mut repr_c::String) ->
 type OnExistsGlobalOptionHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 type AfterExistsGlobalOptionHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 
-static BEFORE_EXISTS_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeExistsGlobalOptionHook>>> = 
+static BEFORE_EXISTS_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeExistsGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_EXISTS_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnExistsGlobalOptionHook>>> = 
+static ON_EXISTS_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnExistsGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_EXISTS_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterExistsGlobalOptionHook>>> = 
+static AFTER_EXISTS_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterExistsGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_EXISTS_GLOBAL_OPTION: AtomicBool = AtomicBool::new(false);
@@ -229,14 +226,14 @@ pub unsafe fn exists_global_option(content: repr_c::String) -> bool {
         return exists_global_option_impl(&content);
     }
     IN_EXISTS_GLOBAL_OPTION.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_exists_global_option_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_exists_global_option_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = exists_global_option_impl(&buf);
         unsafe { run_after_exists_global_option_chain(&buf) };
@@ -244,7 +241,7 @@ pub unsafe fn exists_global_option(content: repr_c::String) -> bool {
     } else {
         false
     };
-    
+
     IN_EXISTS_GLOBAL_OPTION.store(false, Ordering::SeqCst);
     result
 }
@@ -254,11 +251,11 @@ type BeforeGetGlobalOptionHook = unsafe extern "C" fn(*mut repr_c::String) -> bo
 type OnGetGlobalOptionHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 type AfterGetGlobalOptionHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 
-static BEFORE_GET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeGetGlobalOptionHook>>> = 
+static BEFORE_GET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeGetGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_GET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnGetGlobalOptionHook>>> = 
+static ON_GET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnGetGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_GET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterGetGlobalOptionHook>>> = 
+static AFTER_GET_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterGetGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_GET_GLOBAL_OPTION: AtomicBool = AtomicBool::new(false);
@@ -342,14 +339,14 @@ pub unsafe fn get_global_option(content: repr_c::String) -> Option<repr_c::Strin
         return get_global_option_impl(&content);
     }
     IN_GET_GLOBAL_OPTION.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_get_global_option_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_get_global_option_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = get_global_option_impl(&buf);
         unsafe { run_after_get_global_option_chain(&buf) };
@@ -357,7 +354,7 @@ pub unsafe fn get_global_option(content: repr_c::String) -> Option<repr_c::Strin
     } else {
         None
     };
-    
+
     IN_GET_GLOBAL_OPTION.store(false, Ordering::SeqCst);
     result
 }
@@ -367,11 +364,11 @@ type BeforeRemoveGlobalOptionHook = unsafe extern "C" fn(*mut repr_c::String) ->
 type OnRemoveGlobalOptionHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 type AfterRemoveGlobalOptionHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 
-static BEFORE_REMOVE_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeRemoveGlobalOptionHook>>> = 
+static BEFORE_REMOVE_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<BeforeRemoveGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_REMOVE_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnRemoveGlobalOptionHook>>> = 
+static ON_REMOVE_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<OnRemoveGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_REMOVE_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterRemoveGlobalOptionHook>>> = 
+static AFTER_REMOVE_GLOBAL_OPTION_HOOKS: LazyLock<Mutex<Vec<AfterRemoveGlobalOptionHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_REMOVE_GLOBAL_OPTION: AtomicBool = AtomicBool::new(false);
@@ -455,14 +452,14 @@ pub unsafe fn remove_global_option(content: repr_c::String) -> Option<repr_c::St
         return remove_global_option_impl(&content);
     }
     IN_REMOVE_GLOBAL_OPTION.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_remove_global_option_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_remove_global_option_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = remove_global_option_impl(&buf);
         unsafe { run_after_remove_global_option_chain(&buf) };
@@ -470,7 +467,7 @@ pub unsafe fn remove_global_option(content: repr_c::String) -> Option<repr_c::St
     } else {
         None
     };
-    
+
     IN_REMOVE_GLOBAL_OPTION.store(false, Ordering::SeqCst);
     result
 }
@@ -480,11 +477,11 @@ type BeforeGetAllOptionsHook = unsafe extern "C" fn() -> bool;
 type OnGetAllOptionsHook = unsafe extern "C" fn() -> bool;
 type AfterGetAllOptionsHook = unsafe extern "C" fn() -> bool;
 
-static BEFORE_GET_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<BeforeGetAllOptionsHook>>> = 
+static BEFORE_GET_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<BeforeGetAllOptionsHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_GET_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<OnGetAllOptionsHook>>> = 
+static ON_GET_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<OnGetAllOptionsHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_GET_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<AfterGetAllOptionsHook>>> = 
+static AFTER_GET_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<AfterGetAllOptionsHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_GET_ALL_OPTIONS: AtomicBool = AtomicBool::new(false);
@@ -558,10 +555,7 @@ unsafe fn run_after_get_all_options_chain() -> bool {
 
 fn get_all_options_impl() -> safer_ffi::vec::Vec<GlobalOption> {
     let map = MAP.lock().unwrap();
-    map.iter()
-        .map(|(k, v)| GlobalOption::new(k, v))
-        .collect::<Vec<_>>()
-        .into()
+    map.iter().map(|(k, v)| GlobalOption::new(k, v)).collect::<Vec<_>>().into()
 }
 
 #[ffi_export]
@@ -571,13 +565,13 @@ pub unsafe fn get_all_options() -> safer_ffi::vec::Vec<GlobalOption> {
         return get_all_options_impl();
     }
     IN_GET_ALL_OPTIONS.store(true, Ordering::SeqCst);
-    
+
     let mut interrupted = unsafe { run_before_get_all_options_chain() };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_get_all_options_chain() };
     }
-    
+
     let result = if !interrupted {
         let res = get_all_options_impl();
         unsafe { run_after_get_all_options_chain() };
@@ -585,7 +579,7 @@ pub unsafe fn get_all_options() -> safer_ffi::vec::Vec<GlobalOption> {
     } else {
         safer_ffi::vec::Vec::from(Vec::new())
     };
-    
+
     IN_GET_ALL_OPTIONS.store(false, Ordering::SeqCst);
     result
 }
@@ -595,11 +589,11 @@ type BeforeClearAllOptionsHook = unsafe extern "C" fn() -> bool;
 type OnClearAllOptionsHook = unsafe extern "C" fn() -> bool;
 type AfterClearAllOptionsHook = unsafe extern "C" fn() -> bool;
 
-static BEFORE_CLEAR_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<BeforeClearAllOptionsHook>>> = 
+static BEFORE_CLEAR_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<BeforeClearAllOptionsHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_CLEAR_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<OnClearAllOptionsHook>>> = 
+static ON_CLEAR_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<OnClearAllOptionsHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_CLEAR_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<AfterClearAllOptionsHook>>> = 
+static AFTER_CLEAR_ALL_OPTIONS_HOOKS: LazyLock<Mutex<Vec<AfterClearAllOptionsHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_CLEAR_ALL_OPTIONS: AtomicBool = AtomicBool::new(false);
@@ -684,9 +678,9 @@ pub unsafe fn clear_all_options() {
         return;
     }
     IN_CLEAR_ALL_OPTIONS.store(true, Ordering::SeqCst);
-    
+
     let interrupted = unsafe { run_before_clear_all_options_chain() };
-    
+
     if !interrupted {
         let interrupted = unsafe { run_on_clear_all_options_chain() };
         if !interrupted {
@@ -694,6 +688,6 @@ pub unsafe fn clear_all_options() {
             unsafe { run_after_clear_all_options_chain() };
         }
     }
-    
+
     IN_CLEAR_ALL_OPTIONS.store(false, Ordering::SeqCst);
 }

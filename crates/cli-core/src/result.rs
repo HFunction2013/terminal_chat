@@ -9,16 +9,10 @@ pub struct Result {
 
 impl Result {
     pub fn success() -> Self {
-        Result {
-            code: 0,
-            message: repr_c::String::from(String::new()),
-        }
+        Result { code: 0, message: repr_c::String::from(String::new()) }
     }
 
     pub fn error(msg: &str) -> Self {
-        Result {
-            code: 1,
-            message: msg.into(),
-        }
+        Result { code: 1, message: msg.into() }
     }
 }

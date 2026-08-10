@@ -30,3 +30,6 @@ edit = { path = "./crates/edit/crates/edit" }
 lsh = { path = "./crates/edit/crates/lsh" }
 stdext = { path = "./crates/edit/crates/stdext" }
 unicode-gen = { path = "./crates/edit/crates/unicode-gen" }
+
+[workspace.lints.clippy]
+missing_safety_doc = "allow"

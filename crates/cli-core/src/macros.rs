@@ -1,7 +1,7 @@
 use ::safer_ffi::prelude::*;
 use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{LazyLock, Mutex};
 
 #[derive_ReprC]
 #[repr(C)]
@@ -13,10 +13,7 @@ pub struct MacroDef {
 
 impl MacroDef {
     pub fn new(name: &str, code: &str) -> Self {
-        MacroDef { 
-            name: name.into(), 
-            code: code.into() 
-        }
+        MacroDef { name: name.into(), code: code.into() }
     }
 }
 
@@ -27,11 +24,11 @@ type BeforeSetMacroHook = unsafe extern "C" fn(*mut MacroDef) -> bool;
 type OnSetMacroHook = unsafe extern "C" fn(*const MacroDef) -> bool;
 type AfterSetMacroHook = unsafe extern "C" fn(*const MacroDef) -> bool;
 
-static BEFORE_SET_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeSetMacroHook>>> = 
+static BEFORE_SET_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeSetMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_SET_MACRO_HOOKS: LazyLock<Mutex<Vec<OnSetMacroHook>>> = 
+static ON_SET_MACRO_HOOKS: LazyLock<Mutex<Vec<OnSetMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_SET_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterSetMacroHook>>> = 
+static AFTER_SET_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterSetMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_SET_MACRO: AtomicBool = AtomicBool::new(false);
@@ -116,14 +113,14 @@ pub unsafe fn set_macro(content: MacroDef) -> MacroDef {
         return set_macro_impl(&content);
     }
     IN_SET_MACRO.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_set_macro_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_set_macro_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = set_macro_impl(&buf);
         unsafe { run_after_set_macro_chain(&buf) };
@@ -131,7 +128,7 @@ pub unsafe fn set_macro(content: MacroDef) -> MacroDef {
     } else {
         MacroDef::new("", "")
     };
-    
+
     IN_SET_MACRO.store(false, Ordering::SeqCst);
     result
 }
@@ -141,11 +138,11 @@ type BeforeExistsMacroHook = unsafe extern "C" fn(*mut repr_c::String) -> bool;
 type OnExistsMacroHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 type AfterExistsMacroHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 
-static BEFORE_EXISTS_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeExistsMacroHook>>> = 
+static BEFORE_EXISTS_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeExistsMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_EXISTS_MACRO_HOOKS: LazyLock<Mutex<Vec<OnExistsMacroHook>>> = 
+static ON_EXISTS_MACRO_HOOKS: LazyLock<Mutex<Vec<OnExistsMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_EXISTS_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterExistsMacroHook>>> = 
+static AFTER_EXISTS_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterExistsMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_EXISTS_MACRO: AtomicBool = AtomicBool::new(false);
@@ -229,14 +226,14 @@ pub unsafe fn exists_macro(content: repr_c::String) -> bool {
         return exists_macro_impl(&content);
     }
     IN_EXISTS_MACRO.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_exists_macro_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_exists_macro_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = exists_macro_impl(&buf);
         unsafe { run_after_exists_macro_chain(&buf) };
@@ -244,7 +241,7 @@ pub unsafe fn exists_macro(content: repr_c::String) -> bool {
     } else {
         false
     };
-    
+
     IN_EXISTS_MACRO.store(false, Ordering::SeqCst);
     result
 }
@@ -254,11 +251,11 @@ type BeforeGetMacroHook = unsafe extern "C" fn(*mut repr_c::String) -> bool;
 type OnGetMacroHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 type AfterGetMacroHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 
-static BEFORE_GET_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeGetMacroHook>>> = 
+static BEFORE_GET_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeGetMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_GET_MACRO_HOOKS: LazyLock<Mutex<Vec<OnGetMacroHook>>> = 
+static ON_GET_MACRO_HOOKS: LazyLock<Mutex<Vec<OnGetMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_GET_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterGetMacroHook>>> = 
+static AFTER_GET_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterGetMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_GET_MACRO: AtomicBool = AtomicBool::new(false);
@@ -342,14 +339,14 @@ pub unsafe fn get_macro(content: repr_c::String) -> Option<repr_c::String> {
         return get_macro_impl(&content);
     }
     IN_GET_MACRO.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_get_macro_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_get_macro_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = get_macro_impl(&buf);
         unsafe { run_after_get_macro_chain(&buf) };
@@ -357,7 +354,7 @@ pub unsafe fn get_macro(content: repr_c::String) -> Option<repr_c::String> {
     } else {
         None
     };
-    
+
     IN_GET_MACRO.store(false, Ordering::SeqCst);
     result
 }
@@ -367,11 +364,11 @@ type BeforeRemoveMacroHook = unsafe extern "C" fn(*mut repr_c::String) -> bool;
 type OnRemoveMacroHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 type AfterRemoveMacroHook = unsafe extern "C" fn(*const repr_c::String) -> bool;
 
-static BEFORE_REMOVE_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeRemoveMacroHook>>> = 
+static BEFORE_REMOVE_MACRO_HOOKS: LazyLock<Mutex<Vec<BeforeRemoveMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_REMOVE_MACRO_HOOKS: LazyLock<Mutex<Vec<OnRemoveMacroHook>>> = 
+static ON_REMOVE_MACRO_HOOKS: LazyLock<Mutex<Vec<OnRemoveMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_REMOVE_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterRemoveMacroHook>>> = 
+static AFTER_REMOVE_MACRO_HOOKS: LazyLock<Mutex<Vec<AfterRemoveMacroHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_REMOVE_MACRO: AtomicBool = AtomicBool::new(false);
@@ -455,14 +452,14 @@ pub unsafe fn remove_macro(content: repr_c::String) -> Option<repr_c::String> {
         return remove_macro_impl(&content);
     }
     IN_REMOVE_MACRO.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_remove_macro_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_remove_macro_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = remove_macro_impl(&buf);
         unsafe { run_after_remove_macro_chain(&buf) };
@@ -470,7 +467,7 @@ pub unsafe fn remove_macro(content: repr_c::String) -> Option<repr_c::String> {
     } else {
         None
     };
-    
+
     IN_REMOVE_MACRO.store(false, Ordering::SeqCst);
     result
 }
@@ -480,11 +477,11 @@ type BeforeGetAllMacrosHook = unsafe extern "C" fn() -> bool;
 type OnGetAllMacrosHook = unsafe extern "C" fn() -> bool;
 type AfterGetAllMacrosHook = unsafe extern "C" fn() -> bool;
 
-static BEFORE_GET_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<BeforeGetAllMacrosHook>>> = 
+static BEFORE_GET_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<BeforeGetAllMacrosHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_GET_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<OnGetAllMacrosHook>>> = 
+static ON_GET_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<OnGetAllMacrosHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_GET_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<AfterGetAllMacrosHook>>> = 
+static AFTER_GET_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<AfterGetAllMacrosHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_GET_ALL_MACROS: AtomicBool = AtomicBool::new(false);
@@ -558,10 +555,7 @@ unsafe fn run_after_get_all_macros_chain() -> bool {
 
 fn get_all_macros_impl() -> safer_ffi::vec::Vec<MacroDef> {
     let map = MAP.lock().unwrap();
-    map.iter()
-        .map(|(k, v)| MacroDef::new(k, v))
-        .collect::<Vec<_>>()
-        .into()
+    map.iter().map(|(k, v)| MacroDef::new(k, v)).collect::<Vec<_>>().into()
 }
 
 #[ffi_export]
@@ -571,13 +565,13 @@ pub unsafe fn get_all_macros() -> safer_ffi::vec::Vec<MacroDef> {
         return get_all_macros_impl();
     }
     IN_GET_ALL_MACROS.store(true, Ordering::SeqCst);
-    
+
     let mut interrupted = unsafe { run_before_get_all_macros_chain() };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_get_all_macros_chain() };
     }
-    
+
     let result = if !interrupted {
         let res = get_all_macros_impl();
         unsafe { run_after_get_all_macros_chain() };
@@ -585,7 +579,7 @@ pub unsafe fn get_all_macros() -> safer_ffi::vec::Vec<MacroDef> {
     } else {
         safer_ffi::vec::Vec::from(Vec::new())
     };
-    
+
     IN_GET_ALL_MACROS.store(false, Ordering::SeqCst);
     result
 }
@@ -595,11 +589,11 @@ type BeforeClearAllMacrosHook = unsafe extern "C" fn() -> bool;
 type OnClearAllMacrosHook = unsafe extern "C" fn() -> bool;
 type AfterClearAllMacrosHook = unsafe extern "C" fn() -> bool;
 
-static BEFORE_CLEAR_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<BeforeClearAllMacrosHook>>> = 
+static BEFORE_CLEAR_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<BeforeClearAllMacrosHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_CLEAR_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<OnClearAllMacrosHook>>> = 
+static ON_CLEAR_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<OnClearAllMacrosHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_CLEAR_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<AfterClearAllMacrosHook>>> = 
+static AFTER_CLEAR_ALL_MACROS_HOOKS: LazyLock<Mutex<Vec<AfterClearAllMacrosHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_CLEAR_ALL_MACROS: AtomicBool = AtomicBool::new(false);
@@ -684,9 +678,9 @@ pub unsafe fn clear_all_macros() {
         return;
     }
     IN_CLEAR_ALL_MACROS.store(true, Ordering::SeqCst);
-    
+
     let interrupted = unsafe { run_before_clear_all_macros_chain() };
-    
+
     if !interrupted {
         let interrupted = unsafe { run_on_clear_all_macros_chain() };
         if !interrupted {
@@ -694,6 +688,6 @@ pub unsafe fn clear_all_macros() {
             unsafe { run_after_clear_all_macros_chain() };
         }
     }
-    
+
     IN_CLEAR_ALL_MACROS.store(false, Ordering::SeqCst);
 }

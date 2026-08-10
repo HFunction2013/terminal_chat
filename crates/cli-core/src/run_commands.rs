@@ -1,11 +1,11 @@
-use ::safer_ffi::prelude::*;
 use crate::IN_CMD;
 use crate::commands;
+use crate::result::Result;
+use ::safer_ffi::prelude::*;
 use clap::Command;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use crate::result::Result;
 mod command {
     include!(concat!(env!("OUT_DIR"), "/command.rs"));
 }
@@ -28,11 +28,11 @@ type BeforeRunCommandHook = unsafe extern "C" fn(*mut repr_c::Vec<repr_c::String
 type OnRunCommandHook = unsafe extern "C" fn(*const repr_c::Vec<repr_c::String>) -> bool;
 type AfterRunCommandHook = unsafe extern "C" fn(*const repr_c::Vec<repr_c::String>) -> bool;
 
-static BEFORE_RUN_COMMAND_HOOKS: LazyLock<Mutex<Vec<BeforeRunCommandHook>>> = 
+static BEFORE_RUN_COMMAND_HOOKS: LazyLock<Mutex<Vec<BeforeRunCommandHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static ON_RUN_COMMAND_HOOKS: LazyLock<Mutex<Vec<OnRunCommandHook>>> = 
+static ON_RUN_COMMAND_HOOKS: LazyLock<Mutex<Vec<OnRunCommandHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
-static AFTER_RUN_COMMAND_HOOKS: LazyLock<Mutex<Vec<AfterRunCommandHook>>> = 
+static AFTER_RUN_COMMAND_HOOKS: LazyLock<Mutex<Vec<AfterRunCommandHook>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 static IN_RUN_COMMAND: AtomicBool = AtomicBool::new(false);
@@ -105,9 +105,8 @@ unsafe fn run_after_run_command_chain(buf: &repr_c::Vec<repr_c::String>) -> bool
 }
 
 fn run_command_impl(args: &repr_c::Vec<repr_c::String>) -> Result {
-    let full_args: Vec<String> = std::iter::once("tc-cli".to_string())
-        .chain(args.iter().map(|s| s.to_string()))
-        .collect();
+    let full_args: Vec<String> =
+        std::iter::once("tc-cli".to_string()).chain(args.iter().map(|s| s.to_string())).collect();
 
     let full_args_refs: Vec<&str> = full_args.iter().map(String::as_str).collect();
 
@@ -140,14 +139,14 @@ pub unsafe fn run_command(content: repr_c::Vec<repr_c::String>) -> Result {
         return run_command_impl(&content);
     }
     IN_RUN_COMMAND.store(true, Ordering::SeqCst);
-    
+
     let mut buf = content.clone();
     let mut interrupted = unsafe { run_before_run_command_chain(&mut buf) };
-    
+
     if !interrupted {
         interrupted = unsafe { run_on_run_command_chain(&buf) };
     }
-    
+
     let result = if !interrupted {
         let res = run_command_impl(&buf);
         unsafe { run_after_run_command_chain(&buf) };
@@ -155,7 +154,7 @@ pub unsafe fn run_command(content: repr_c::Vec<repr_c::String>) -> Result {
     } else {
         Result::error("Command execution was interrupted by hook")
     };
-    
+
     IN_RUN_COMMAND.store(false, Ordering::SeqCst);
     result
 }

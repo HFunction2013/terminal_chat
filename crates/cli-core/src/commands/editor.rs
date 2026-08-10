@@ -67,13 +67,10 @@ impl EditorCommand {
     /// `file` - file to open, optional., value_name: FILE
     /// `editor` - set editor
     pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
-        let editor_name = editor.or_else(|| {
-            unsafe {
-                get_global_option("EDITOR".into())
-                    .map(|s| s.to_string())
-            }
-        }).or_else(Self::choose_editor);
-        
+        let editor_name = editor
+            .or_else(|| unsafe { get_global_option("EDITOR".into()).map(|s| s.to_string()) })
+            .or_else(Self::choose_editor);
+
         let editor_path = match editor_name {
             Some(ref name) => {
                 find_editor(name).with_context(|| format!("cannot find editor: {name}"))?

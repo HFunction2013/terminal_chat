@@ -2,7 +2,7 @@ use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
-use cli_core::run_commands;
+use cli_core::result::Result as RunCommandResult;
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{
@@ -12,6 +12,7 @@ use crossterm::{
 use figlet_rs::FIGlet;
 use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
+use libloading::{Library, Symbol};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
 use rustyline::{
@@ -22,12 +23,13 @@ use rustyline::{
     hint::Hinter,
     validate::Validator,
 };
+use safer_ffi::prelude::*;
 use sha2::{Digest, Sha256};
 use shell_words::split;
 use std::{
     ffi::OsString,
     io::{self, Write, stdout},
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -36,12 +38,52 @@ use std::{
     time::Duration,
 };
 mod fortune;
+mod yaml2cmd;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
-use cli_core::{IN_CMD, INTERRUPTED};
-fn install_ctrlc_handler() {
-    ctrlc::set_handler(move || {
-        INTERRUPTED.store(true, Ordering::SeqCst);
-        if !IN_CMD.load(Ordering::SeqCst) {
+fn get_library_path() -> PathBuf {
+    let lib_name = if cfg!(target_os = "macos") {
+        "libcli_core.dylib"
+    } else if cfg!(target_os = "linux") {
+        "libcli_core.so"
+    } else if cfg!(target_os = "windows") {
+        "cli_core.dll"
+    } else {
+        "lib_clicore.so"
+    };
+
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        let path = dir.join(lib_name);
+        if path.exists() {
+            return path;
+        }
+    }
+
+    let cwd_path = PathBuf::from(lib_name);
+    if cwd_path.exists() {
+        return cwd_path;
+    }
+
+    PathBuf::from(lib_name)
+}
+
+fn install_ctrlc_handler(lib: &Library) {
+    // type IsInterruptedFn = unsafe extern "C" fn() -> bool;
+    type IsInCmdFn = unsafe extern "C" fn() -> bool;
+    type SetInterruptedFn = unsafe extern "C" fn(bool);
+
+    // 立即解引用为原始函数指针，不保留 Symbol
+    // let is_interrupted: IsInterruptedFn = *unsafe { lib.get(b"is_interrupted") }.expect("Failed to find symbol 'is_interrupted'");
+
+    let is_in_cmd: IsInCmdFn =
+        *unsafe { lib.get(b"is_in_cmd") }.expect("Failed to find symbol 'is_in_cmd'");
+    let set_interrupted: SetInterruptedFn =
+        *unsafe { lib.get(b"set_interrupted") }.expect("Failed to find symbol 'set_interrupted'");
+
+    ctrlc::set_handler(move || unsafe {
+        set_interrupted(true);
+        if !is_in_cmd() {
             #[cfg(not(debug_assertions))]
             let _ = execute!(stdout(), LeaveAlternateScreen);
             let _ = execute!(stdout(), Show);
@@ -51,9 +93,11 @@ fn install_ctrlc_handler() {
     })
     .expect("failed to install Ctrl+C handler");
 }
+
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
+
 /// rustyline Helper：桥接 `clap_complete`
 struct ClapHelper {
     cli: Command,
@@ -77,25 +121,16 @@ impl Completer for ClapHelper {
             Err(_) => return Ok((pos, vec![])),
         };
 
-        // 当前正在补全的参数索引
         let arg_index = args.len();
 
-        // ✅ clap_complete 要求 Vec<OsString>
         let args_os: Vec<OsString> =
             std::iter::once("tc-cli".to_string()).chain(args).map(OsString::from).collect();
 
         let mut cli = self.cli.clone();
 
-        // ✅ 使用你贴出的完整签名
-        let candidates = complete(
-            &mut cli,
-            args_os,
-            arg_index,
-            Some(Path::new(".")), // current_dir
-        )
-        .unwrap_or_default();
+        let candidates =
+            complete(&mut cli, args_os, arg_index, Some(Path::new("."))).unwrap_or_default();
 
-        // ✅ CompletionCandidate 没有 display，只有 value (OsString)
         let pairs = candidates
             .into_iter()
             .map(|c| {
@@ -120,9 +155,11 @@ impl Hinter for ClapHelper {
 
 impl Highlighter for ClapHelper {}
 impl Validator for ClapHelper {}
+
 fn simplify_branch(ref_name: Option<&str>) -> &str {
     ref_name.and_then(|r| r.strip_prefix("refs/heads/")).unwrap_or("no branch")
 }
+
 fn welcome(b: bool) {
     println!(
         "{} {}({}) ({}, {}, {})",
@@ -173,22 +210,27 @@ GIT_COMMIT_HASH: {:?}
     let _ = io::stdout().write_all(out.as_bytes());
     let _ = io::stdout().flush();
 }
+
 fn print_copyright() {
     println!("Copyright (c) 2026 HZFY. All Rights Reserved.");
 }
+
 fn print_license() {
     let _ = io::stdout().write_all(include_bytes!("../../../LICENSE"));
     println!();
     let _ = io::stdout().flush();
 }
+
 fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data.as_ref());
     format!("{:x}", hasher.finalize())
 }
+
 fn print_banner(colored: &String) {
     print!("{colored}");
 }
+
 fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
     let mut output = Vec::new();
     let mut printer = Printer::new(cfg, true, choose_color_mode(cfg), initial_offset(cfg.seed));
@@ -200,6 +242,7 @@ fn colorize_string(cfg: &Config, input: &str) -> io::Result<String> {
         String::from_utf8(output).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     Ok(colored)
 }
+
 struct AtExit;
 impl Drop for AtExit {
     fn drop(&mut self) {
@@ -207,11 +250,11 @@ impl Drop for AtExit {
         let _ = execute!(stdout(), LeaveAlternateScreen, Show);
     }
 }
+
 fn prepare_startup() -> String {
     let running = Arc::new(AtomicBool::new(true));
     let running_anim = running.clone();
 
-    // TODO: stub tasks.
     let tasks = vec![
         ("Loading config", 10),
         ("Initializing modules", 10),
@@ -282,7 +325,6 @@ fn prepare_startup() -> String {
         for (name, target) in tasks {
             pb_task.set_message(name);
 
-            // TODO: run task stub.
             for _ in 0..target {
                 thread::sleep(Duration::from_millis(50));
                 progress.fetch_add(1, Ordering::SeqCst);
@@ -299,18 +341,33 @@ fn prepare_startup() -> String {
 
     colored.lock().unwrap().clone()
 }
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 加载动态库
+    let lib_path = get_library_path();
+
+    let lib = unsafe { Library::new(&lib_path) }
+        .map_err(|e| format!("Failed to load library '{}': {}", lib_path.display(), e))?;
+
+    // 获取 run_command 函数指针
+    type RunCommandFn =
+        unsafe extern "C" fn(safer_ffi::vec::Vec<repr_c::String>) -> RunCommandResult;
+    let run_command: Symbol<RunCommandFn> = unsafe { lib.get(b"run_command") }
+        .map_err(|e| format!("Failed to find symbol 'run_command': {e}"))?;
+
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
     }
-    install_ctrlc_handler();
+    install_ctrlc_handler(&lib);
     let _guard = AtExit;
     #[cfg(not(debug_assertions))]
     execute!(stdout(), EnterAlternateScreen)?;
     execute!(stdout(), Hide)?;
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
-    let cli = (*run_commands::CLI).clone();
+
+    // Stub now. will make cli-core command part a module named std.
+    let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
 
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
@@ -414,12 +471,16 @@ Because everyone deserves a good cup of coffee."
                 continue;
             }
         };
-        match run_commands::run_command(args) {
-            Ok(_) => {}
-            Err(err) => {
-                eprintln!("Command failed: {err}");
-            }
-        };
+
+        // 转换为 FFI 兼容的类型
+        let args_ffi: safer_ffi::vec::Vec<repr_c::String> =
+            args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
+
+        // 通过动态库调用 run_command
+        let result = unsafe { run_command(args_ffi) };
+        if result.code != 0 {
+            eprintln!("Command failed: {}", result.message);
+        }
     }
 
     Ok(())

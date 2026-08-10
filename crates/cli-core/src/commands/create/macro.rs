@@ -34,12 +34,9 @@ impl MacroCommand {
             }
             return Ok(());
         }
-        
-        let macro_def = MacroDef {
-            name: macro_name.clone().into(),
-            code: code.into(),
-        };
-        
+
+        let macro_def = MacroDef { name: macro_name.clone().into(), code: code.into() };
+
         unsafe {
             set_macro(macro_def);
             print_content(format!("Macro {macro_name} created.").into());
