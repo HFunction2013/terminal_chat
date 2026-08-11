@@ -26,14 +26,14 @@ static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
 
 /// 注册插件（以 name 为键）
 #[ffi_export]
-pub fn register_plugin(metadata: &PluginMetadata) -> bool {
+pub fn register_plugin(metadata: &PluginMetadata) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let key = metadata.name.to_string();
     if map.contains_key(&key) {
-        false // 已存在，注册失败
+        false.into() // 已存在，注册失败
     } else {
         map.insert(key, metadata.clone());
-        true
+        true.into()
     }
 }
 
@@ -49,16 +49,16 @@ pub fn get_plugin(name: repr_c::String) -> TaggedOption<safer_ffi::boxed::ThinBo
 
 /// 删除插件
 #[ffi_export]
-pub fn unregister_plugin(name: repr_c::String) -> bool {
+pub fn unregister_plugin(name: repr_c::String) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
-    map.remove(&name.to_string()).is_some()
+    map.remove(&name.to_string()).is_some().into()
 }
 
 /// 检查插件是否存在
 #[ffi_export]
-pub fn has_plugin(name: repr_c::String) -> bool {
+pub fn has_plugin(name: repr_c::String) -> i32 {
     let map = PLUGIN_MAP.lock().unwrap();
-    map.contains_key(&name.to_string())
+    map.contains_key(&name.to_string()).into()
 }
 
 /// 获取插件数量
