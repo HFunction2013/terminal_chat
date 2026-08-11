@@ -117,18 +117,10 @@ fn run_command_impl(args: &repr_c::Vec<repr_c::String>) -> Result {
             let result = commands::dispatch(&matches);
             match result {
                 Ok(()) => Result::success(),
-                Err(e) => {
-                    let msg = format!("{e}");
-                    eprintln!("Error: {msg}");
-                    Result::error(&msg)
-                }
+                Err(e) => Result::error(&e.to_string()),
             }
         }
-        Err(err) => {
-            let msg = format!("{err}");
-            eprintln!("Error: {msg}");
-            Result::error(&msg)
-        }
+        Err(err) => Result::error(&err.to_string()),
     }
 }
 

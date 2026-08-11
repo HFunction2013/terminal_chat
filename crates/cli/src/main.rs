@@ -255,6 +255,7 @@ fn prepare_startup() -> String {
     let running = Arc::new(AtomicBool::new(true));
     let running_anim = running.clone();
 
+    // TODO: stub tasks.
     let tasks = vec![
         ("Loading config", 10),
         ("Initializing modules", 10),
@@ -325,6 +326,7 @@ fn prepare_startup() -> String {
         for (name, target) in tasks {
             pb_task.set_message(name);
 
+            // TODO: run task stub.
             for _ in 0..target {
                 thread::sleep(Duration::from_millis(50));
                 progress.fetch_add(1, Ordering::SeqCst);
@@ -479,7 +481,7 @@ Because everyone deserves a good cup of coffee."
         // 通过动态库调用 run_command
         let result = unsafe { run_command(args_ffi) };
         if result.code != 0 {
-            eprintln!("Command failed: {}", result.message);
+            eprintln!("{}", result.message);
         }
     }
 
