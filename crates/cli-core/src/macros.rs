@@ -1,4 +1,5 @@
 use ::safer_ffi::prelude::*;
+use ::safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
@@ -327,13 +328,13 @@ unsafe fn run_after_get_macro_chain(buf: &repr_c::String) -> bool {
     false
 }
 
-fn get_macro_impl(name: &repr_c::String) -> Option<repr_c::String> {
+fn get_macro_impl(name: &repr_c::String) -> TaggedOption<repr_c::String> {
     let map = MAP.lock().unwrap();
-    map.get(&**name).cloned().map(|v| v.into())
+    map.get(&**name).cloned().map(|v| v.into()).into()
 }
 
 #[ffi_export]
-pub unsafe fn get_macro(content: repr_c::String) -> Option<repr_c::String> {
+pub unsafe fn get_macro(content: repr_c::String) -> TaggedOption<repr_c::String> {
     let reenter = IN_GET_MACRO.load(Ordering::SeqCst);
     if reenter {
         return get_macro_impl(&content);
@@ -352,7 +353,7 @@ pub unsafe fn get_macro(content: repr_c::String) -> Option<repr_c::String> {
         unsafe { run_after_get_macro_chain(&buf) };
         res
     } else {
-        None
+        TaggedOption::None
     };
 
     IN_GET_MACRO.store(false, Ordering::SeqCst);
@@ -440,13 +441,13 @@ unsafe fn run_after_remove_macro_chain(buf: &repr_c::String) -> bool {
     false
 }
 
-fn remove_macro_impl(name: &repr_c::String) -> Option<repr_c::String> {
+fn remove_macro_impl(name: &repr_c::String) -> TaggedOption<repr_c::String> {
     let mut map = MAP.lock().unwrap();
-    map.remove(&**name).map(|v| v.into())
+    map.remove(&**name).map(|v| v.into()).into()
 }
 
 #[ffi_export]
-pub unsafe fn remove_macro(content: repr_c::String) -> Option<repr_c::String> {
+pub unsafe fn remove_macro(content: repr_c::String) -> TaggedOption<repr_c::String> {
     let reenter = IN_REMOVE_MACRO.load(Ordering::SeqCst);
     if reenter {
         return remove_macro_impl(&content);
@@ -465,7 +466,7 @@ pub unsafe fn remove_macro(content: repr_c::String) -> Option<repr_c::String> {
         unsafe { run_after_remove_macro_chain(&buf) };
         res
     } else {
-        None
+        TaggedOption::None
     };
 
     IN_REMOVE_MACRO.store(false, Ordering::SeqCst);

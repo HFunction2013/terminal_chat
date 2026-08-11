@@ -6,6 +6,8 @@ pub mod macros;
 pub mod print_content;
 pub mod result;
 pub mod run_commands;
+pub mod plugins;
+pub mod init;
 
 pub static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 pub static IN_CMD: AtomicBool = AtomicBool::new(false);

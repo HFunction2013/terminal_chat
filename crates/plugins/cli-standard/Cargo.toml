@@ -17,6 +17,7 @@ rpassword = "7.5.4"
 which = "8.0.5"
 shell-words = "1.1.1"
 safer-ffi = "0.2.0-rc1"
+cli-core = { path = "../../cli-core" }
 
 [build-dependencies]
 yaml2cmd-build = { path = "../../helper/yaml2cmd-build" }

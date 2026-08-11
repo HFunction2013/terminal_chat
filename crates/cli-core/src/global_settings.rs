@@ -1,4 +1,5 @@
 use ::safer_ffi::prelude::*;
+use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
@@ -327,13 +328,13 @@ unsafe fn run_after_get_global_option_chain(buf: &repr_c::String) -> bool {
     false
 }
 
-fn get_global_option_impl(key: &repr_c::String) -> Option<repr_c::String> {
+fn get_global_option_impl(key: &repr_c::String) -> TaggedOption<repr_c::String> {
     let map = MAP.lock().unwrap();
-    map.get(&**key).cloned().map(|v| v.into())
+    map.get(&**key).cloned().map(|v| v.into()).into()
 }
 
 #[ffi_export]
-pub unsafe fn get_global_option(content: repr_c::String) -> Option<repr_c::String> {
+pub unsafe fn get_global_option(content: repr_c::String) -> TaggedOption<repr_c::String> {
     let reenter = IN_GET_GLOBAL_OPTION.load(Ordering::SeqCst);
     if reenter {
         return get_global_option_impl(&content);
@@ -352,7 +353,7 @@ pub unsafe fn get_global_option(content: repr_c::String) -> Option<repr_c::Strin
         unsafe { run_after_get_global_option_chain(&buf) };
         res
     } else {
-        None
+        TaggedOption::None
     };
 
     IN_GET_GLOBAL_OPTION.store(false, Ordering::SeqCst);
@@ -440,13 +441,13 @@ unsafe fn run_after_remove_global_option_chain(buf: &repr_c::String) -> bool {
     false
 }
 
-fn remove_global_option_impl(key: &repr_c::String) -> Option<repr_c::String> {
+fn remove_global_option_impl(key: &repr_c::String) -> TaggedOption<repr_c::String> {
     let mut map = MAP.lock().unwrap();
-    map.remove(&**key).map(|v| v.into())
+    map.remove(&**key).map(|v| v.into()).into()
 }
 
 #[ffi_export]
-pub unsafe fn remove_global_option(content: repr_c::String) -> Option<repr_c::String> {
+pub unsafe fn remove_global_option(content: repr_c::String) -> TaggedOption<repr_c::String> {
     let reenter = IN_REMOVE_GLOBAL_OPTION.load(Ordering::SeqCst);
     if reenter {
         return remove_global_option_impl(&content);
@@ -465,7 +466,7 @@ pub unsafe fn remove_global_option(content: repr_c::String) -> Option<repr_c::St
         unsafe { run_after_remove_global_option_chain(&buf) };
         res
     } else {
-        None
+        TaggedOption::None
     };
 
     IN_REMOVE_GLOBAL_OPTION.store(false, Ordering::SeqCst);

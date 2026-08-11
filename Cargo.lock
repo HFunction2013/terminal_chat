@@ -491,7 +491,7 @@ dependencies = [
  "built",
  "clap",
  "clap_complete",
- "cli_core",
+ "cli-core",
  "crossterm",
  "ctrlc",
  "figlet-rs",
@@ -513,25 +513,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cli-core"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "safer-ffi",
+]
+
+[[package]]
 name = "cli-standard"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "cli-core",
  "humantime",
  "rpassword",
  "safer-ffi",
  "shell-words",
  "which",
  "yaml2cmd-build",
-]
-
-[[package]]
-name = "cli_core"
-version = "0.1.0"
-dependencies = [
- "clap",
- "safer-ffi",
 ]
 
 [[package]]
