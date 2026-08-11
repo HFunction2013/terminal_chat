@@ -1644,7 +1644,7 @@ tr = "Tam sözcük"
 uk = "Ціле слово"
 vi = "Khớp toàn bộ từ"
 zh-hans = "全字匹配"
-zh-hant = "比對整個字"
+zh-hant = "比對完整字詞"
 
 # Toggle
 [SearchUseRegex]
@@ -2066,4 +2066,4 @@ tr = "Dosya zaten var. Üzerine yazmak istiyor musunuz?"
 uk = "Файл вже існує. Перезаписати?"
 vi = "Tệp đã tồn tại. Bạn có muốn ghi đè không?"
 zh-hans = "文件已存在。要覆盖它吗？"
-zh-hant = "檔案已存在。要覆蓋它嗎？"
+zh-hant = "檔案已存在。要覆寫嗎？"
