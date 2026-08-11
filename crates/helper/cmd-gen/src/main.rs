@@ -397,8 +397,12 @@ fn collect_expected_files(cmds: &[CommandDef], base_dir: &Path, expected_files: 
 }
 
 /// 清理不再需要的文件
-fn cleanup_orphaned_files(expected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let commands_dir = Path::new("./crates/cli-core/src/commands");
+fn cleanup_orphaned_files(
+    expected_files: &[String],
+    mod_name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = format!("./crates/{mod_name}/src/commands");
+    let commands_dir = Path::new(&path);
 
     // 遍历所有 .rs 文件
     fn visit_dirs(dir: &Path, expected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
@@ -433,15 +437,11 @@ fn cleanup_orphaned_files(expected_files: &[String]) -> Result<(), Box<dyn std::
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let ctx = std::env::args().nth(1).unwrap_or_else(|| "plugins/cli-standard".to_string());
     let manifest = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    let yaml_path = Path::new(&manifest)
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("cli-core")
-        .join("commands.yaml");
+    let yaml_path =
+        Path::new(&manifest).parent().unwrap().parent().unwrap().join(&ctx).join("commands.yaml");
     println!("{}", yaml_path.display());
 
     if !yaml_path.exists() {
@@ -452,7 +452,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let yaml = fs::read_to_string(&yaml_path)?;
     let config: Config = serde_yaml::from_str(&yaml)?;
 
-    let out_dir = Path::new("./crates/cli-core/src/commands");
+    let path = &format!("./crates/{ctx}/src/commands");
+    let out_dir = Path::new(path);
     if !out_dir.exists() {
         fs::create_dir_all(out_dir)?;
     }
@@ -477,7 +478,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 清理孤立文件
-    cleanup_orphaned_files(&expected_files)?;
+    cleanup_orphaned_files(&expected_files, ctx)?;
 
     // 生成 mod.rs - 主入口
     let mut mod_rs = String::new();

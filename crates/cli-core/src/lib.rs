@@ -1,7 +1,6 @@
 use ::safer_ffi::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub mod commands;
 pub mod global_settings;
 pub mod macros;
 pub mod print_content;

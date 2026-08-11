@@ -513,20 +513,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "cli_core"
+name = "cli-standard"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
  "humantime",
- "once_cell",
- "paste",
  "rpassword",
  "safer-ffi",
- "serde",
- "serde_yaml",
  "shell-words",
  "which",
+ "yaml2cmd-build",
+]
+
+[[package]]
+name = "cli_core"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "safer-ffi",
 ]
 
 [[package]]
@@ -3763,6 +3768,14 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+
+[[package]]
+name = "yaml2cmd-build"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_yaml",
+]
 
 [[package]]
 name = "yoke"
