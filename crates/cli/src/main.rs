@@ -38,7 +38,6 @@ use std::{
     time::Duration,
 };
 mod fortune;
-mod yaml2cmd;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
 fn get_library_path() -> PathBuf {
     let lib_name = if cfg!(target_os = "macos") {
@@ -251,7 +250,7 @@ impl Drop for AtExit {
     }
 }
 
-fn prepare_startup() -> String {
+fn prepare_startup(lib: &Library) -> String {
     let running = Arc::new(AtomicBool::new(true));
     let running_anim = running.clone();
 
@@ -365,7 +364,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(debug_assertions))]
     execute!(stdout(), EnterAlternateScreen)?;
     execute!(stdout(), Hide)?;
-    let colored = prepare_startup();
+    let colored = prepare_startup(&lib);
     execute!(stdout(), Show)?;
 
     // Stub now. will make cli-core command part a module named std.

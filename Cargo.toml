@@ -10,7 +10,7 @@ members = [
     "crates/sl-rs",
     "crates/neo-lolcat", 
     "crates/protos",
-    "crates/edit/crates/*", "crates/plugins/cli-standard", "crates/helper/yaml2cmd-build",
+    "crates/edit/crates/*", "crates/plugins/cli-standard", "crates/helper/yaml2cmd-build", "crates/helper/yaml2cmd",
 ]
 resolver = "2"
 
