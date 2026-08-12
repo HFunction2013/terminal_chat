@@ -12,7 +12,7 @@ use crossterm::{
 use figlet_rs::FIGlet;
 use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
-use libloading::{Library, Symbol};
+use libloading::{Library, Symbol, library_filename};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
 use rustyline::{
@@ -41,31 +41,24 @@ mod fortune;
 mod yaml2cmd;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
 fn get_library_path() -> PathBuf {
-    let lib_name = if cfg!(target_os = "macos") {
-        "libcli_core.dylib"
-    } else if cfg!(target_os = "linux") {
-        "libcli_core.so"
-    } else if cfg!(target_os = "windows") {
-        "cli_core.dll"
-    } else {
-        "lib_clicore.so"
-    };
+    let lib_name_buf = library_filename("cli_core");
+    let lib_name = lib_name_buf.to_string_lossy();
 
     if let Ok(exe) = std::env::current_exe()
         && let Some(dir) = exe.parent()
     {
-        let path = dir.join(lib_name);
+        let path = dir.join(lib_name.as_ref());
         if path.exists() {
             return path;
         }
     }
 
-    let cwd_path = PathBuf::from(lib_name);
+    let cwd_path = PathBuf::from(lib_name.as_ref());
     if cwd_path.exists() {
         return cwd_path;
     }
 
-    PathBuf::from(lib_name)
+    PathBuf::from(lib_name.as_ref())
 }
 
 fn install_ctrlc_handler(lib: &Library) {
