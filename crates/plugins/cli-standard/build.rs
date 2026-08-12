@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 fn main() {
     let yaml_path = Path::new("./commands.yaml");
     let yaml = fs::read_to_string(yaml_path).expect("Cannot read ./commands.yaml, file missing");

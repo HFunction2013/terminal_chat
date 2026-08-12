@@ -7,6 +7,12 @@ pub struct Result {
     pub message: repr_c::String,
 }
 
+impl Default for Result {
+    fn default() -> Self {
+        Result { code: -1, message: "Default Result".into() }
+    }
+}
+
 impl Result {
     pub fn success() -> Self {
         Result { code: 0, message: repr_c::String::from(String::new()) }

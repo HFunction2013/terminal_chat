@@ -1,6 +1,12 @@
 use ::safer_ffi::prelude::*;
+use hook_macro::register_hook;
 use libloading::Library;
+use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{LazyLock, Mutex};
+
 #[derive_ReprC]
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -18,15 +24,26 @@ pub struct PluginMetadata {
     pub pb_len: i32,
 }
 
-use safer_ffi::ffi_export;
-use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
+#[derive_ReprC]
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct PluginResult {
+    pub success: i32,
+    pub exit_code: i32,
+    pub msg: TaggedOption<safer_ffi::String>,
+}
+
+impl Default for PluginResult {
+    fn default() -> Self {
+        Self { success: 0, exit_code: 0, msg: None.into() }
+    }
+}
 
 static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-#[ffi_export]
-pub fn load_plugin(plugin_path: repr_c::String) -> PluginResult {
+#[register_hook]
+pub fn load_plugin_impl(plugin_path: &repr_c::String) -> PluginResult {
     unsafe {
         let lib = match Library::new(plugin_path.to_string()) {
             Ok(lib) => lib,
@@ -60,8 +77,8 @@ pub fn load_plugin(plugin_path: repr_c::String) -> PluginResult {
 }
 
 /// 注册插件（以 name 为键）
-#[ffi_export]
-pub fn register_plugin(metadata: &PluginMetadata) -> i32 {
+#[register_hook]
+pub fn register_plugin_impl(metadata: &PluginMetadata) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let key = metadata.name.to_string();
     if map.contains_key(&key) {
@@ -73,8 +90,10 @@ pub fn register_plugin(metadata: &PluginMetadata) -> i32 {
 }
 
 /// 通过名称获取插件
-#[ffi_export]
-pub fn get_plugin(name: repr_c::String) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
+#[register_hook(fallback = "TaggedOption::None")]
+pub fn get_plugin_impl(
+    name: &repr_c::String,
+) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
     let map = PLUGIN_MAP.lock().unwrap();
     match map.get(&name.to_string()) {
         Some(p) => TaggedOption::Some(safer_ffi::boxed::ThinBox::new(p.clone())),
@@ -83,38 +102,29 @@ pub fn get_plugin(name: repr_c::String) -> TaggedOption<safer_ffi::boxed::ThinBo
 }
 
 /// 删除插件
-#[ffi_export]
-pub fn unregister_plugin(name: repr_c::String) -> i32 {
+#[register_hook]
+pub fn unregister_plugin_impl(name: &repr_c::String) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
     map.remove(&name.to_string()).is_some().into()
 }
 
 /// 检查插件是否存在
-#[ffi_export]
-pub fn has_plugin(name: repr_c::String) -> i32 {
+#[register_hook]
+pub fn has_plugin_impl(name: &repr_c::String) -> i32 {
     let map = PLUGIN_MAP.lock().unwrap();
     map.contains_key(&name.to_string()).into()
 }
 
 /// 获取插件数量
-#[ffi_export]
-pub fn plugin_count() -> i32 {
+#[register_hook]
+pub fn plugin_count_impl() -> i32 {
     let map = PLUGIN_MAP.lock().unwrap();
     map.len() as i32
 }
 
 /// 清空所有插件
-#[ffi_export]
-pub fn clear_plugins() {
+#[register_hook]
+pub fn clear_plugins_impl() {
     let mut map = PLUGIN_MAP.lock().unwrap();
     map.clear();
-}
-
-#[derive_ReprC]
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct PluginResult {
-    pub success: i32,
-    pub exit_code: i32,
-    pub msg: TaggedOption<safer_ffi::String>,
 }
