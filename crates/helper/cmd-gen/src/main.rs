@@ -250,8 +250,6 @@ fn generate_module(name: &str, about: &str, debug_only: bool, args: &[ArgDef]) -
         "{AUTO_GENERATED_TAG}\n\
          {cfg_attr}// {name}.rs\n\
          {comment}\n\
-         #[allow(unused_imports)]\n\
-         use crate::INTERRUPTED;\n\
          use crate::commands::CommandExecutor;\n\
          #[allow(unused_imports)]\n\
          use anyhow::{{anyhow, Result}};\n\
@@ -489,7 +487,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          #[allow(unused_imports)]\n\
          use anyhow::{{anyhow, Result}};\n\
          use std::sync::atomic::Ordering;\n\
-         use crate::INTERRUPTED;\n\
          \n\
          pub trait CommandExecutor {{\n\
              fn name(&self) -> &'static str;\n\
@@ -561,7 +558,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {
     for cmd in all_commands() {
         if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
-            INTERRUPTED.store(false, Ordering::SeqCst);
             return cmd.run(sub_matches);
         }
     }
@@ -627,7 +623,6 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
                 sub_mod_rs.push_str("#[allow(unused_imports)]\n");
                 sub_mod_rs.push_str("use anyhow::{anyhow, Result};\n");
                 sub_mod_rs.push_str("use crate::commands::CommandExecutor;\n");
-                sub_mod_rs.push_str("use crate::INTERRUPTED;\n");
                 sub_mod_rs.push_str("use std::sync::atomic::Ordering;\n\n");
 
                 let parent_struct_name = to_struct_name(dir_name);
@@ -674,7 +669,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
                 sub_mod_rs.push_str(
                     "        if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {\n",
                 );
-                sub_mod_rs.push_str("            INTERRUPTED.store(false, Ordering::SeqCst);\n");
                 sub_mod_rs.push_str("            return cmd.run(sub_matches);\n");
                 sub_mod_rs.push_str("        }\n");
                 sub_mod_rs.push_str("    }\n");
