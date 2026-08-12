@@ -1,15 +1,14 @@
 use crate::IN_CMD;
-use crate::commands;
+use crate::plugins::PluginMetadata;
+use crate::plugins::{
+    get_plugin_by_command_name, get_plugin_lib, is_plugin_command_name_registered,
+};
 use crate::result::Result;
 use ::safer_ffi::prelude::*;
-use clap::Command;
 use hook_macro::register_hook;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-mod command {
-    include!(concat!(env!("OUT_DIR"), "/command.rs"));
-}
 
 struct CommandGuard;
 impl Drop for CommandGuard {
@@ -18,29 +17,54 @@ impl Drop for CommandGuard {
     }
 }
 
-pub fn build_cli() -> Command {
-    command::add_commands(Command::new("tc-cli").version(env!("CARGO_PKG_VERSION")))
-}
-
-pub static CLI: LazyLock<Command> = LazyLock::new(build_cli);
-
 #[register_hook]
 fn run_command_impl(args: &repr_c::Vec<repr_c::String>) -> Result {
-    let full_args: Vec<String> =
-        std::iter::once("tc-cli".to_string()).chain(args.iter().map(|s| s.to_string())).collect();
+    let mut args = args.clone();
+    if !unsafe { is_plugin_command_name_registered(args.first().unwrap()) } {
+        let full_args: Vec<safer_ffi::String> =
+            std::iter::once("std".into()).chain(args.iter().map(|s| s.clone())).collect();
 
-    let full_args_refs: Vec<&str> = full_args.iter().map(String::as_str).collect();
+        args = safer_ffi::Vec::from(full_args);
+    }
+    let command_name = args.first().unwrap();
+    let res = unsafe { get_plugin_by_command_name(command_name) };
+    let boxed = match res {
+        safer_ffi::option::TaggedOption::Some(x) => x,
+        safer_ffi::option::TaggedOption::None => {
+            return Result {
+                code: 103,
+                message: format!("Failed to get plugin name from command name").into(),
+            };
+        }
+    };
 
-    match (*CLI).clone().try_get_matches_from(&full_args_refs) {
-        Ok(matches) => {
-            IN_CMD.store(true, Ordering::SeqCst);
-            let _guard = CommandGuard;
-            let result = commands::dispatch(&matches);
-            match result {
-                Ok(()) => Result::success(),
-                Err(e) => Result::error(&e.to_string()),
+    let metadata: PluginMetadata = (*boxed).clone();
+    let plugin_name = metadata.name;
+    let lib = match get_plugin_lib(&plugin_name) {
+        Ok(lib) => lib,
+        Err(_) => {
+            // Err loading.
+            return Result {
+                code: 101,
+                message: format!("Failed to load plugin {plugin_name}").into(),
+            };
+        }
+    };
+    let run_command = unsafe {
+        match lib.get::<unsafe extern "C" fn(safer_ffi::Vec<safer_ffi::String>) -> Result>(
+            b"run_command",
+        ) {
+            Ok(f) => f,
+            Err(_) => {
+                // Err loading.
+                return Result {
+                    code: 101,
+                    message: format!("Failed to load symbol run_command").into(),
+                };
             }
         }
-        Err(err) => Result::error(&err.to_string()),
-    }
+    };
+    IN_CMD.store(true, Ordering::SeqCst);
+    let _guard = CommandGuard;
+    unsafe { run_command(args) }
 }
