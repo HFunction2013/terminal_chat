@@ -3,8 +3,9 @@ use cli_core::result::Result as CmdResult;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
-static METADATA: PluginMetadata = PluginMetadata {
-    command_yaml: include_str!("../commands.yaml"),
+use std::sync::LazyLock;
+static METADATA: LazyLock<PluginMetadata> = LazyLock::new(|| PluginMetadata {
+    command_yaml: include_str!("../commands.yaml").into(),
     name: "cli-standard".into(),
     command_name: "std".into(),
     version: env!("CARGO_PKG_VERSION").into(),
@@ -15,10 +16,9 @@ static METADATA: PluginMetadata = PluginMetadata {
     min_host_version: TaggedOption::None,
     max_host_version: TaggedOption::None,
     pb_len: 0,
-};
+});
 mod commands;
 mod command {
-    use clap::Command;
     use std::sync::LazyLock;
 
     use crate::METADATA;
