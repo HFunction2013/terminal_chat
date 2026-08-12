@@ -1,4 +1,5 @@
 use ::safer_ffi::prelude::*;
+use libloading::Library;
 use safer_ffi::option::TaggedOption;
 #[derive_ReprC]
 #[repr(C)]
@@ -23,6 +24,40 @@ use std::sync::{LazyLock, Mutex};
 
 static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+#[ffi_export]
+pub fn load_plugin(plugin_path: repr_c::String) -> PluginResult {
+    unsafe {
+        let lib = match Library::new(plugin_path.to_string()) {
+            Ok(lib) => lib,
+            Err(_) => {
+                // Err loading.
+                return PluginResult {
+                    success: 0,
+                    exit_code: 101,
+                    msg: TaggedOption::Some("Failed to load plugin".into()),
+                };
+            }
+        };
+
+        let get_plugin_metadata =
+            match lib.get::<unsafe extern "C" fn() -> PluginMetadata>(b"get_plugin_metadata") {
+                Ok(f) => f,
+                Err(_) => {
+                    // Err loading.
+                    return PluginResult {
+                        success: 0,
+                        exit_code: 102,
+                        msg: TaggedOption::Some("Failed to get `get_plugin_metadata`".into()),
+                    };
+                }
+            };
+        let meta: PluginMetadata = get_plugin_metadata();
+        register_plugin(&meta);
+        // TODO: register commands.
+    }
+    PluginResult { success: 1, exit_code: 0, msg: TaggedOption::None }
+}
 
 /// 注册插件（以 name 为键）
 #[ffi_export]
@@ -81,4 +116,5 @@ pub fn clear_plugins() {
 pub struct PluginResult {
     pub success: i32,
     pub exit_code: i32,
+    pub msg: TaggedOption<safer_ffi::String>,
 }

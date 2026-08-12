@@ -1,6 +1,7 @@
 use cli_core::plugins::{PluginMetadata, PluginResult};
 use cli_core::result::Result as CmdResult;
 use safer_ffi::ffi_export;
+use safer_ffi::prelude::*;
 static METADATA: PluginMetadata = PluginMetadata {
     command_yaml: include_str!("../commands.yaml"),
     name: "cli-standard",
@@ -35,7 +36,7 @@ pub fn get_plugin_metadata() -> PluginMetadata {
 
 #[ffi_export]
 pub fn on_init_plugin() -> PluginResult {
-    PluginResult { success: true, exit_code: 0 }
+    PluginResult { success: true, exit_code: 0, msg: TaggedOption::None }
 }
 
 #[ffi_export]
@@ -63,5 +64,5 @@ pub fn run_command(args: safer_ffi::Vec<safer_ffi::String>) -> CmdResult {
 
 #[ffi_export]
 pub fn on_shutdown_plugin() -> PluginResult {
-    PluginResult { success: true, exit_code: 0 }
+    PluginResult { success: true, exit_code: 0, msg: TaggedOption::None }
 }
