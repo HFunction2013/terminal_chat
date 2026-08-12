@@ -17,6 +17,10 @@ impl RunCommand {
             let lines: Vec<&str> = code.split('\n').collect();
 
             for line in lines.iter() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
                 let args = match shell_words::split(line) {
                     Ok(args) => args,
                     Err(e) => {
