@@ -57,7 +57,9 @@ pub fn is_plugin_command_name_registered_impl(identifier: &safer_ffi::String) ->
     cmd_map.contains_key(&identifier.to_string())
 }
 
-pub(crate) fn get_plugin_lib(plugin_name: &safer_ffi::String) -> Result<libloading::Library, libloading::Error> {
+pub(crate) fn get_plugin_lib(
+    plugin_name: &safer_ffi::String,
+) -> Result<libloading::Library, libloading::Error> {
     unsafe { Library::new(library_filename(plugin_name.to_string())) }
 }
 

@@ -2,32 +2,30 @@
 // registry.rs
 // Show all plugins from registry.
 // Use this carefully.
-#[allow(unused_imports)]
-use crate::INTERRUPTED;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 
 pub struct RegistryCommand;
 
 impl RegistryCommand {
     #[allow(unused_variables)]
-	pub fn execute(&self) -> Result<()> {
-		// TODO: Show all plugins from registry.
-		// TODO: Use this carefully.
-		println!("Command `registry` is not yet implemented.");
-		Ok(())
-	}
+    pub fn execute(&self) -> Result<()> {
+        // TODO: Show all plugins from registry.
+        // TODO: Use this carefully.
+        println!("Command `registry` is not yet implemented.");
+        Ok(())
+    }
 }
 
 impl CommandExecutor for RegistryCommand {
-	fn name(&self) -> &'static str {
-		"registry"
-	}
+    fn name(&self) -> &'static str {
+        "registry"
+    }
 
-	#[allow(unused_variables)]
-	fn run(&self, matches: &ArgMatches) -> Result<()> {
+    #[allow(unused_variables)]
+    fn run(&self, matches: &ArgMatches) -> Result<()> {
         self.execute()
-	}
+    }
 }
