@@ -185,3 +185,10 @@ pub fn clear_plugins_impl() {
     map.clear();
     cmd_map.clear();
 }
+
+#[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
+pub fn get_all_plugins_impl() -> safer_ffi::Vec<PluginMetadata> {
+    let map = PLUGIN_MAP.lock().unwrap();
+    let plugins: Vec<PluginMetadata> = map.values().cloned().collect();
+    plugins.into()
+}
