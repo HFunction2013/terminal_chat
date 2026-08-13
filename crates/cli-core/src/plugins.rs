@@ -1,6 +1,6 @@
 use ::safer_ffi::prelude::*;
 use hook_macro::register_hook;
-use libloading::{Library, library_filename};
+use libloading::Library;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
@@ -63,12 +63,6 @@ pub fn is_plugin_name_registered_impl(identifier: &safer_ffi::String) -> bool {
 pub fn is_plugin_command_name_registered_impl(identifier: &safer_ffi::String) -> bool {
     let cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
     cmd_map.contains_key(&identifier.to_string())
-}
-
-pub(crate) fn get_plugin_lib(
-    plugin_name: &safer_ffi::String,
-) -> Result<libloading::Library, libloading::Error> {
-    unsafe { Library::new(library_filename(plugin_name.to_string())) }
 }
 
 #[register_hook]

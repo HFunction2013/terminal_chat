@@ -1,11 +1,10 @@
-use crate::{set_in_cmd, set_interrupted};
 use crate::plugins::PluginMetadata;
-use crate::plugins::{
-    get_plugin_by_command_name, get_plugin_lib, is_plugin_command_name_registered,
-};
+use crate::plugins::{get_plugin_by_command_name, is_plugin_command_name_registered};
 use crate::result::Result;
+use crate::{set_in_cmd, set_interrupted};
 use ::safer_ffi::prelude::*;
 use hook_macro::register_hook;
+use libloading::{Library, library_filename};
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,7 +40,7 @@ fn run_command_impl(args: &repr_c::Vec<repr_c::String>) -> Result {
 
     let metadata: PluginMetadata = (*boxed).clone();
     let plugin_name = metadata.name;
-    let lib = match get_plugin_lib(&plugin_name) {
+    let lib = match unsafe { Library::new(library_filename(plugin_name.to_string())) } {
         Ok(lib) => lib,
         Err(_) => {
             // Err loading.
