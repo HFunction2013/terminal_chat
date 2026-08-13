@@ -1,11 +1,11 @@
 // macro.rs
 // Create macro
+use crate::LIB;
 use crate::commands::CommandExecutor;
-use crate::macros::MacroDef;
-use crate::macros::set_macro;
-use crate::print_content::print_content;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core::macros::MacroDef;
+use libloading::Symbol;
 use std::env;
 use std::fs;
 
@@ -15,6 +15,18 @@ impl MacroCommand {
     /// `macro_name` - macro name, required, value_name: MACRO_NAME
     /// `macro_body` - macro body, default: open editor to get input
     pub fn execute(&self, macro_name: String, macro_body: Option<String>) -> Result<()> {
+        let lib = LIB.get().expect("`cli-core` not initialized");
+        let print_content: Symbol<fn(&safer_ffi::String)>;
+        let set_macro: Symbol<fn(&MacroDef) -> MacroDef>;
+        unsafe {
+            print_content = lib
+                .get::<fn(&safer_ffi::String)>(b"print_content")
+                .expect("Failed to get `print_content`");
+            set_macro = lib
+                .get::<fn(&MacroDef) -> MacroDef>(b"set_macro")
+                .expect("Failed to get `set_macro`");
+        }
+
         let mut path = env::current_exe()?;
         path.pop();
         path.push("CREATE_EDITMACRO");
@@ -29,18 +41,14 @@ impl MacroCommand {
             fs::read_to_string(&path)?
         };
         if code.is_empty() {
-            unsafe {
-                print_content("Macro body not specified. Cannot create macro.".into());
-            }
+            print_content(&"Macro body not specified. Cannot create macro.".into());
             return Ok(());
         }
 
         let macro_def = MacroDef { name: macro_name.clone().into(), code: code.into() };
 
-        unsafe {
-            set_macro(macro_def);
-            print_content(format!("Macro {macro_name} created.").into());
-        }
+        set_macro(&macro_def);
+        print_content(&format!("Macro {macro_name} created.").into());
         Ok(())
     }
 }

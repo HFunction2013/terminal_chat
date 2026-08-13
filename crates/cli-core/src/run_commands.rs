@@ -1,4 +1,4 @@
-use crate::IN_CMD;
+use crate::{set_in_cmd, set_interrupted};
 use crate::plugins::PluginMetadata;
 use crate::plugins::{
     get_plugin_by_command_name, get_plugin_lib, is_plugin_command_name_registered,
@@ -13,7 +13,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 struct CommandGuard;
 impl Drop for CommandGuard {
     fn drop(&mut self) {
-        IN_CMD.store(false, Ordering::SeqCst);
+        set_in_cmd(false);
+        set_interrupted(false);
     }
 }
 
@@ -64,7 +65,7 @@ fn run_command_impl(args: &repr_c::Vec<repr_c::String>) -> Result {
             }
         }
     };
-    IN_CMD.store(true, Ordering::SeqCst);
+    set_in_cmd(true);
     let _guard = CommandGuard;
     unsafe { run_command(args) }
 }

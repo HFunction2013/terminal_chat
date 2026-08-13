@@ -1,9 +1,11 @@
-use cli_core::plugins::{PluginMetadata, PluginResult};
+use cli_core::plugins::{HostMetadata, PluginMetadata, PluginResult};
 use cli_core::result::Result as CmdResult;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::sync::LazyLock;
+use std::sync::OnceLock;
+use libloading::Library;
 static METADATA: LazyLock<PluginMetadata> = LazyLock::new(|| PluginMetadata {
     command_yaml: include_str!("../commands.yaml").into(),
     name: "cli-standard".into(),
@@ -17,6 +19,15 @@ static METADATA: LazyLock<PluginMetadata> = LazyLock::new(|| PluginMetadata {
     max_host_version: TaggedOption::None,
     pb_len: 0,
 });
+
+static LIB: OnceLock<Library> = OnceLock::new();
+
+fn init_library(path: &str) -> &Library {
+    LIB.get_or_init(|| unsafe {
+        Library::new(path).expect("Failed to load library")
+    })
+}
+
 mod commands;
 mod command {
     use std::sync::LazyLock;
@@ -39,7 +50,8 @@ pub fn get_plugin_metadata() -> PluginMetadata {
 }
 
 #[ffi_export]
-pub fn on_init_plugin() -> PluginResult {
+pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
+    init_library(&h_meta.cli_core_path);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 

@@ -10,6 +10,14 @@ use std::sync::{LazyLock, Mutex};
 #[derive_ReprC]
 #[repr(C)]
 #[derive(Debug, Clone)]
+pub struct HostMetadata {
+    pub version: safer_ffi::String,
+    pub cli_core_path: safer_ffi::String,
+}
+
+#[derive_ReprC]
+#[repr(C)]
+#[derive(Debug, Clone)]
 pub struct PluginMetadata {
     pub command_yaml: safer_ffi::String,
     pub name: safer_ffi::String,

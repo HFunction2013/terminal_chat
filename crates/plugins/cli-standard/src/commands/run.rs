@@ -1,19 +1,35 @@
 // run.rs
 // run a certain macro
+use crate::LIB;
 use crate::commands::CommandExecutor;
-use crate::macros::get_macro;
-use crate::print_content::print_content;
-use crate::run_commands::run_command;
 use ::safer_ffi::prelude::*;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core::result::Result as CmdResult;
+use libloading::Symbol;
+use safer_ffi::option::TaggedOption;
 pub struct RunCommand;
 
 impl RunCommand {
     /// `macro_name` - macro name, required, value_name: macro_NAME
     pub fn execute(&self, macro_name: String) -> Result<()> {
+        let lib = LIB.get().expect("`cli-core` not initialized");
+        let print_content: Symbol<fn(&safer_ffi::String)>;
+        let get_macro: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
+        let run_command: Symbol<fn(&repr_c::Vec<repr_c::String>) -> CmdResult>;
+        unsafe {
+            print_content = lib
+                .get::<fn(&safer_ffi::String)>(b"print_content")
+                .expect("Failed to get `print_content`");
+            get_macro = lib
+                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"get_macro")
+                .expect("Failed to get `get_macro`");
+            run_command = lib
+                .get::<fn(&repr_c::Vec<repr_c::String>) -> CmdResult>(b"run_command")
+                .expect("Failed to get `run_command`");
+        }
         let macro_name_display = macro_name.clone();
-        if let Some(code) = unsafe { get_macro(macro_name.into()) } {
+        if let TaggedOption::Some(code) = get_macro(&macro_name.into()) {
             let lines: Vec<&str> = code.split('\n').collect();
 
             for line in lines.iter() {
@@ -26,15 +42,13 @@ impl RunCommand {
                 };
                 let args_repr_c: Vec<repr_c::String> = args.into_iter().map(|s| s.into()).collect();
                 let args_ffi: safer_ffi::Vec<repr_c::String> = args_repr_c.into();
-                let result = unsafe { run_command(args_ffi) };
+                let result = run_command(&args_ffi);
                 if result.code != 0 {
                     eprintln!("Command failed: {}", result.message);
                 }
             }
         } else {
-            unsafe {
-                print_content(format!("Macro {macro_name_display} doesn't exists.").into());
-            }
+            print_content(&format!("Macro {macro_name_display} doesn't exists.").into());
         }
         Ok(())
     }

@@ -438,6 +438,7 @@ commands:
         short: a
         action: set_true
         help: Clear all session options.
+        conflicts_with: key
   - name: unsetg
     about: Unset global variable.
     args:
@@ -449,6 +450,7 @@ commands:
         long: all
         short: a
         action: set_true
+        conflicts_with: key
         help: Clear all global options.
   - name: create
     about: Create alias or macro

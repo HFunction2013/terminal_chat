@@ -529,6 +529,7 @@ dependencies = [
  "clap",
  "cli-core",
  "humantime",
+ "libloading",
  "rpassword",
  "safer-ffi",
  "shell-words",

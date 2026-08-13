@@ -1,23 +1,35 @@
 // getg.rs
 // Get global options
+use crate::LIB;
 use crate::commands::CommandExecutor;
-use crate::global_settings::get_global_option;
-use crate::print_content::print_content;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use libloading::Symbol;
+use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
 
 pub struct GetgCommand;
 
 impl GetgCommand {
     /// `key` - Config key name, required, value_name: KEY
     pub fn execute(&self, key: String) -> Result<()> {
-        let val = unsafe { get_global_option(key.clone().into()) };
+        let lib = LIB.get().expect("`cli-core` not initialized");
+        let print_content: Symbol<fn(&safer_ffi::String)>;
+        let get_global_option: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
         unsafe {
-            if let Some(v) = val {
-                print_content(format!("{key} => {v}").into());
-            } else {
-                print_content(format!("Key {key} doesn't exists").into());
-            }
+            print_content = lib
+                .get::<fn(&safer_ffi::String)>(b"print_content")
+                .expect("Failed to get `print_content`");
+            get_global_option = lib
+                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"get_global_option")
+                .expect("Failed to get `get_global_option`");
+        }
+
+        let val = get_global_option(&key.clone().into());
+        if let TaggedOption::Some(v) = val {
+            print_content(&format!("{key} => {v}").into());
+        } else {
+            print_content(&format!("Key {key} doesn't exists").into());
         }
         Ok(())
     }

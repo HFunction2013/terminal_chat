@@ -1,9 +1,12 @@
 // editor.rs
 // just opens an editor
+use crate::LIB;
 use crate::commands::CommandExecutor;
-use crate::global_settings::get_global_option;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
+use libloading::Symbol;
+use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
 use which::which;
@@ -67,9 +70,18 @@ impl EditorCommand {
     /// `file` - file to open, optional., value_name: FILE
     /// `editor` - set editor
     pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
-        let editor_name = editor
-            .or_else(|| unsafe { get_global_option("EDITOR".into()).map(|s| s.to_string()) })
-            .or_else(Self::choose_editor);
+        let lib = LIB.get().expect("`cli-core` not initialized");
+        let get_global_option: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
+        unsafe {
+            get_global_option = lib
+                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"get_global_option")
+                .expect("Failed to get `get_global_option`");
+        }
+        let opt_saferffi_string: Option<safer_ffi::String> =
+            get_global_option(&"EDITOR".into()).into_rust();
+
+        let editor_candidate: Option<String> = opt_saferffi_string.map(|s| s.to_string());
+        let editor_name = editor.or_else(|| editor_candidate).or_else(Self::choose_editor);
 
         let editor_path = match editor_name {
             Some(ref name) => {

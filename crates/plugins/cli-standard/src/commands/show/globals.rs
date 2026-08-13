@@ -1,23 +1,34 @@
 // globals.rs
 // Show value of all global variables
-use crate::{
-    commands::CommandExecutor, global_settings::get_all_options, print_content::print_content,
-};
+use crate::LIB;
+use crate::commands::CommandExecutor;
 use anyhow::Result;
 use clap::ArgMatches;
+use cli_core::global_settings::GlobalOption;
+use libloading::Symbol;
 
 pub struct GlobalsCommand;
 
 impl GlobalsCommand {
     fn execute(&self) -> Result<()> {
-        let ops = unsafe { get_all_options() };
+        let lib = LIB.get().expect("`cli-core` not initialized");
+        let print_content: Symbol<fn(&safer_ffi::String)>;
+        let get_all_options: Symbol<fn() -> safer_ffi::vec::Vec<GlobalOption>>;
+        unsafe {
+            print_content = lib
+                .get::<fn(&safer_ffi::String)>(b"print_content")
+                .expect("Failed to get `print_content`");
+            get_all_options = lib
+                .get::<fn() -> safer_ffi::vec::Vec<GlobalOption>>(b"get_all_options")
+                .expect("Failed to get `get_all_options`");
+        }
+
+        let ops = get_all_options();
         if ops.is_empty() {
-            unsafe { print_content("No options specified".into()) };
+            print_content(&"No options specified".into());
         } else {
             for opt in ops.iter() {
-                unsafe {
-                    print_content(format!("Option {} => {}", opt.key, opt.value).into());
-                }
+                print_content(&format!("Option {} => {}", opt.key, opt.value).into());
             }
         }
         Ok(())
