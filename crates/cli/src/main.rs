@@ -357,7 +357,7 @@ fn prepare_startup() -> String {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 获取 run_command 函数指针
     type RunCommandFn =
-        unsafe extern "C" fn(safer_ffi::vec::Vec<repr_c::String>) -> RunCommandResult;
+        unsafe extern "C" fn(&safer_ffi::vec::Vec<repr_c::String>) -> RunCommandResult;
     type GetAllPluginsFn = unsafe extern "C" fn() -> safer_ffi::Vec<PluginMetadata>;
 
     let run_command: Symbol<RunCommandFn> = unsafe { get_cli_core().get(b"run_command") }
@@ -494,7 +494,7 @@ Because everyone deserves a good cup of coffee."
             args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
 
         // 通过动态库调用 run_command
-        let result = unsafe { run_command(args_ffi) };
+        let result = unsafe { run_command(&args_ffi) };
         if result.code != 0 {
             eprintln!("{}", result.message);
         }
