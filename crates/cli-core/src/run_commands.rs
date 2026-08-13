@@ -52,7 +52,7 @@ fn run_command_impl(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
         }
     };
     let lib_run_command = unsafe {
-        match lib.get::<unsafe extern "C" fn(safer_ffi::Vec<safer_ffi::String>) -> Result>(
+        match lib.get::<unsafe extern "C" fn(&safer_ffi::Vec<safer_ffi::String>) -> Result>(
             b"run_command",
         ) {
             Ok(f) => f,
@@ -67,5 +67,5 @@ fn run_command_impl(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
     };
     set_in_cmd(true);
     let _guard = CommandGuard;
-    unsafe { lib_run_command(args) }
+    unsafe { lib_run_command(&args.into()) }
 }

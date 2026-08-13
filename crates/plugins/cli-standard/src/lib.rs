@@ -47,17 +47,19 @@ mod command {
 }
 #[ffi_export]
 pub fn get_plugin_metadata() -> PluginMetadata {
+    init_library("libcli_core.dylib");
     METADATA.clone()
 }
 
 #[ffi_export]
-pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
-    init_library(&h_meta.cli_core_path);
+pub fn on_init_plugin(_h_meta: HostMetadata) -> PluginResult {
+    // init_library(&h_meta.cli_core_path);
+    init_library("libcli_core.dylib");
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 
 #[ffi_export]
-pub fn run_command(args: safer_ffi::Vec<safer_ffi::String>) -> CmdResult {
+pub fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> CmdResult {
     // `run_command_impl`` will get `std` added;
     // let full_args: Vec<String> =
     //     std::iter::once("tc-cli".to_string()).chain(args.iter().map(|s| s.to_string())).collect();

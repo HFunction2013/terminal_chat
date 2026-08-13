@@ -385,7 +385,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Stub now. will make cli-core command part a module named std.
     // let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
     let plugins: Vec<PluginMetadata> = unsafe { get_all_plugins() }.into();
-    let mut cli = Command::new("tc-cli");
+    let mut cli = Command::new("tc-cli").no_binary_name(true);
     for plugin in &plugins {
         let command_yaml: &safer_ffi::String = &plugin.command_yaml;
         cli = yaml2cmd::add_commands_from_yaml(command_yaml, &cli);
