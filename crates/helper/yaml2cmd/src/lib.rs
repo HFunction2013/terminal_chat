@@ -125,7 +125,7 @@ fn build_command(c: CommandDef) -> Command {
 
     cmd
 }
-pub fn add_commands_from_yaml(yaml_content: &str) -> Command {
+pub fn add_commands_from_yaml(yaml_content: &str, head: &Command) -> Command {
     let config: Config =
         serde_yaml::from_str(yaml_content).expect("YAML parse failed, check syntax");
 
@@ -136,7 +136,7 @@ pub fn add_commands_from_yaml(yaml_content: &str) -> Command {
 
     commands.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let mut cmd = Command::new("tc-cli");
+    let mut cmd = head.clone();
     for c in commands {
         // 此处 c 已经是 owned
         cmd = cmd.subcommand(build_command(c));
