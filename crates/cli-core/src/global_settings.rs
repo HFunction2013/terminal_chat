@@ -9,8 +9,8 @@ use std::sync::{LazyLock, Mutex};
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct GlobalOption {
-    pub key: repr_c::String,
-    pub value: repr_c::String,
+    pub key: safer_ffi::String,
+    pub value: safer_ffi::String,
 }
 
 impl GlobalOption {
@@ -35,19 +35,19 @@ fn set_global_option_impl(option: &GlobalOption) -> GlobalOption {
 }
 
 #[register_hook]
-fn exists_global_option_impl(key: &repr_c::String) -> bool {
+fn exists_global_option_impl(key: &safer_ffi::String) -> bool {
     let map = MAP.lock().unwrap();
     map.contains_key(&**key)
 }
 
 #[register_hook(fallback = "TaggedOption::None")]
-fn get_global_option_impl(key: &repr_c::String) -> TaggedOption<repr_c::String> {
+fn get_global_option_impl(key: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
     let map = MAP.lock().unwrap();
     map.get(&**key).cloned().map(|v| v.into()).into()
 }
 
 #[register_hook(fallback = "TaggedOption::None")]
-fn remove_global_option_impl(key: &repr_c::String) -> TaggedOption<repr_c::String> {
+fn remove_global_option_impl(key: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
     let mut map = MAP.lock().unwrap();
     map.remove(&**key).map(|v| v.into()).into()
 }

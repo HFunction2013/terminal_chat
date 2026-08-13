@@ -67,7 +67,7 @@ pub fn is_plugin_command_name_registered_impl(identifier: &safer_ffi::String) ->
 }
 
 #[register_hook]
-pub fn load_plugin_impl(plugin_path: &repr_c::String) -> PluginResult {
+pub fn load_plugin_impl(plugin_path: &safer_ffi::String) -> PluginResult {
     unsafe {
         let lib = match Library::new(plugin_path.to_string()) {
             Ok(lib) => lib,
@@ -122,7 +122,7 @@ pub fn register_plugin_impl(metadata: &PluginMetadata) -> i32 {
 /// 通过名称获取插件
 #[register_hook(fallback = "TaggedOption::None")]
 pub fn get_plugin_impl(
-    name: &repr_c::String,
+    name: &safer_ffi::String,
 ) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
     let map = PLUGIN_MAP.lock().unwrap();
     match map.get(&name.to_string()) {
@@ -134,7 +134,7 @@ pub fn get_plugin_impl(
 /// 通过 command_name 获取插件
 #[register_hook(fallback = "TaggedOption::None")]
 pub fn get_plugin_by_command_name_impl(
-    command_name: &repr_c::String,
+    command_name: &safer_ffi::String,
 ) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
     let cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
     match cmd_map.get(&command_name.to_string()) {
@@ -145,7 +145,7 @@ pub fn get_plugin_by_command_name_impl(
 
 /// 删除插件
 #[register_hook]
-pub fn unregister_plugin_impl(name: &repr_c::String) -> i32 {
+pub fn unregister_plugin_impl(name: &safer_ffi::String) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
 
@@ -160,7 +160,7 @@ pub fn unregister_plugin_impl(name: &repr_c::String) -> i32 {
 
 /// 检查插件是否存在
 #[register_hook]
-pub fn has_plugin_impl(name: &repr_c::String) -> i32 {
+pub fn has_plugin_impl(name: &safer_ffi::String) -> i32 {
     let map = PLUGIN_MAP.lock().unwrap();
     map.contains_key(&name.to_string()).into()
 }

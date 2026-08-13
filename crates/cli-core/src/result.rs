@@ -4,7 +4,7 @@ use ::safer_ffi::prelude::*;
 #[derive(Debug, Clone)]
 pub struct Result {
     pub code: i32,
-    pub message: repr_c::String,
+    pub message: safer_ffi::String,
 }
 
 impl Default for Result {
@@ -15,7 +15,7 @@ impl Default for Result {
 
 impl Result {
     pub fn success() -> Self {
-        Result { code: 0, message: repr_c::String::from(String::new()) }
+        Result { code: 0, message: safer_ffi::String::from(String::new()) }
     }
 
     pub fn error(msg: &str) -> Self {

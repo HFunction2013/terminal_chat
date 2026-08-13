@@ -357,9 +357,9 @@ fn prepare_startup() -> String {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 获取 run_command 函数指针
     type RunCommandFn =
-        unsafe extern "C" fn(&safer_ffi::vec::Vec<repr_c::String>) -> RunCommandResult;
+        unsafe extern "C" fn(&safer_ffi::vec::Vec<safer_ffi::String>) -> RunCommandResult;
     type GetAllPluginsFn = unsafe extern "C" fn() -> safer_ffi::Vec<PluginMetadata>;
-    type LoadPluginFn = unsafe extern "C" fn(&repr_c::String) -> PluginResult;
+    type LoadPluginFn = unsafe extern "C" fn(&safer_ffi::String) -> PluginResult;
 
     let run_command: Symbol<RunCommandFn> = unsafe { get_cli_core().get(b"run_command") }
         .map_err(|e| format!("Failed to find symbol 'run_command': {e}"))?;
@@ -495,7 +495,7 @@ Because everyone deserves a good cup of coffee."
         };
 
         // 转换为 FFI 兼容的类型
-        let args_ffi: safer_ffi::vec::Vec<repr_c::String> =
+        let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
             args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
 
         // 通过动态库调用 run_command

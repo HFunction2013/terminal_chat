@@ -71,10 +71,10 @@ impl EditorCommand {
     /// `editor` - set editor
     pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let get_global_option: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
+        let get_global_option: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
         unsafe {
             get_global_option = lib
-                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"get_global_option")
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_global_option")
                 .expect("Failed to get `get_global_option`");
         }
         let opt_saferffi_string: Option<safer_ffi::String> =

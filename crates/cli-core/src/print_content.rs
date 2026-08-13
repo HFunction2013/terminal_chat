@@ -4,6 +4,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 
 #[register_hook]
-fn print_content_impl(content: &repr_c::String) {
+fn print_content_impl(content: &safer_ffi::String) {
     println!("{}", &**content);
 }

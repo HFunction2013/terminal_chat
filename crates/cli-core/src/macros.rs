@@ -9,8 +9,8 @@ use std::sync::{LazyLock, Mutex};
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct MacroDef {
-    pub name: repr_c::String,
-    pub code: repr_c::String,
+    pub name: safer_ffi::String,
+    pub code: safer_ffi::String,
 }
 
 impl MacroDef {
@@ -35,19 +35,19 @@ fn set_macro_impl(r#macro: &MacroDef) -> MacroDef {
 }
 
 #[register_hook]
-fn exists_macro_impl(name: &repr_c::String) -> bool {
+fn exists_macro_impl(name: &safer_ffi::String) -> bool {
     let map = MAP.lock().unwrap();
     map.contains_key(&**name)
 }
 
 #[register_hook(fallback = "TaggedOption::None")]
-fn get_macro_impl(name: &repr_c::String) -> TaggedOption<repr_c::String> {
+fn get_macro_impl(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
     let map = MAP.lock().unwrap();
     map.get(&**name).cloned().map(|v| v.into()).into()
 }
 
 #[register_hook(fallback = "TaggedOption::None")]
-fn remove_macro_impl(name: &repr_c::String) -> TaggedOption<repr_c::String> {
+fn remove_macro_impl(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
     let mut map = MAP.lock().unwrap();
     map.remove(&**name).map(|v| v.into()).into()
 }

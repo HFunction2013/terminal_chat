@@ -15,17 +15,17 @@ impl RunCommand {
     pub fn execute(&self, macro_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         let print_content: Symbol<fn(&safer_ffi::String)>;
-        let get_macro: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
-        let run_command: Symbol<fn(&repr_c::Vec<repr_c::String>) -> CmdResult>;
+        let get_macro: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
+        let run_command: Symbol<fn(&safer_ffi::Vec<safer_ffi::String>) -> CmdResult>;
         unsafe {
             print_content = lib
                 .get::<fn(&safer_ffi::String)>(b"print_content")
                 .expect("Failed to get `print_content`");
             get_macro = lib
-                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"get_macro")
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_macro")
                 .expect("Failed to get `get_macro`");
             run_command = lib
-                .get::<fn(&repr_c::Vec<repr_c::String>) -> CmdResult>(b"run_command")
+                .get::<fn(&safer_ffi::Vec<safer_ffi::String>) -> CmdResult>(b"run_command")
                 .expect("Failed to get `run_command`");
         }
         let macro_name_display = macro_name.clone();
@@ -40,8 +40,8 @@ impl RunCommand {
                         continue;
                     }
                 };
-                let args_repr_c: Vec<repr_c::String> = args.into_iter().map(|s| s.into()).collect();
-                let args_ffi: safer_ffi::Vec<repr_c::String> = args_repr_c.into();
+                let args_repr_c: Vec<safer_ffi::String> = args.into_iter().map(|s| s.into()).collect();
+                let args_ffi: safer_ffi::Vec<safer_ffi::String> = args_repr_c.into();
                 let result = run_command(&args_ffi);
                 if result.code != 0 {
                     eprintln!("Command failed: {}", result.message);

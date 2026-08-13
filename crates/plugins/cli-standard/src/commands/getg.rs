@@ -15,13 +15,13 @@ impl GetgCommand {
     pub fn execute(&self, key: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         let print_content: Symbol<fn(&safer_ffi::String)>;
-        let get_global_option: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
+        let get_global_option: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
         unsafe {
             print_content = lib
                 .get::<fn(&safer_ffi::String)>(b"print_content")
                 .expect("Failed to get `print_content`");
             get_global_option = lib
-                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"get_global_option")
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_global_option")
                 .expect("Failed to get `get_global_option`");
         }
 

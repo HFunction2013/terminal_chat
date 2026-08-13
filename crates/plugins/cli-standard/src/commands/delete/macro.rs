@@ -15,13 +15,13 @@ impl MacroCommand {
     pub fn execute(&self, macro_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         let print_content: Symbol<fn(&safer_ffi::String)>;
-        let remove_macro: Symbol<fn(&repr_c::String) -> TaggedOption<repr_c::String>>;
+        let remove_macro: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
         unsafe {
             print_content = lib
                 .get::<fn(&safer_ffi::String)>(b"print_content")
                 .expect("Failed to get `print_content`");
             remove_macro = lib
-                .get::<fn(&repr_c::String) -> TaggedOption<repr_c::String>>(b"remove_macro")
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"remove_macro")
                 .expect("Failed to get `remove_macro`");
         }
 
