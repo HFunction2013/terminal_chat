@@ -40,13 +40,14 @@ fn run_command_impl(args: &repr_c::Vec<repr_c::String>) -> Result {
 
     let metadata: PluginMetadata = (*boxed).clone();
     let plugin_name = metadata.name;
-    let lib = match unsafe { Library::new(library_filename(plugin_name.to_string())) } {
+    let plugin_dylib_name = metadata.dylib_name;
+    let lib = match unsafe { Library::new(library_filename(plugin_dylib_name.to_string())) } {
         Ok(lib) => lib,
         Err(_) => {
             // Err loading.
             return Result {
                 code: 101,
-                message: format!("Failed to load plugin {plugin_name}").into(),
+                message: format!("Failed to load plugin {plugin_name} ({plugin_dylib_name})").into(),
             };
         }
     };

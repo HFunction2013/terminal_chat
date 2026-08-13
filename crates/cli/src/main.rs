@@ -2,7 +2,7 @@ use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
-use cli_core::plugins::PluginMetadata;
+use cli_core::plugins::{PluginMetadata, PluginResult};
 use cli_core::result::Result as RunCommandResult;
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -13,7 +13,7 @@ use crossterm::{
 use figlet_rs::FIGlet;
 use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
-use libloading::{Library, Symbol};
+use libloading::{Library, Symbol, library_filename};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
 use rustyline::{
@@ -359,12 +359,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     type RunCommandFn =
         unsafe extern "C" fn(&safer_ffi::vec::Vec<repr_c::String>) -> RunCommandResult;
     type GetAllPluginsFn = unsafe extern "C" fn() -> safer_ffi::Vec<PluginMetadata>;
+    type LoadPluginFn = unsafe extern "C" fn(&repr_c::String) -> PluginResult;
 
     let run_command: Symbol<RunCommandFn> = unsafe { get_cli_core().get(b"run_command") }
         .map_err(|e| format!("Failed to find symbol 'run_command': {e}"))?;
     let get_all_plugins: Symbol<GetAllPluginsFn> =
         unsafe { get_cli_core().get(b"get_all_plugins") }
             .map_err(|e| format!("Failed to find symbol 'get_all_plugins': {e}"))?;
+    let load_plugin: Symbol<LoadPluginFn> = unsafe { get_cli_core().get(b"load_plugin") }
+        .map_err(|e| format!("Failed to find symbol 'load_plugin': {e}"))?;
+    let _ =
+        unsafe { load_plugin(&library_filename("cli_standard").to_string_lossy().as_ref().into()) };
 
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);

@@ -21,6 +21,7 @@ pub struct HostMetadata {
 pub struct PluginMetadata {
     pub command_yaml: safer_ffi::String,
     pub name: safer_ffi::String,
+    pub dylib_name: safer_ffi::String,
     pub command_name: safer_ffi::String,
     pub version: safer_ffi::String,
     pub author: safer_ffi::String,

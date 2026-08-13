@@ -9,6 +9,7 @@ use libloading::Library;
 static METADATA: LazyLock<PluginMetadata> = LazyLock::new(|| PluginMetadata {
     command_yaml: include_str!("../commands.yaml").into(),
     name: "cli-standard".into(),
+    dylib_name: "cli_standard".into(),
     command_name: "std".into(),
     version: env!("CARGO_PKG_VERSION").into(),
     author: option_env!("CARGO_PKG_AUTHORS").unwrap_or("").into(),
