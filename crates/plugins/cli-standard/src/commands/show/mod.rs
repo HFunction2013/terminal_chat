@@ -4,8 +4,6 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
-
 pub struct ShowCommand;
 
 impl CommandExecutor for ShowCommand {

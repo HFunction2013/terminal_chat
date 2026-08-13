@@ -486,7 +486,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          use std::sync::Arc;\n\
          #[allow(unused_imports)]\n\
          use anyhow::{{anyhow, Result}};\n\
-         use std::sync::atomic::Ordering;\n\
          \n\
          pub trait CommandExecutor {{\n\
              fn name(&self) -> &'static str;\n\
@@ -623,7 +622,6 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
                 sub_mod_rs.push_str("#[allow(unused_imports)]\n");
                 sub_mod_rs.push_str("use anyhow::{anyhow, Result};\n");
                 sub_mod_rs.push_str("use crate::commands::CommandExecutor;\n");
-                sub_mod_rs.push_str("use std::sync::atomic::Ordering;\n\n");
 
                 let parent_struct_name = to_struct_name(dir_name);
                 sub_mod_rs.push_str(&format!(

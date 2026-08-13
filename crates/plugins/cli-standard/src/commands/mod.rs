@@ -3,7 +3,6 @@
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 pub trait CommandExecutor {
     fn name(&self) -> &'static str;
