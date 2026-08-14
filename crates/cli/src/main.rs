@@ -38,7 +38,6 @@ use std::{
     thread,
     time::Duration,
 };
-mod fortune;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
 static CLI_CORE: OnceLock<Library> = OnceLock::new();
 fn get_cli_core() -> &'static Library {
@@ -470,7 +469,7 @@ Because everyone deserves a good cup of coffee."
                 continue;
             }
             "saying" => {
-                match fortune::choose_fortune(FORTUNE_TEXT) {
+                match rs_fortune::choose_fortune(FORTUNE_TEXT) {
                     Some(msg) => println!("{msg}"),
                     None => eprintln!("Error choosing saying"),
                 }

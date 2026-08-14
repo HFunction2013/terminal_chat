@@ -1,0 +1,17 @@
+[package]
+name = "rs-fortune"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[lib]
+name = "rs_fortune"
+path = "src/lib.rs"
+
+[dependencies]
+rand = "0.8"
+
+[lints]
+workspace = true
