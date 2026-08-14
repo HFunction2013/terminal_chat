@@ -7,6 +7,6 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.9"
+serde = { workspace = true }
+serde_yaml = { workspace = true }
 check_keyword = "0.2"

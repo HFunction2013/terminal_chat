@@ -10,9 +10,9 @@ rust-version.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-clap = "4"
-libloading = "0.9.0"
-safer-ffi = "0.2.0-rc1"
+clap = { workspace = true }
+libloading = { workspace = true }
+safer-ffi = { workspace = true }
 hook_macro = { workspace = true }
 cli-core-types = { workspace = true }
 

@@ -11,7 +11,7 @@ name = "cli_core_types"
 path = "src/lib.rs"
 
 [dependencies]
-safer-ffi = "0.2.0-rc1"
+safer-ffi = { workspace = true }
 
 [lints]
 workspace = true
