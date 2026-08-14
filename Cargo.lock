@@ -515,7 +515,6 @@ dependencies = [
 name = "cli-core"
 version = "0.1.0"
 dependencies = [
- "clap",
  "cli-core-types",
  "hook_macro",
  "libloading",
