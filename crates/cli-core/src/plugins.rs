@@ -14,19 +14,19 @@ static COMMAND_PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[register_hook]
-pub fn is_plugin_name_registered_impl(identifier: &safer_ffi::String) -> bool {
+pub fn is_plugin_name_registered(identifier: &safer_ffi::String) -> bool {
     let map = PLUGIN_MAP.lock().unwrap();
     map.contains_key(&identifier.to_string())
 }
 
 #[register_hook]
-pub fn is_plugin_command_name_registered_impl(identifier: &safer_ffi::String) -> bool {
+pub fn is_plugin_command_name_registered(identifier: &safer_ffi::String) -> bool {
     let cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
     cmd_map.contains_key(&identifier.to_string())
 }
 
 #[register_hook]
-pub fn load_plugin_impl(plugin_path: &safer_ffi::String) -> PluginResult {
+pub fn load_plugin(plugin_path: &safer_ffi::String) -> PluginResult {
     unsafe {
         let lib = match Library::new(plugin_path.to_string()) {
             Ok(lib) => lib,
@@ -61,7 +61,7 @@ pub fn load_plugin_impl(plugin_path: &safer_ffi::String) -> PluginResult {
 
 /// 注册插件（同时以 name 和 command_name 为键）
 #[register_hook]
-pub fn register_plugin_impl(metadata: &PluginMetadata) -> i32 {
+pub fn register_plugin(metadata: &PluginMetadata) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap(); // 新增
 
@@ -80,7 +80,7 @@ pub fn register_plugin_impl(metadata: &PluginMetadata) -> i32 {
 
 /// 通过名称获取插件
 #[register_hook(fallback = "TaggedOption::None")]
-pub fn get_plugin_impl(
+pub fn get_plugin(
     name: &safer_ffi::String,
 ) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
     let map = PLUGIN_MAP.lock().unwrap();
@@ -92,7 +92,7 @@ pub fn get_plugin_impl(
 
 /// 通过 command_name 获取插件
 #[register_hook(fallback = "TaggedOption::None")]
-pub fn get_plugin_by_command_name_impl(
+pub fn get_plugin_by_command_name(
     command_name: &safer_ffi::String,
 ) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
     let cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
@@ -104,7 +104,7 @@ pub fn get_plugin_by_command_name_impl(
 
 /// 删除插件
 #[register_hook]
-pub fn unregister_plugin_impl(name: &safer_ffi::String) -> i32 {
+pub fn unregister_plugin(name: &safer_ffi::String) -> i32 {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
 
@@ -119,21 +119,21 @@ pub fn unregister_plugin_impl(name: &safer_ffi::String) -> i32 {
 
 /// 检查插件是否存在
 #[register_hook]
-pub fn has_plugin_impl(name: &safer_ffi::String) -> i32 {
+pub fn has_plugin(name: &safer_ffi::String) -> i32 {
     let map = PLUGIN_MAP.lock().unwrap();
     map.contains_key(&name.to_string()).into()
 }
 
 /// 获取插件数量
 #[register_hook]
-pub fn plugin_count_impl() -> i32 {
+pub fn plugin_count() -> i32 {
     let map = PLUGIN_MAP.lock().unwrap();
     map.len() as i32
 }
 
 /// 清空所有插件
 #[register_hook]
-pub fn clear_plugins_impl() {
+pub fn clear_plugins() {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
     map.clear();
@@ -141,7 +141,7 @@ pub fn clear_plugins_impl() {
 }
 
 #[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
-pub fn get_all_plugins_impl() -> safer_ffi::Vec<PluginMetadata> {
+pub fn get_all_plugins() -> safer_ffi::Vec<PluginMetadata> {
     let map = PLUGIN_MAP.lock().unwrap();
     let plugins: Vec<PluginMetadata> = map.values().cloned().collect();
     plugins.into()

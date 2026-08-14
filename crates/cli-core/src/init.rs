@@ -7,21 +7,21 @@ use safer_ffi::ffi_export;
 pub static PROGRESS: AtomicU64 = AtomicU64::new(0);
 
 #[register_hook]
-pub fn add_progress_impl() {
+pub fn add_progress() {
     PROGRESS.fetch_add(1, Ordering::Relaxed);
 }
 
 #[register_hook]
-pub fn add_progress_with_impl(x: u64) {
+pub fn add_progress_with(x: u64) {
     PROGRESS.fetch_add(x, Ordering::Relaxed);
 }
 
 #[register_hook]
-pub fn set_progress_impl(x: u64) {
+pub fn set_progress(x: u64) {
     PROGRESS.store(x, Ordering::Relaxed);
 }
 
 #[register_hook]
-pub fn get_progress_impl() -> u64 {
+pub fn get_progress() -> u64 {
     PROGRESS.load(Ordering::Relaxed)
 }

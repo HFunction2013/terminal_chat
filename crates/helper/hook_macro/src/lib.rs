@@ -8,25 +8,69 @@ use syn::{
 /// 解析 fallback 参数的辅助结构
 struct HookAttr {
     fallback: Option<String>,
+    suffix: Option<String>,
+    prefix: Option<String>,
+    mangling: Option<String>,
 }
 
 impl Parse for HookAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            return Ok(HookAttr { fallback: None });
+        let mut attr = HookAttr { fallback: None, suffix: None, prefix: None, mangling: None };
+
+        while !input.is_empty() {
+            let name: syn::Ident = input.parse()?;
+            let name_str = name.to_string();
+
+            match name_str.as_str() {
+                "fallback" | "suffix" | "prefix" | "mangling" => {
+                    let _: syn::Token![=] = input.parse()?;
+                    let value: LitStr = input.parse()?;
+
+                    match name_str.as_str() {
+                        "fallback" => attr.fallback = Some(value.value()),
+                        "suffix" => attr.suffix = Some(value.value()),
+                        "prefix" => attr.prefix = Some(value.value()),
+                        "mangling" => attr.mangling = Some(value.value()),
+                        _ => unreachable!(),
+                    }
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        name.span(),
+                        format!(
+                            "expected `fallback`, `suffix`, `prefix` or `mangling`, got `{}`",
+                            name_str
+                        ),
+                    ));
+                }
+            }
+
+            // 可选逗号分隔
+            if !input.is_empty() && input.peek(syn::Token![,]) {
+                let _: syn::Token![,] = input.parse()?;
+            }
         }
 
-        // 解析 fallback = "expression"
-        let name: syn::Ident = input.parse()?;
-        if name != "fallback" {
-            return Err(syn::Error::new(name.span(), "expected `fallback`"));
-        }
-
-        let _: syn::Token![=] = input.parse()?;
-        let value: LitStr = input.parse()?;
-
-        Ok(HookAttr { fallback: Some(value.value()) })
+        Ok(attr)
     }
+}
+
+/// 计算原始函数的重命名名称
+fn compute_orig_name(fn_name: &syn::Ident, attr: &HookAttr) -> (String, syn::Ident) {
+    let fn_name_str = fn_name.to_string();
+
+    let orig_name_str = if let Some(ref mangling) = attr.mangling {
+        // 直接指定完整名称
+        mangling.clone()
+    } else {
+        // 使用 prefix + 原名 + suffix
+        let prefix = attr.prefix.as_deref().unwrap_or("");
+        let suffix = attr.suffix.as_deref().unwrap_or("_impl"); // 默认后缀
+        format!("{}{}{}", prefix, fn_name_str, suffix)
+    };
+
+    let orig_name = syn::Ident::new(&orig_name_str, fn_name.span());
+    (orig_name_str, orig_name)
 }
 
 #[proc_macro_attribute]
@@ -39,15 +83,13 @@ pub fn register_hook(attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_name = &input_fn.sig.ident;
     let fn_name_str = fn_name.to_string();
 
-    assert!(
-        fn_name_str.ends_with("_impl"),
-        "Function with #[register_hook] must end with '_impl', got '{}'",
-        fn_name_str
-    );
+    // 计算原始函数的重命名名称
+    let (_orig_name_str, orig_fn_name) = compute_orig_name(fn_name, &hook_attr);
 
-    let wrapper_name_str = fn_name_str.trim_end_matches("_impl");
-    let wrapper_name = syn::Ident::new(wrapper_name_str, fn_name.span());
-    let fn_name_upper = wrapper_name_str.to_uppercase();
+    // wrapper 就是原名
+    let wrapper_name = fn_name.clone();
+    let wrapper_name_str = fn_name_str.clone();
+    let fn_name_upper = fn_name_str.to_uppercase();
 
     let inputs = &input_fn.sig.inputs;
     let param_count = inputs.len();
@@ -79,9 +121,9 @@ pub fn register_hook(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     generate_hook_system(
         &input_fn,
-        fn_name,
+        &orig_fn_name,
         &wrapper_name,
-        wrapper_name_str,
+        &wrapper_name_str,
         fn_name_upper,
         param_name,
         param_type,
@@ -105,7 +147,7 @@ fn generate_hook_system(
     inner_type: Option<&Type>,
     original_output: &ReturnType,
     has_param: bool,
-    fallback_expr: Option<&str>, // 新增参数
+    fallback_expr: Option<&str>,
 ) -> proc_macro2::TokenStream {
     let before_hook_name = syn::Ident::new(
         &format!("Before{}Hook", to_upper_camel_case(wrapper_name_str)),
@@ -148,27 +190,20 @@ fn generate_hook_system(
     let fn_vis = &original_fn.vis;
     let fn_attrs = &original_fn.attrs;
 
-    // ==== 最小侵入修改：根据 fallback 参数决定默认值 ====
     let default_result = if let Some(expr) = fallback_expr {
-        // 用户指定的 fallback 表达式
         let expr_token: proc_macro2::TokenStream =
             expr.parse().expect("Invalid fallback expression");
         quote! { #expr_token }
     } else {
-        // 没指定就用 Default::default()
         quote! { Default::default() }
     };
-    // ==== 结束修改 ====
 
-    // 以下代码完全不变...
     if has_param {
         let p_name = param_name.as_ref().unwrap();
         let p_type = param_type.unwrap();
         let p_inner = inner_type.unwrap();
 
         quote! {
-            // ... 全部保持不变，只把 Default::default() 换成 #default_result ...
-
             #(#fn_attrs)*
             #fn_vis fn #impl_fn_name(#p_name: #p_type) #original_output #fn_block
 

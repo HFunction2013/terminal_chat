@@ -9,38 +9,38 @@ use std::sync::{LazyLock, Mutex};
 static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[register_hook]
-fn set_macro_impl(r#macro: &MacroDef) -> MacroDef {
+fn set_macro(r#macro: &MacroDef) -> MacroDef {
     let mut map = MAP.lock().unwrap();
     map.insert(r#macro.name.to_string(), r#macro.code.to_string());
     r#macro.clone()
 }
 
 #[register_hook]
-fn exists_macro_impl(name: &safer_ffi::String) -> bool {
+fn exists_macro(name: &safer_ffi::String) -> bool {
     let map = MAP.lock().unwrap();
     map.contains_key(&**name)
 }
 
 #[register_hook(fallback = "TaggedOption::None")]
-fn get_macro_impl(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
+fn get_macro(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
     let map = MAP.lock().unwrap();
     map.get(&**name).cloned().map(|v| v.into()).into()
 }
 
 #[register_hook(fallback = "TaggedOption::None")]
-fn remove_macro_impl(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
+fn remove_macro(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
     let mut map = MAP.lock().unwrap();
     map.remove(&**name).map(|v| v.into()).into()
 }
 
 #[register_hook(fallback = "safer_ffi::vec::Vec::from(Vec::new())")]
-fn get_all_macros_impl() -> safer_ffi::vec::Vec<MacroDef> {
+fn get_all_macros() -> safer_ffi::vec::Vec<MacroDef> {
     let map = MAP.lock().unwrap();
     map.iter().map(|(k, v)| MacroDef::new(k, v)).collect::<Vec<_>>().into()
 }
 
 #[register_hook]
-fn clear_all_macros_impl() {
+fn clear_all_macros() {
     let mut map = MAP.lock().unwrap();
     map.clear();
 }

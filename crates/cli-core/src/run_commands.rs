@@ -1,5 +1,5 @@
+use crate::cmd_state::{set_in_cmd, set_interrupted};
 use crate::plugins::{get_plugin_by_command_name, is_plugin_command_name_registered};
-use crate::{set_in_cmd, set_interrupted};
 use ::safer_ffi::prelude::*;
 use cli_core_types::PluginMetadata;
 use cli_core_types::Result;
@@ -18,7 +18,7 @@ impl Drop for CommandGuard {
 }
 
 #[register_hook]
-fn run_command_impl(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
+fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
     let mut args = args.clone();
     if !unsafe { is_plugin_command_name_registered(args.first().unwrap()) } {
         let full_args: Vec<safer_ffi::String> =
