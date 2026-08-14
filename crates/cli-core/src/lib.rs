@@ -1,11 +1,11 @@
 use ::safer_ffi::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub mod commands;
 pub mod global_settings;
+pub mod init;
 pub mod macros;
+pub mod plugins;
 pub mod print_content;
-pub mod result;
 pub mod run_commands;
 
 pub static INTERRUPTED: AtomicBool = AtomicBool::new(false);

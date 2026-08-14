@@ -1,0 +1,774 @@
+commands:
+  - name: setg
+    about: Set global options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
+      - name: value
+        required: false
+        value_name: VALUE
+        help: Target config value
+      - name: password
+        short: p
+        long: password
+        help: use rpassword to read the value
+        action: set_true
+        conflicts_with: value
+  - name: get
+    about: Get session options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
+  - name: getg
+    about: Get global options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Config key name
+  - name: set
+    about: Set session options
+    args:
+      - name: key
+        required: true
+        value_name: KEY
+        help: Session config key
+      - name: value
+        required: true
+        value_name: VALUE
+        help: Session config value
+  - name: route
+    about: Trace route to server
+  - name: proxy
+    about: Turn on/off system proxy
+    subcommands:
+      - name: 'on'
+        about: Turn on system proxy.
+      - name: 'off'
+        about: Turn off system proxy.
+  - name: show
+    about: Show runtime information
+    subcommands:
+      - name: options
+        about: Show available set/setg options
+      - name: globals
+        about: Show value of all global variables
+      - name: locals
+        about: Show value of all local variables
+      - name: variables
+        aliases: 
+          - vars
+        about: Show value of all variables
+      - name: active_freqs
+        aliases:
+          - afreqs
+        about: Show all active frequencies
+      - name: active_users
+        aliases:
+          - ausers
+        about: Show active users in current frequency
+      - name: moderators
+        aliases:
+          - mods
+        about: Show moderators in current frequency
+  - name: join_freq
+    about: Join a target frequency channel
+    args:
+      - name: freq
+        required: true
+        value_name: FREQ_ID
+        help: Target frequency id
+    aliases:
+      - jfreq
+  - name: create_freq
+    aliases:
+      - cfreq
+    about: Create a new frequency channel
+    args:
+      - name: freq
+        required: true
+        value_name: FREQ_ID
+        help: New frequency unique id
+      - name: p
+        short: p
+        long: password
+        help: Create frequency with password
+        action: set_true
+      - name: max_people
+        long: max-people
+        value_name: NUM
+        help: Max online user limit
+        action: set
+        required: false
+  - name: background
+    aliases:
+      - bg
+    about: Background current session and return to main console
+  - name: sessions
+    about: Multi-session manager
+    multiple_values: false
+    args:
+      - name: list
+        long: list
+        short: l
+        help: List all running sessions
+        action: set_true
+      - name: interact
+        long: interact
+        short: i
+        value_name: SESSION_ID
+        help: Switch to target session
+        action: set
+      - name: kill
+        long: kill
+        short: k
+        value_name: SESSION_ID
+        help: Close and destroy target session
+        action: set
+  - name: load
+    about: Load Plugin
+    subcommands:
+      - name: plugin
+        about: load plugin
+        args:
+          - name: load_namespace
+            short: l
+            long: load-namespace
+            help: load plugin's namespace while loading the plugin
+            action: set_true
+          - name: plugin
+            value_name: PLUGIN
+            required: true
+            help: Plugin to load
+      - name: namespace
+        about: load namespace
+        args:
+          - name: namespace
+            value_name: NAMESPACE
+            required: true
+            help: namespace to load
+  - name: unload
+    about: Unload Plugin
+    subcommands:
+      - name: plugin
+        about: unload plugin
+        args:
+          - name: plugin_name
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin to unload
+      - name: namespace
+        about: unload namespace
+        args:
+          - name: namespace_name
+            value_name: NAMESPACE_NAME
+            required: true
+            help: namespace to unload
+  - name: tcpm
+    about: Terminal Chat Package Manager
+    subcommands:
+      - name: update
+        about: | 
+          Update plugins.
+          'standard' means main program.
+        args:
+          - name: plugin
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin(s) to update
+            num_args: "1.."
+          - name: registry
+            long: registry
+            required: false
+            action: set
+            help: Set plugin registry
+          - name: reload
+            short: r
+            long: reload
+            required: false
+            action: set_true
+            help: Reload after update
+          - name: force
+            short: f
+            long: force
+            help: Override old one (if exists).
+            action: set_true
+      - name: search
+        about: Search plugin in registry
+        args:
+          - name: plugin_name
+            value_name: PLUGIN_NAME
+            required: true 
+            help: plugin name to search
+      - name: show
+        about: Show plugin information from registry(default)
+        args:
+          - name: plugin
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin to show
+          - name: local
+            short: l
+            long: local
+            help: Show plugin from local storage instead of registry
+            action: set_true
+      - name: list
+        about: List plugin with certain constraints.
+        subcommands:
+          - name: installed
+            about: show all installed plugins.
+          - name: downloaded
+            about: show all downloaded plugins.
+          - name: loaded
+            about: show all loaded plugins.
+          - name: registry
+            about: |
+              Show all plugins from registry.
+              Use this carefully.
+          - name: updates
+            about: Show all avaliable updates.
+      - name: install
+        about: Install plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN_NAME
+            required: true
+            num_args: "1.."
+            help: Plugin to install
+          - name: registry
+            long: registry
+            required: false
+            action: set
+            help: Set plugin registry
+          - name: uload
+            short: u
+            long: uload
+            required: false
+            action: set_true
+            help: Use plugin's namespace when start
+          - name: local
+            short: l
+            long: local
+            help: Path to local plugin file or directory
+            value_name: PATH
+            action: set
+          - name: force
+            short: f
+            long: force
+            help: Override old one (if exists).
+            action: set_true
+      - name: uninstall
+        about: Uninstall plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN
+            num_args: "1.."
+            required: true
+            help: Plugin to uninstall
+          - name: delete_local
+            short: d
+            long: delete-local-file
+            required: false
+            action: set_true
+            help: Delete local file
+      - name: download
+        about: Download plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN
+            num_args: "1.."
+            required: true
+            help: Plugin to download
+          - name: registry
+            long: registry
+            required: false
+            action: set
+            help: Set plugin registry
+          - name: load
+            required: false
+            long: load
+            short: l 
+            action: set_true
+            help: load plugin after download
+          - name: use_namespace
+            long: use-namespace
+            short: u 
+            action: set_true
+            help: load plugin and namespace after download
+            conflicts_with: load
+  - name: upload
+    aliases:
+      - upl
+    about: Upload file or folder to server.
+    args: 
+      - name: local_path
+        required: true
+        value_name: LOCAL_PATH
+        help: Local path to upload.
+      - name: remote_path
+        required: false
+        value_name: REMOTE_PATH
+        help: Remote path to upload.
+  - name: download
+    aliases:
+      - dl
+    about: Download file or folder to server.
+    args: 
+      - name: remote_path
+        required: true
+        value_name: REMOTE_PATH
+        help: Remote path to download.
+      - name: local_path
+        required: false
+        value_name: LOCAL_PATH
+        help: Local path to store downloads.
+  - name: checksum
+    about: Get checksum of remote file (SHA256).
+    args:
+      - name: file
+        value_name: FILE
+        required: true
+        help: Remote file to check. NO FOLDERS!
+  - name: cd
+    about: Change the current remote directory to DIR.
+    args:
+      - name: dir
+        value_name: DIR
+        required: true
+        help: DIR to change.
+  - name: pwd
+    about: Get current remote directory.
+  - name: ls
+    about: List files in current directory.
+  - name: mkdir
+    aliases:
+      - md
+    about: Make directory in remote server.
+    args:
+      - name: directory
+        required: true 
+        value_name: DIR
+        help: DIR to make.
+  - name: file_info
+    about: Get remote file infomation.
+    args:
+      - name: file
+        value_name: FILE
+        required: true
+        help: The remote file
+  - name: leave_freq
+    aliases:
+      - lfreq
+    about: Leave current frequency.
+  - name: call
+    about: Call an user
+    args:
+      - name: user
+        value_name: USER
+        help: The user
+        required: true 
+  - name: msg
+    about: send message
+    args:
+      - name: message
+        long: message
+        short: m
+        required: false
+        help: 'Your message, fallback to editor'
+      - name: users
+        value_name: USERS
+        num_args: "0.."
+        help: The users, default everybody.
+  - name: schedule_msg
+    about: Schedules message.
+    args:
+      - name: time
+        value_name: TIME
+        help: send time
+        required: true
+      - name: message
+        long: message
+        short: m
+        required: false
+        help: 'Your message, fallback to editor.'
+      - name: users
+        value_name: USERS
+        num_args: "0.."
+        help: The users, default everybody.
+  - name: cancel
+    about: cancel a task
+    args: 
+      - name: task_id
+        help: The task id
+        required: true
+        value_name: TASK_ID
+  - name: schedule
+    about: schedule a task
+    args:
+      - name: session
+        required: true
+        value_name: SESSION
+        help: The certain session, 0 for main console.
+      - name: time
+        value_name: TIME
+        help: send time
+        required: true
+      - name: cmd
+        long: code
+        short: c
+        required: false
+        help: 'Dest CMD, fallback to editor'
+  - name: tasks
+    about: Get scheduled tasks.
+  - name: whoami
+    about: Get username.
+  - name: unset
+    about: Unset session variable.
+    args:
+      - name: key
+        required: false
+        value_name: KEY
+        help: Config key name
+      - name: all
+        long: all
+        short: a
+        action: set_true
+        help: Clear all session options.
+        conflicts_with: key
+  - name: unsetg
+    about: Unset global variable.
+    args:
+      - name: key
+        required: false
+        value_name: KEY
+        help: Config key name
+      - name: all
+        long: all
+        short: a
+        action: set_true
+        conflicts_with: key
+        help: Clear all global options.
+  - name: create
+    about: Create alias or macro
+    subcommands:
+      - name: alias
+        about: Create alias
+        args:
+          - name: cmd
+            value_name: CMD
+            required: true 
+            help: alias source
+          - name: alias
+            value_name: ALIAS
+            required: true 
+            help: alias dest
+      - name: macro
+        about: Create macro
+        args:
+          - name: macro_name
+            value_name: MACRO_NAME
+            required: true 
+            help: macro name
+          - name: macro_body
+            long: code
+            short: c
+            required: false 
+            help: 'macro body, default: open editor to get input'
+  - name: run
+    about: run a certain macro
+    args:
+      - name: macro_name
+        value_name: macro_NAME
+        required: true 
+        help: macro name
+  - name: delete
+    about: delete a alias or macro
+    subcommands:
+      - name: alias
+        about: Delete alias
+        args:
+          - name: alias
+            value_name: ALIAS
+            required: true 
+            help: alias to delete
+      - name: macro
+        about: Delete macro
+        args:
+          - name: macro_name
+            value_name: macro_NAME
+            required: true 
+            help: macro to delete
+  - name: status
+    about: Test network
+  - name: freq_info
+    about: Get frequency information
+    args:
+      - name: frequency
+        value_name: FREQ
+        required: true 
+        help: freq ID
+  - name: reply
+    about: Reply to the user who has just spoken quickly
+    args:
+      - name: message
+        long: message
+        short: m
+        required: false
+        help: 'Your message, if not given, fallback to editor mode.'
+  - name: ignore
+    about: Ignore comments of certain user
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: unignore
+    about: Unignore comments of certain user
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: user_info
+    about: Show user information
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: away
+    about: Set your status to be busy or away
+    args:
+      - name: status
+        value_name: STATUS
+        required: false 
+        default_value: "away"
+        help: |
+          Your status, only away and busy avaliable.
+          Auto replies private messages. Like:
+            [bot-reply] I am busy now. Contact me later.
+  - name: foreground
+    aliases:
+      - fg
+    about: Switch to session if there is only one.
+  - name: disconnect
+    aliases: 
+      - dc
+    about: Disconnect from server
+  - name: reconnect
+    aliases:
+      - rc
+    about: Reconnect the server
+  - name: connect
+    aliases: 
+      - conn
+    about: Connect the server
+  - name: logs
+    about: open/close logging
+    debug_only: true
+    args:
+      - name: operation
+        value_name: OP
+        required: false
+        default_value: "open"
+        help: 'Operation (open|close).'  
+  - name: kick
+    about: kick user from freq (op)
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: ban
+    about: ban user from freq
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: unban
+    about: unban banned users
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: mute
+    about: mute a certain user, use `set QUIET true` to mute everyboy except mods.
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: unmute
+    about: mute reversed.
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: op
+    about: give mod permission to a certain user.
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: deop
+    about: take mod permission from a certain user, noone can deop creator.
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: trop
+    about: transfer creator permission.
+    args:
+      - name: user
+        value_name: USER
+        required: true 
+        help: the full username, e.g., HZFY@192.168.78.91
+  - name: disband
+    about: disband current frequency.
+  - name: sleep
+    hidden: true 
+    about: Are you sleepy? Why not sleep for a while?
+    args:
+      - name: time
+        value_name: TIME
+        required: true 
+        help: Aha... sleepy!
+  - name: editor
+    about: just opens an editor
+    args:
+      - name: file
+        value_name: FILE
+        required: false
+        help: file to open, optional.
+      - name: editor
+        long: editor
+        short: e
+        help: set editor
+        action: set
+  - name: workspace
+    about: Workspace support.
+    subcommands:
+      - name: new
+        about: New workspace
+        args:
+          - name: workspace_name
+            value_name: WORKSPACE_NAME
+            help: >
+              workspace name.
+              Defaults: Workspace-xxx
+          - name: enter
+            long: enter
+            short: e
+            help: Create and enter.
+      - name: rename
+        about: >
+          Rename a workspace.
+          Default: current workspace
+        args:
+          - name: source
+            long: source
+            short: s
+            help: Original workspace name.
+          - name: target
+            long: target
+            short: t
+            required: true
+            help: Final workspace name.
+        aliases: 
+          - mv
+      - name: delete
+        about: >
+          Delete workspace.
+          Default: current workspace
+        aliases:
+          - del
+        args:
+          - name: workspace_name
+            long: workspace
+            short: w
+            help: workspace name.
+          - name: force
+            long: force
+            short: f
+            action: set_true
+            help: action without confirm.
+      - name: switch
+        about: Switch to another workspace.
+        aliases:
+          - sw
+          - use
+        args:
+          - name: workspace_name
+            value_name: WORKSPACE_NAME
+            required: true
+            help: workspace name.
+      - name: list
+        about: List all workspaces.
+        aliases:
+            - ls
+      - name: show
+        aliases:
+          - info
+          - get
+        about: >
+          Show information for a certain workspace.
+          Default: current workspace.
+        args:
+          - name: workspace_name
+            value_name: WORKSPACE_NAME
+            help: workspace name.
+      - name: clone
+        about: >
+          Clone a workspace.
+          Default: current workspace.
+        aliases:
+          - cp
+        args:
+          - name: source
+            long: source
+            short: s
+            help: Original workspace name.
+          - name: target
+            long: target
+            short: t
+            required: true
+            help: Final workspace name.
+      - name: export
+        about: >
+          Export workspace information to a file.
+          Default: current workspace.
+        args:
+          - name: workspace_name
+            long: name
+            short: 'n'
+            help: workspace name.
+          - name: output
+            long: output
+            short: o
+            help: >
+              workspace output file.
+              Default: <PROGRAM_DIR>/workspaces/<WORKSPACE_NAME>.toml
+      - name: import
+        about: Import workspace information.
+        args:
+          - name: workspace_file
+            required: true
+            value_name: WORKSPACE_FILE
+            help: workspace file.
+  - name: feedback
+    about: Send feedback.
+    args:
+      - name: content
+        long: message
+        short: m
+        required: false
+        help: Your feedback content. fallbacks to editor.

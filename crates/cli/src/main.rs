@@ -2,7 +2,8 @@ use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
-use cli_core::result::Result as RunCommandResult;
+use cli_core_types::{PluginMetadata, PluginResult};
+use cli_core_types::Result as RunCommandResult;
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{
@@ -31,15 +32,23 @@ use std::{
     io::{self, Write, stdout},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread,
     time::Duration,
 };
 mod fortune;
-mod yaml2cmd;
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
+static CLI_CORE: OnceLock<Library> = OnceLock::new();
+fn get_cli_core() -> &'static Library {
+    let lib_path = get_library_path();
+
+    CLI_CORE.get_or_init(|| unsafe {
+        Library::new(&lib_path)
+            .unwrap_or_else(|e| panic!("Failed to load library '{}': {}", lib_path.display(), e))
+    })
+}
 fn get_library_path() -> PathBuf {
     let lib_name_buf = library_filename("cli_core");
     let lib_name = lib_name_buf.to_string_lossy();
@@ -61,11 +70,12 @@ fn get_library_path() -> PathBuf {
     PathBuf::from(lib_name.as_ref())
 }
 
-fn install_ctrlc_handler(lib: &Library) {
+fn install_ctrlc_handler() {
     // type IsInterruptedFn = unsafe extern "C" fn() -> bool;
     type IsInCmdFn = unsafe extern "C" fn() -> bool;
     type SetInterruptedFn = unsafe extern "C" fn(bool);
 
+    let lib = get_cli_core();
     // 立即解引用为原始函数指针，不保留 Symbol
     // let is_interrupted: IsInterruptedFn = *unsafe { lib.get(b"is_interrupted") }.expect("Failed to find symbol 'is_interrupted'");
 
@@ -338,22 +348,26 @@ fn prepare_startup() -> String {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 加载动态库
-    let lib_path = get_library_path();
-
-    let lib = unsafe { Library::new(&lib_path) }
-        .map_err(|e| format!("Failed to load library '{}': {}", lib_path.display(), e))?;
-
     // 获取 run_command 函数指针
     type RunCommandFn =
-        unsafe extern "C" fn(safer_ffi::vec::Vec<repr_c::String>) -> RunCommandResult;
-    let run_command: Symbol<RunCommandFn> = unsafe { lib.get(b"run_command") }
+        unsafe extern "C" fn(&safer_ffi::vec::Vec<safer_ffi::String>) -> RunCommandResult;
+    type GetAllPluginsFn = unsafe extern "C" fn() -> safer_ffi::Vec<PluginMetadata>;
+    type LoadPluginFn = unsafe extern "C" fn(&safer_ffi::String) -> PluginResult;
+
+    let run_command: Symbol<RunCommandFn> = unsafe { get_cli_core().get(b"run_command") }
         .map_err(|e| format!("Failed to find symbol 'run_command': {e}"))?;
+    let get_all_plugins: Symbol<GetAllPluginsFn> =
+        unsafe { get_cli_core().get(b"get_all_plugins") }
+            .map_err(|e| format!("Failed to find symbol 'get_all_plugins': {e}"))?;
+    let load_plugin: Symbol<LoadPluginFn> = unsafe { get_cli_core().get(b"load_plugin") }
+        .map_err(|e| format!("Failed to find symbol 'load_plugin': {e}"))?;
+    let _ =
+        unsafe { load_plugin(&library_filename("cli_standard").to_string_lossy().as_ref().into()) };
 
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
     }
-    install_ctrlc_handler(&lib);
+    install_ctrlc_handler();
     let _guard = AtExit;
     #[cfg(not(debug_assertions))]
     execute!(stdout(), EnterAlternateScreen)?;
@@ -362,7 +376,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     execute!(stdout(), Show)?;
 
     // Stub now. will make cli-core command part a module named std.
-    let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
+    // let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
+    let plugins: Vec<PluginMetadata> = unsafe { get_all_plugins() }.into();
+    let mut cli = Command::new("tc-cli").no_binary_name(true);
+    for plugin in &plugins {
+        let command_yaml: &safer_ffi::String = &plugin.command_yaml;
+        cli = yaml2cmd::add_commands_from_yaml(command_yaml, &cli);
+    }
 
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
@@ -468,11 +488,11 @@ Because everyone deserves a good cup of coffee."
         };
 
         // 转换为 FFI 兼容的类型
-        let args_ffi: safer_ffi::vec::Vec<repr_c::String> =
+        let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
             args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
 
         // 通过动态库调用 run_command
-        let result = unsafe { run_command(args_ffi) };
+        let result = unsafe { run_command(&args_ffi) };
         if result.code != 0 {
             eprintln!("{}", result.message);
         }

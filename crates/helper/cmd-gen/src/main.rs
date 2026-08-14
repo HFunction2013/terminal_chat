@@ -250,8 +250,6 @@ fn generate_module(name: &str, about: &str, debug_only: bool, args: &[ArgDef]) -
         "{AUTO_GENERATED_TAG}\n\
          {cfg_attr}// {name}.rs\n\
          {comment}\n\
-         #[allow(unused_imports)]\n\
-         use crate::INTERRUPTED;\n\
          use crate::commands::CommandExecutor;\n\
          #[allow(unused_imports)]\n\
          use anyhow::{{anyhow, Result}};\n\
@@ -397,8 +395,12 @@ fn collect_expected_files(cmds: &[CommandDef], base_dir: &Path, expected_files: 
 }
 
 /// 清理不再需要的文件
-fn cleanup_orphaned_files(expected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let commands_dir = Path::new("./crates/cli-core/src/commands");
+fn cleanup_orphaned_files(
+    expected_files: &[String],
+    mod_name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = format!("./crates/{mod_name}/src/commands");
+    let commands_dir = Path::new(&path);
 
     // 遍历所有 .rs 文件
     fn visit_dirs(dir: &Path, expected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
@@ -433,15 +435,11 @@ fn cleanup_orphaned_files(expected_files: &[String]) -> Result<(), Box<dyn std::
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let ctx = std::env::args().nth(1).unwrap_or_else(|| "plugins/cli-standard".to_string());
     let manifest = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    let yaml_path = Path::new(&manifest)
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("cli-core")
-        .join("commands.yaml");
+    let yaml_path =
+        Path::new(&manifest).parent().unwrap().parent().unwrap().join(&ctx).join("commands.yaml");
     println!("{}", yaml_path.display());
 
     if !yaml_path.exists() {
@@ -452,7 +450,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let yaml = fs::read_to_string(&yaml_path)?;
     let config: Config = serde_yaml::from_str(&yaml)?;
 
-    let out_dir = Path::new("./crates/cli-core/src/commands");
+    let path = &format!("./crates/{ctx}/src/commands");
+    let out_dir = Path::new(path);
     if !out_dir.exists() {
         fs::create_dir_all(out_dir)?;
     }
@@ -477,7 +476,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 清理孤立文件
-    cleanup_orphaned_files(&expected_files)?;
+    cleanup_orphaned_files(&expected_files, ctx)?;
 
     // 生成 mod.rs - 主入口
     let mut mod_rs = String::new();
@@ -487,8 +486,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          use std::sync::Arc;\n\
          #[allow(unused_imports)]\n\
          use anyhow::{{anyhow, Result}};\n\
-         use std::sync::atomic::Ordering;\n\
-         use crate::INTERRUPTED;\n\
          \n\
          pub trait CommandExecutor {{\n\
              fn name(&self) -> &'static str;\n\
@@ -560,7 +557,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {
     for cmd in all_commands() {
         if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {
-            INTERRUPTED.store(false, Ordering::SeqCst);
             return cmd.run(sub_matches);
         }
     }
@@ -626,8 +622,6 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
                 sub_mod_rs.push_str("#[allow(unused_imports)]\n");
                 sub_mod_rs.push_str("use anyhow::{anyhow, Result};\n");
                 sub_mod_rs.push_str("use crate::commands::CommandExecutor;\n");
-                sub_mod_rs.push_str("use crate::INTERRUPTED;\n");
-                sub_mod_rs.push_str("use std::sync::atomic::Ordering;\n\n");
 
                 let parent_struct_name = to_struct_name(dir_name);
                 sub_mod_rs.push_str(&format!(
@@ -673,7 +667,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
                 sub_mod_rs.push_str(
                     "        if let Some(sub_matches) = matches.subcommand_matches(cmd.name()) {\n",
                 );
-                sub_mod_rs.push_str("            INTERRUPTED.store(false, Ordering::SeqCst);\n");
                 sub_mod_rs.push_str("            return cmd.run(sub_matches);\n");
                 sub_mod_rs.push_str("        }\n");
                 sub_mod_rs.push_str("    }\n");

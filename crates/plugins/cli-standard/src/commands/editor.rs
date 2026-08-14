@@ -1,0 +1,127 @@
+// editor.rs
+// just opens an editor
+use crate::LIB;
+use crate::commands::CommandExecutor;
+use anyhow::{Context, Result};
+use clap::ArgMatches;
+use libloading::Symbol;
+use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
+use std::path::PathBuf;
+use std::process::Command;
+use which::which;
+
+fn find_editor(name: &str) -> Option<PathBuf> {
+    if let Ok(path) = which(name) {
+        return Some(path);
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let local = cwd.join(name);
+        if local.is_file() {
+            return Some(local);
+        }
+    }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        let sibling = dir.join(name);
+        if sibling.is_file() {
+            return Some(sibling);
+        }
+    }
+
+    None
+}
+
+pub struct EditorCommand;
+
+impl EditorCommand {
+    const CANDIDATES: &[&str] = {
+        #[cfg(target_os = "windows")]
+        {
+            &["edit", "vim", "hx", "nvim", "nano", "micro", "emacs", "notepad++", "notepad", "code"]
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            &["vim", "hx", "nvim", "nano", "edit", "micro", "emacs", "code", "subl", "zed"]
+        }
+
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        {
+            &[
+                "micro", "vim", "hx", "nvim", "nano", "edit", "emacs", "code", "subl", "zed",
+                "kak", "gedit",
+            ]
+        }
+    };
+
+    fn choose_editor() -> Option<String> {
+        for editor in Self::CANDIDATES {
+            if let Some(path) = find_editor(editor) {
+                return Some(path.to_string_lossy().to_string());
+            }
+        }
+        None
+    }
+}
+
+impl EditorCommand {
+    /// `file` - file to open, optional., value_name: FILE
+    /// `editor` - set editor
+    pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
+        let lib = LIB.get().expect("`cli-core` not initialized");
+        let get_global_option: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
+        unsafe {
+            get_global_option = lib
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_global_option")
+                .expect("Failed to get `get_global_option`");
+        }
+        let opt_saferffi_string: Option<safer_ffi::String> =
+            get_global_option(&"EDITOR".into()).into_rust();
+
+        let editor_candidate: Option<String> = opt_saferffi_string.map(|s| s.to_string());
+        let editor_name = editor.or_else(|| editor_candidate).or_else(Self::choose_editor);
+
+        let editor_path = match editor_name {
+            Some(ref name) => {
+                find_editor(name).with_context(|| format!("cannot find editor: {name}"))?
+            }
+            None => anyhow::bail!(
+                "no editor configured.\n\
+                 Use --editor <name>, or set it globally."
+            ),
+        };
+
+        let mut cmd = Command::new(&editor_path);
+        if let Some(f) = file {
+            cmd.arg(f);
+        }
+
+        cmd.stdin(std::process::Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit());
+
+        let status = cmd
+            .status()
+            .with_context(|| format!("failed to start editor: {}", editor_path.display()))?;
+
+        if !status.success() {
+            anyhow::bail!("editor exited with status: {status}");
+        }
+
+        Ok(())
+    }
+}
+
+impl CommandExecutor for EditorCommand {
+    fn name(&self) -> &'static str {
+        "editor"
+    }
+
+    fn run(&self, matches: &ArgMatches) -> Result<()> {
+        let file = matches.get_one::<String>("file").cloned();
+        let editor = matches.get_one::<String>("editor").cloned();
+        self.execute(file, editor)
+    }
+}

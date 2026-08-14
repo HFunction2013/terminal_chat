@@ -491,7 +491,8 @@ dependencies = [
  "built",
  "clap",
  "clap_complete",
- "cli_core",
+ "cli-core",
+ "cli-core-types",
  "crossterm",
  "ctrlc",
  "figlet-rs",
@@ -504,29 +505,45 @@ dependencies = [
  "rand 0.8.7",
  "rustyline",
  "safer-ffi",
- "serde",
- "serde_yaml",
  "sha2",
  "shell-words",
  "sl-rs",
  "tonic",
+ "yaml2cmd",
 ]
 
 [[package]]
-name = "cli_core"
+name = "cli-core"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "cli-core-types",
+ "hook_macro",
+ "libloading",
+ "safer-ffi",
+]
+
+[[package]]
+name = "cli-core-types"
+version = "0.1.0"
+dependencies = [
+ "safer-ffi",
+]
+
+[[package]]
+name = "cli-standard"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "cli-core-types",
  "humantime",
- "once_cell",
- "paste",
+ "libloading",
  "rpassword",
  "safer-ffi",
- "serde",
- "serde_yaml",
  "shell-words",
  "which",
+ "yaml2cmd-build",
 ]
 
 [[package]]
@@ -1177,6 +1194,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc627f471c528ff0c4a49e1d5e60450c8f6461dd6d10ba9dcd3a61d3dff7728d"
 dependencies = [
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "hook_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3763,6 +3789,23 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+
+[[package]]
+name = "yaml2cmd"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
+name = "yaml2cmd-build"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_yaml",
+]
 
 [[package]]
 name = "yoke"

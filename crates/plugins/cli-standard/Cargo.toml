@@ -1,0 +1,27 @@
+[package]
+name = "cli-standard"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+clap = "4"
+anyhow = "1.0.103"
+humantime = "2.1"
+rpassword = "7.5.4"
+which = "8.0.5"
+shell-words = "1.1.1"
+safer-ffi = "0.2.0-rc1"
+cli-core-types = { path = "../../cli-core-types" }
+libloading = "0.9.0"
+
+[build-dependencies]
+yaml2cmd-build = { path = "../../helper/yaml2cmd-build" }
+
+[lints]
+workspace = true
