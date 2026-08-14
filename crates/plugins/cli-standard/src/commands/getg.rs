@@ -21,7 +21,9 @@ impl GetgCommand {
                 .get::<fn(&safer_ffi::String)>(b"print_content")
                 .expect("Failed to get `print_content`");
             get_global_option = lib
-                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_global_option")
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(
+                    b"get_global_option",
+                )
                 .expect("Failed to get `get_global_option`");
         }
 

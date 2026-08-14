@@ -1,10 +1,10 @@
 use ::safer_ffi::option::TaggedOption;
 use ::safer_ffi::prelude::*;
+use cli_core_types::MacroDef;
 use hook_macro::register_hook;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
-use cli_core_types::MacroDef;
 
 static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 

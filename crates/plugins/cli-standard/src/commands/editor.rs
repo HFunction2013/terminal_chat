@@ -74,14 +74,16 @@ impl EditorCommand {
         let get_global_option: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
         unsafe {
             get_global_option = lib
-                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_global_option")
+                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(
+                    b"get_global_option",
+                )
                 .expect("Failed to get `get_global_option`");
         }
         let opt_saferffi_string: Option<safer_ffi::String> =
             get_global_option(&"EDITOR".into()).into_rust();
 
         let editor_candidate: Option<String> = opt_saferffi_string.map(|s| s.to_string());
-        let editor_name = editor.or_else(|| editor_candidate).or_else(Self::choose_editor);
+        let editor_name = editor.or(editor_candidate).or_else(Self::choose_editor);
 
         let editor_path = match editor_name {
             Some(ref name) => {

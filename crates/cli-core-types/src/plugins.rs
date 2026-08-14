@@ -1,5 +1,5 @@
-use safer_ffi::prelude::*;
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
 
 #[derive_ReprC]
 #[repr(C)]

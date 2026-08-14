@@ -4,10 +4,10 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use libloading::Symbol;
 use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
-use libloading::Symbol;
 
 pub struct SleepCommand;
 

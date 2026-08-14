@@ -27,11 +27,8 @@ impl CommandExecutor for MsgCommand {
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let message = matches.get_one::<String>("message").cloned();
-        let users = matches
-            .get_many::<String>("users")
-            .unwrap_or_default()
-            .map(|s| s.clone())
-            .collect::<Vec<_>>();
+        let users =
+            matches.get_many::<String>("users").unwrap_or_default().cloned().collect::<Vec<_>>();
         self.execute(message, users)
     }
 }

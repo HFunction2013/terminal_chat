@@ -1,11 +1,11 @@
 // macro.rs
 // Delete macro
+use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use safer_ffi::option::TaggedOption;
-use crate::LIB;
 use libloading::Symbol;
+use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 
 pub struct MacroCommand;

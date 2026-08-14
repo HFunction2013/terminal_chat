@@ -93,6 +93,7 @@ pub fn register_hook(attr: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_hook_system(
     original_fn: &ItemFn,
     impl_fn_name: &syn::Ident,

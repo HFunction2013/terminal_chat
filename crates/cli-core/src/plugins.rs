@@ -1,3 +1,4 @@
+use cli_core_types::{PluginMetadata, PluginResult};
 use hook_macro::register_hook;
 use libloading::Library;
 use safer_ffi::ffi_export;
@@ -5,7 +6,6 @@ use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
-use cli_core_types::{PluginMetadata, PluginResult};
 
 static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
