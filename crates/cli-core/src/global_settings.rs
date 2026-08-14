@@ -4,26 +4,7 @@ use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
-
-#[derive_ReprC]
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct GlobalOption {
-    pub key: safer_ffi::String,
-    pub value: safer_ffi::String,
-}
-
-impl GlobalOption {
-    pub fn new(key: &str, value: &str) -> Self {
-        GlobalOption { key: key.into(), value: value.into() }
-    }
-}
-
-impl Default for GlobalOption {
-    fn default() -> Self {
-        GlobalOption { key: "".into(), value: "".into() }
-    }
-}
+use cli_core_types::GlobalOption;
 
 static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 

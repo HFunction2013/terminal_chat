@@ -1,5 +1,5 @@
-use cli_core::plugins::{HostMetadata, PluginMetadata, PluginResult};
-use cli_core::result::Result as CmdResult;
+use cli_core_types::{HostMetadata, PluginMetadata, PluginResult};
+use cli_core_types::Result as CmdResult;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;

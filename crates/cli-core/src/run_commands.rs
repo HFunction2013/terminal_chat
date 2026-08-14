@@ -1,6 +1,6 @@
-use crate::plugins::PluginMetadata;
+use cli_core_types::PluginMetadata;
 use crate::plugins::{get_plugin_by_command_name, is_plugin_command_name_registered};
-use crate::result::Result;
+use cli_core_types::Result;
 use crate::{set_in_cmd, set_interrupted};
 use ::safer_ffi::prelude::*;
 use hook_macro::register_hook;

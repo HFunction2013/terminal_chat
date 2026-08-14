@@ -5,7 +5,7 @@ use crate::commands::CommandExecutor;
 use ::safer_ffi::prelude::*;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core::result::Result as CmdResult;
+use cli_core_types::Result as CmdResult;
 use libloading::Symbol;
 use safer_ffi::option::TaggedOption;
 pub struct RunCommand;

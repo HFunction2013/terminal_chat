@@ -30,6 +30,7 @@ tonic = "0.12"
 libloading = "0.9.0"
 safer-ffi = "0.2.0-rc1"
 yaml2cmd = { path = "../helper/yaml2cmd" }
+cli-core-types = { path = "../cli-core-types" }
 
 [build-dependencies]
 built = { version = "0.7", features = [

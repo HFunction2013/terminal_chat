@@ -2,8 +2,8 @@ use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
-use cli_core::plugins::{PluginMetadata, PluginResult};
-use cli_core::result::Result as RunCommandResult;
+use cli_core_types::{PluginMetadata, PluginResult};
+use cli_core_types::Result as RunCommandResult;
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{

@@ -4,7 +4,7 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core::macros::MacroDef;
+use cli_core_types::MacroDef;
 use libloading::Symbol;
 use std::env;
 use std::fs;

@@ -4,7 +4,7 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::Result;
 use clap::ArgMatches;
-use cli_core::global_settings::GlobalOption;
+use cli_core_types::GlobalOption;
 use libloading::Symbol;
 
 pub struct GlobalsCommand;

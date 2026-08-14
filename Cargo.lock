@@ -492,6 +492,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "cli-core",
+ "cli-core-types",
  "crossterm",
  "ctrlc",
  "figlet-rs",
@@ -516,8 +517,16 @@ name = "cli-core"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "cli-core-types",
  "hook_macro",
  "libloading",
+ "safer-ffi",
+]
+
+[[package]]
+name = "cli-core-types"
+version = "0.1.0"
+dependencies = [
  "safer-ffi",
 ]
 
@@ -527,7 +536,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "cli-core",
+ "cli-core-types",
  "humantime",
  "libloading",
  "rpassword",

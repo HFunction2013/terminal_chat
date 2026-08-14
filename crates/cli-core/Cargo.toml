@@ -14,6 +14,7 @@ clap = "4"
 libloading = "0.9.0"
 safer-ffi = "0.2.0-rc1"
 hook_macro = { path = "../helper/hook_macro" }
+cli-core-types = { path = "../cli-core-types" }
 
 [lints]
 workspace = true
