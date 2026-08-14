@@ -116,7 +116,7 @@ impl Default for FindLibBuilder {
         Self {
             custom_roots: Vec::new(),
             excluded: Vec::new(),
-            depth: 0,
+            depth: 1,
             use_defaults: true,
             first_only: true,
             assume_os: None,
@@ -135,7 +135,7 @@ impl FindLibBuilder {
 
     /// Sets the maximum search depth.
     ///
-    /// * `0` - only search the given directories (default)
+    /// * `1` - only search the given directories (default)
     /// * Positive values - search up to N levels deep
     /// * Negative values - unlimited depth
     pub fn depth(mut self, n: i32) -> Self {
@@ -404,6 +404,7 @@ impl FindLibBuilder {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
+            // eprintln!("[*] PATH: {}", &path.display());
             if path.is_file()
                 && path.file_name().and_then(|n| n.to_str()) == Some(filename)
                 && !self.is_excluded(path)
@@ -444,6 +445,7 @@ impl FindLibBuilder {
             if self.is_excluded(root) {
                 continue;
             }
+            // eprintln!("[*] Searched in {}", &root.display());
             let found = self.search_in_dir(root, &filename);
             all_found.extend(found);
 

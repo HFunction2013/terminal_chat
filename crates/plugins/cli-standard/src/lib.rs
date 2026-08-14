@@ -6,6 +6,7 @@ use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::sync::LazyLock;
 use std::sync::OnceLock;
+
 static METADATA: LazyLock<PluginMetadata> = LazyLock::new(|| PluginMetadata {
     command_yaml: include_str!("../commands.yaml").into(),
     name: "cli-standard".into(),
@@ -45,14 +46,12 @@ mod command {
 }
 #[ffi_export]
 pub fn get_plugin_metadata() -> PluginMetadata {
-    init_library("libcli_core.dylib");
     METADATA.clone()
 }
 
 #[ffi_export]
-pub fn on_init_plugin(_h_meta: HostMetadata) -> PluginResult {
-    // init_library(&h_meta.cli_core_path);
-    init_library("libcli_core.dylib");
+pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
+    init_library(&h_meta.cli_core_path);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 

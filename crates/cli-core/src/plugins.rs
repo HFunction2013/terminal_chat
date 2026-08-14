@@ -1,11 +1,13 @@
-use cli_core_types::{PluginMetadata, PluginResult};
+use cli_core_types::{HostMetadata, PluginMetadata, PluginResult};
 use hook_macro::register_hook;
 use libloading::Library;
+use process_path::get_dylib_path;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
+use which_dylib::{FindError, FindLibBuilder};
 
 static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -26,37 +28,91 @@ pub fn is_plugin_command_name_registered(identifier: &safer_ffi::String) -> bool
 }
 
 #[register_hook]
-pub fn load_plugin(plugin_path: &safer_ffi::String) -> PluginResult {
+pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
     unsafe {
-        let lib = match Library::new(plugin_path.to_string()) {
-            Ok(lib) => lib,
-            Err(_) => {
-                // Err loading.
-                return PluginResult {
-                    success: 0,
-                    exit_code: 101,
-                    msg: TaggedOption::Some("Failed to load plugin".into()),
+        match FindLibBuilder::new().find_result(plugin_name) {
+            Ok(plugin_lib) => {
+                let plugin_path =
+                    plugin_lib.to_str().expect("Failed to convert `PathBuf` to `&str`");
+                let lib = match Library::new(plugin_path.to_string()) {
+                    Ok(lib) => lib,
+                    Err(_) => {
+                        // Err loading.
+                        return PluginResult {
+                            success: 0,
+                            exit_code: 101,
+                            msg: TaggedOption::Some("Failed to load plugin".into()),
+                        };
+                    }
                 };
-            }
-        };
 
-        let get_plugin_metadata =
-            match lib.get::<unsafe extern "C" fn() -> PluginMetadata>(b"get_plugin_metadata") {
-                Ok(f) => f,
-                Err(_) => {
-                    // Err loading.
+                let get_plugin_metadata = match lib
+                    .get::<unsafe extern "C" fn() -> PluginMetadata>(b"get_plugin_metadata")
+                {
+                    Ok(f) => f,
+                    Err(_) => {
+                        // Err loading.
+                        return PluginResult {
+                            success: 0,
+                            exit_code: 102,
+                            msg: TaggedOption::Some("Failed to get `get_plugin_metadata`".into()),
+                        };
+                    }
+                };
+                let meta: PluginMetadata = get_plugin_metadata();
+                let on_init_plugin = match lib
+                    .get::<unsafe extern "C" fn(HostMetadata) -> PluginResult>(b"on_init_plugin")
+                {
+                    Ok(f) => f,
+                    Err(_) => {
+                        // Err loading.
+                        return PluginResult {
+                            success: 0,
+                            exit_code: 102,
+                            msg: TaggedOption::Some("Failed to get `on_init_plugin`".into()),
+                        };
+                    }
+                };
+                if let Some(dylib_path) = get_dylib_path()
+                    && let Some(dylib_path_str) = dylib_path.to_str()
+                {
+                    let res = on_init_plugin(HostMetadata {
+                        version: env!("CARGO_PKG_VERSION").into(),
+                        cli_core_path: dylib_path_str.into(),
+                    });
+                    if res.success != 1 {
+                        return res;
+                    }
+                } else {
                     return PluginResult {
                         success: 0,
-                        exit_code: 102,
-                        msg: TaggedOption::Some("Failed to get `get_plugin_metadata`".into()),
+                        exit_code: 99,
+                        msg: TaggedOption::Some("Failed to get `cli_core`'s path.".into()),
                     };
                 }
-            };
-        let meta: PluginMetadata = get_plugin_metadata();
-        register_plugin(&meta);
-        // TODO: register commands.
+
+                register_plugin(&meta);
+                PluginResult {
+                    success: 1,
+                    exit_code: 0,
+                    msg: TaggedOption::Some("Plugin loaded successfully.".into()),
+                }
+                // TODO: register commands.
+            }
+            Err(err) => match err {
+                FindError::NotFound(s) => PluginResult {
+                    success: 0,
+                    exit_code: 100,
+                    msg: TaggedOption::Some(format!("NotFoundError: {}", s).into()),
+                },
+                FindError::Ambiguous(v) => PluginResult {
+                    success: 0,
+                    exit_code: 99,
+                    msg: TaggedOption::Some(format!("AmbiguousError: {:?}", v).into()),
+                },
+            },
+        }
     }
-    PluginResult { success: 1, exit_code: 0, msg: TaggedOption::None }
 }
 
 /// 注册插件（同时以 name 和 command_name 为键）

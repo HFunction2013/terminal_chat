@@ -14,6 +14,8 @@ libloading = { workspace = true }
 safer-ffi = { workspace = true }
 hook_macro = { workspace = true }
 cli-core-types = { workspace = true }
+which_dylib = { workspace = true }
+process_path = "0.1"
 
 [lints]
 workspace = true

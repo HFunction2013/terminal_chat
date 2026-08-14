@@ -509,6 +509,7 @@ dependencies = [
  "shell-words",
  "sl-rs",
  "tonic",
+ "which_dylib",
  "yaml2cmd",
 ]
 
@@ -519,7 +520,9 @@ dependencies = [
  "cli-core-types",
  "hook_macro",
  "libloading",
+ "process_path",
  "safer-ffi",
+ "which_dylib",
 ]
 
 [[package]]

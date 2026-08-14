@@ -13,7 +13,7 @@ use crossterm::{
 use figlet_rs::FIGlet;
 use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
-use libloading::{Library, Symbol, library_filename};
+use libloading::{Library, Symbol};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
 use rustyline::{
@@ -30,7 +30,7 @@ use shell_words::split;
 use std::{
     ffi::OsString,
     io::{self, Write, stdout},
-    path::{Path, PathBuf},
+    path::Path,
     sync::{
         Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -38,35 +38,25 @@ use std::{
     thread,
     time::Duration,
 };
+use which_dylib::{FindError, FindLibBuilder};
+
 const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
 static CLI_CORE: OnceLock<Library> = OnceLock::new();
 fn get_cli_core() -> &'static Library {
-    let lib_path = get_library_path();
+    match FindLibBuilder::new().find_result("cli_core") {
+        Ok(s) => {
+            let lib_path = s.to_str().expect("Failed to convert `PathBuf` to `&str`");
 
-    CLI_CORE.get_or_init(|| unsafe {
-        Library::new(&lib_path)
-            .unwrap_or_else(|e| panic!("Failed to load library '{}': {}", lib_path.display(), e))
-    })
-}
-fn get_library_path() -> PathBuf {
-    let lib_name_buf = library_filename("cli_core");
-    let lib_name = lib_name_buf.to_string_lossy();
-
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(dir) = exe.parent()
-    {
-        let path = dir.join(lib_name.as_ref());
-        if path.exists() {
-            return path;
+            CLI_CORE.get_or_init(|| unsafe {
+                Library::new(lib_path)
+                    .unwrap_or_else(|e| panic!("Failed to load library '{}': {}", lib_path, e))
+            })
         }
+        Err(e) => match e {
+            FindError::NotFound(s) => panic!("NotFoundError: {}", s),
+            FindError::Ambiguous(v) => panic!("AmbiguousError: {:?}", v),
+        },
     }
-
-    let cwd_path = PathBuf::from(lib_name.as_ref());
-    if cwd_path.exists() {
-        return cwd_path;
-    }
-
-    PathBuf::from(lib_name.as_ref())
 }
 
 fn install_ctrlc_handler() {
@@ -116,6 +106,7 @@ impl Completer for ClapHelper {
         pos: usize,
         _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
+        // TODO: Something wrong here.
         let before_cursor = &line[..pos];
 
         let args = match split(before_cursor) {
@@ -360,8 +351,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| format!("Failed to find symbol 'get_all_plugins': {e}"))?;
     let load_plugin: Symbol<LoadPluginFn> = unsafe { get_cli_core().get(b"load_plugin") }
         .map_err(|e| format!("Failed to find symbol 'load_plugin': {e}"))?;
-    let _ =
-        unsafe { load_plugin(&library_filename("cli_standard").to_string_lossy().as_ref().into()) };
+    let _ = unsafe { load_plugin(&"cli_standard".into()) };
 
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
