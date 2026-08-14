@@ -491,7 +491,6 @@ dependencies = [
  "built",
  "clap",
  "clap_complete",
- "cli-core",
  "cli-core-types",
  "crossterm",
  "ctrlc",

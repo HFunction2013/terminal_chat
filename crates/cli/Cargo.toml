@@ -10,27 +10,26 @@ rust-version.workspace = true
 clap = "4"
 shell-words = "1.1.1"
 rustyline = "14"
-cli-core = { path = "../cli-core" }
 clap_complete = { version = "4", features = ["unstable-dynamic"] }
 anyhow = "1.0.103"
 sha2 = "0.10"
 base64 = "0.22.1"
 ctrlc = "3.4"
 libc = "0.2.186"
-sl-rs = { path = "../sl-rs" }
-lolcat = { path = "../neo-lolcat" }
+sl-rs = { workspace = true }
+lolcat = { workspace = true }
 figlet-rs = "1.0.0"
 crossterm = "0.28"
 indicatif = "0.17"
 rand = "0.8"
 prost = "0.13"
-protos = { path = "../protos" }
+protos = { workspace = true }
 # prost-types = "0.14"
 tonic = "0.12"
 libloading = "0.9.0"
 safer-ffi = "0.2.0-rc1"
-yaml2cmd = { path = "../helper/yaml2cmd" }
-cli-core-types = { path = "../cli-core-types" }
+yaml2cmd = { workspace = true }
+cli-core-types = { workspace = true }
 
 [build-dependencies]
 built = { version = "0.7", features = [
