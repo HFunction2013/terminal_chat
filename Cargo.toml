@@ -16,6 +16,7 @@ members = [
     "crates/helper/yaml2cmd", 
     "crates/helper/hook_macro",
     "crates/cli-core-types",
+    "crates/helper/which_dylib",
 ]
 resolver = "2"
 
@@ -42,6 +43,7 @@ lolcat = { path = "./crates/neo-lolcat" }
 protos = { path = "./crates/protos" }
 yaml2cmd = { path = "./crates/helper/yaml2cmd" }
 hook_macro = { path = "./crates/helper/hook_macro" }
+which_dylib = { path = "./crates/helper/which_dylib" }
 prost = "0.13"
 # prost-types = "0.14"
 tonic = "0.12"
