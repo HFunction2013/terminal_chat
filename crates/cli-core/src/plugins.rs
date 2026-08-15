@@ -97,7 +97,6 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                     exit_code: 0,
                     msg: TaggedOption::Some("Plugin loaded successfully.".into()),
                 }
-                // TODO: register commands.
             }
             Err(err) => match err {
                 FindError::NotFound(s) => PluginResult {
