@@ -106,7 +106,6 @@ impl Completer for ClapHelper {
         pos: usize,
         _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        // TODO: Something wrong here.
         let before_cursor = &line[..pos];
 
         let args = match split(before_cursor) {
@@ -114,10 +113,11 @@ impl Completer for ClapHelper {
             Err(_) => return Ok((pos, vec![])),
         };
 
-        let arg_index = args.len();
+        let is_starting_new_arg = before_cursor.ends_with(' ');
+        let arg_index = if is_starting_new_arg { args.len() + 1 } else { args.len() };
 
         let args_os: Vec<OsString> =
-            std::iter::once("tc-cli".to_string()).chain(args).map(OsString::from).collect();
+            std::iter::once("tc-cli".to_string()).chain(args.clone()).map(OsString::from).collect();
 
         let mut cli = self.cli.clone();
 
@@ -132,7 +132,15 @@ impl Completer for ClapHelper {
             })
             .collect();
 
-        let start = line[..pos].rfind(char::is_whitespace).map_or(0, |i| i + 1);
+        let start = if is_starting_new_arg {
+            pos
+        } else if args.is_empty() {
+            0
+        } else {
+            let last_arg = args.last().unwrap();
+            let last_arg_str = last_arg.to_string();
+            before_cursor.rfind(&last_arg_str as &str).unwrap_or(pos - last_arg_str.len())
+        };
 
         Ok((start, pairs))
     }
