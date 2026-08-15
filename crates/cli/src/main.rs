@@ -40,7 +40,7 @@ use std::{
 };
 use which_dylib::{FindError, FindLibBuilder};
 
-const FORTUNE_TEXT: &str = include_str!("../fortune-people.txt");
+const FORTUNE_TEXT: &str = include_str!("../assets/fortune-people.txt");
 static CLI_CORE: OnceLock<Library> = OnceLock::new();
 fn get_cli_core() -> &'static Library {
     match FindLibBuilder::new().find_result("cli_core") {
