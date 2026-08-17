@@ -207,7 +207,7 @@ fn generate_hook_system(
             #(#fn_attrs)*
             #fn_vis fn #impl_fn_name(#p_name: #p_type) #original_output #fn_block
 
-            type #before_hook_name = unsafe extern "C" fn(*const #p_inner) -> bool;
+            type #before_hook_name = unsafe extern "C" fn(*mut #p_inner) -> bool;
             type #on_hook_name = unsafe extern "C" fn(*const #p_inner) -> bool;
             type #after_hook_name = unsafe extern "C" fn(*const #p_inner) -> bool;
 
@@ -248,7 +248,7 @@ fn generate_hook_system(
                 let _ = #after_hooks_static.lock().map(|mut h| h.clear());
             }
 
-            unsafe fn #run_before(param: *const #p_inner) -> bool {
+            unsafe fn #run_before(param: *mut #p_inner) -> bool {
                 if let Ok(list) = #before_hooks_static.lock() {
                     for h in list.iter() {
                         unsafe {
@@ -295,17 +295,23 @@ fn generate_hook_system(
                 }
                 #in_flag_static.store(true, Ordering::SeqCst);
 
-                let param_ptr: *const #p_inner = #p_name as *const #p_inner;
+                // Clone 一份数据，BeforeHook 可以修改这份克隆
+                let mut data = (#p_name).clone();
+                let param_ptr: *mut #p_inner = &mut data;
 
                 let mut interrupted = unsafe { #run_before(param_ptr) };
 
                 if !interrupted {
-                    interrupted = unsafe { #run_on(param_ptr) };
+                    // 用修改后的数据继续往后传
+                    let data_ptr: *const #p_inner = &data;
+                    interrupted = unsafe { #run_on(data_ptr) };
                 }
 
                 let result = if !interrupted {
-                    let res = #impl_fn_name(#p_name);
-                    unsafe { #run_after(param_ptr) };
+                    // 原始函数也接收修改后的数据
+                    let res = #impl_fn_name(&data);
+                    let data_ptr: *const #p_inner = &data;
+                    unsafe { #run_after(data_ptr) };
                     res
                 } else {
                     #default_result

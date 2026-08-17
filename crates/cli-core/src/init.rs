@@ -12,13 +12,13 @@ pub fn add_progress() {
 }
 
 #[register_hook]
-pub fn add_progress_with(x: u64) {
-    PROGRESS.fetch_add(x, Ordering::Relaxed);
+pub fn add_progress_with(x: &u64) {
+    PROGRESS.fetch_add(*x, Ordering::Relaxed);
 }
 
 #[register_hook]
-pub fn set_progress(x: u64) {
-    PROGRESS.store(x, Ordering::Relaxed);
+pub fn set_progress(x: &u64) {
+    PROGRESS.store(*x, Ordering::Relaxed);
 }
 
 #[register_hook]
