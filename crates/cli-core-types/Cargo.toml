@@ -5,6 +5,7 @@ license.workspace = true
 rust-version.workspace = true
 version.workspace = true
 authors.workspace = true
+build = "build.rs"
 
 [lib]
 name = "cli_core_types"
@@ -12,6 +13,10 @@ path = "src/lib.rs"
 
 [dependencies]
 safer-ffi = { workspace = true }
+
+[build-dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
 
 [lints]
 workspace = true

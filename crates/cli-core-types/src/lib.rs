@@ -1,3 +1,4 @@
+use safer_ffi::option::TaggedOption;
 pub mod global_settings;
 pub use global_settings::*;
 pub mod macros;
@@ -6,3 +7,4 @@ pub mod plugins;
 pub use plugins::*;
 pub mod result;
 pub use result::*;
+include!(concat!(env!("OUT_DIR"), "/fn_type.rs"));
