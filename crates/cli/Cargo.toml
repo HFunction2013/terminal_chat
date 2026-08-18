@@ -15,7 +15,6 @@ anyhow = "1.0.103"
 sha2 = "0.10"
 base64 = "0.22.1"
 ctrlc = "3.4"
-libc = "0.2.186"
 sl-rs = { workspace = true }
 lolcat = { workspace = true }
 figlet-rs = "1.0.0"
@@ -32,6 +31,9 @@ yaml2cmd = { workspace = true }
 cli-core-types = { workspace = true }
 rs-fortune = { workspace = true }
 which_dylib = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.186"
 
 [build-dependencies]
 built = { version = "0.7", features = [

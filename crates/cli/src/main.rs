@@ -13,6 +13,7 @@ use crossterm::{
 };
 use figlet_rs::FIGlet;
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(unix)]
 use libc::{SIGTSTP, signal};
 use libloading::{Library, Symbol};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
@@ -346,6 +347,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to find symbol 'load_plugin': {e}"))?;
     let _ = load_plugin(&"cli_standard".into());
 
+    #[cfg(unix)]
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
     }
