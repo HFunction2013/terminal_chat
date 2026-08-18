@@ -30,7 +30,7 @@ use sha2::{Digest, Sha256};
 use shell_words::split;
 use std::{
     ffi::OsString,
-    io::{self, Write, stdout},
+    io::{self, stdout},
     path::Path,
     sync::{
         Arc, Mutex, OnceLock,
@@ -76,7 +76,7 @@ fn install_ctrlc_handler() {
             let _ = execute!(stdout(), Show);
             std::process::exit(0);
         }
-        let _ = writeln!(std::io::stderr(), " (interrupt sent to current command)");
+        let _ = eprintln!(" (interrupt sent to current command)");
     })
     .expect("failed to install Ctrl+C handler");
 }
@@ -186,8 +186,7 @@ GIT_BRANCH :{:?}
 GIT_VERSION: {:?}
 GIT_DIRTY: {:?}
 GIT_COMMIT_HASH: {:?}
-=== end of built::info ===
-",
+=== end of built::info ===",
         built_info::PKG_NAME,
         built_info::PKG_VERSION,
         built_info::TARGET,
@@ -202,9 +201,7 @@ GIT_COMMIT_HASH: {:?}
         built_info::GIT_DIRTY.unwrap_or(false),
         built_info::GIT_COMMIT_HASH.unwrap_or("unknown"),
     );
-
-    let _ = io::stdout().write_all(out.as_bytes());
-    let _ = io::stdout().flush();
+    println!("{out}");
 }
 
 fn print_copyright() {
@@ -212,9 +209,7 @@ fn print_copyright() {
 }
 
 fn print_license() {
-    let _ = io::stdout().write_all(include_bytes!("../../../LICENSE"));
-    println!();
-    let _ = io::stdout().flush();
+    println!(include_str!("../../../LICENSE"));
 }
 
 fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
