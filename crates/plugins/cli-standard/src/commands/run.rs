@@ -5,7 +5,7 @@ use crate::commands::CommandExecutor;
 use ::safer_ffi::prelude::*;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core_types::Result as CmdResult;
+use cli_core_types::{GetMacroFn, PrintContentFn, RunCommandFn};
 use libloading::Symbol;
 use safer_ffi::option::TaggedOption;
 pub struct RunCommand;
@@ -14,19 +14,15 @@ impl RunCommand {
     /// `macro_name` - macro name, required, value_name: macro_NAME
     pub fn execute(&self, macro_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<fn(&safer_ffi::String)>;
-        let get_macro: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
-        let run_command: Symbol<fn(&safer_ffi::Vec<safer_ffi::String>) -> CmdResult>;
+        let print_content: Symbol<PrintContentFn>;
+        let get_macro: Symbol<GetMacroFn>;
+        let run_command: Symbol<RunCommandFn>;
         unsafe {
-            print_content = lib
-                .get::<fn(&safer_ffi::String)>(b"print_content")
-                .expect("Failed to get `print_content`");
-            get_macro = lib
-                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"get_macro")
-                .expect("Failed to get `get_macro`");
-            run_command = lib
-                .get::<fn(&safer_ffi::Vec<safer_ffi::String>) -> CmdResult>(b"run_command")
-                .expect("Failed to get `run_command`");
+            print_content =
+                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
+            get_macro = lib.get::<GetMacroFn>(b"get_macro").expect("Failed to get `get_macro`");
+            run_command =
+                lib.get::<RunCommandFn>(b"run_command").expect("Failed to get `run_command`");
         }
         let macro_name_display = macro_name.clone();
         if let TaggedOption::Some(code) = get_macro(&macro_name.into()) {

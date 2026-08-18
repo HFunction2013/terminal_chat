@@ -4,6 +4,8 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core_types::IsInterruptedFn;
+use cli_core_types::PrintContentFn;
 use libloading::Symbol;
 use std::str::FromStr;
 use std::thread;
@@ -15,14 +17,14 @@ impl SleepCommand {
     /// `time` - Aha... sleepy!, required, value_name: TIME, default: 1000
     pub fn execute(&self, time: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<fn(&safer_ffi::String)>;
-        let is_interrupted: Symbol<fn() -> bool>;
+        let print_content: Symbol<PrintContentFn>;
+        let is_interrupted: Symbol<IsInterruptedFn>;
         unsafe {
-            print_content = lib
-                .get::<fn(&safer_ffi::String)>(b"print_content")
-                .expect("Failed to get `print_content`");
-            is_interrupted =
-                lib.get::<fn() -> bool>(b"is_interrupted").expect("Failed to get `is_interrupted`");
+            print_content =
+                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
+            is_interrupted = lib
+                .get::<IsInterruptedFn>(b"is_interrupted")
+                .expect("Failed to get `is_interrupted`");
         }
         let time = if time.parse::<i32>().is_ok() { format!("{time}ms") } else { time };
         let duration = humantime::Duration::from_str(&time)?;

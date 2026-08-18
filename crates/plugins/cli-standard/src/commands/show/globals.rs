@@ -4,7 +4,7 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::Result;
 use clap::ArgMatches;
-use cli_core_types::GlobalOption;
+use cli_core_types::{GetAllOptionsFn, PrintContentFn};
 use libloading::Symbol;
 
 pub struct GlobalsCommand;
@@ -12,14 +12,13 @@ pub struct GlobalsCommand;
 impl GlobalsCommand {
     fn execute(&self) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<fn(&safer_ffi::String)>;
-        let get_all_options: Symbol<fn() -> safer_ffi::vec::Vec<GlobalOption>>;
+        let print_content: Symbol<PrintContentFn>;
+        let get_all_options: Symbol<GetAllOptionsFn>;
         unsafe {
-            print_content = lib
-                .get::<fn(&safer_ffi::String)>(b"print_content")
-                .expect("Failed to get `print_content`");
+            print_content =
+                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
             get_all_options = lib
-                .get::<fn() -> safer_ffi::vec::Vec<GlobalOption>>(b"get_all_options")
+                .get::<GetAllOptionsFn>(b"get_all_options")
                 .expect("Failed to get `get_all_options`");
         }
 

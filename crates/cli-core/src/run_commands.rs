@@ -3,6 +3,7 @@ use crate::plugins::{get_plugin_by_command_name, is_plugin_command_name_register
 use ::safer_ffi::prelude::*;
 use cli_core_types::PluginMetadata;
 use cli_core_types::Result;
+use cli_core_types::RunCommandFn;
 use hook_macro::register_hook;
 use libloading::Library;
 use std::sync::LazyLock;
@@ -60,9 +61,7 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
                 }
             };
             let lib_run_command = unsafe {
-                match lib.get::<unsafe extern "C" fn(&safer_ffi::Vec<safer_ffi::String>) -> Result>(
-                    b"run_command",
-                ) {
+                match lib.get::<RunCommandFn>(b"run_command") {
                     Ok(f) => f,
                     Err(_) => {
                         // Err loading.
@@ -75,7 +74,7 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
             };
             set_in_cmd(true);
             let _guard = CommandGuard;
-            unsafe { lib_run_command(&args) }
+            lib_run_command(&args)
         }
         Err(e) => match e {
             FindError::NotFound(s) => {

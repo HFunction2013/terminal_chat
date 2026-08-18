@@ -4,8 +4,8 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core_types::{PrintContentFn, RemoveMacroFn};
 use libloading::Symbol;
-use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 
 pub struct MacroCommand;
@@ -14,15 +14,13 @@ impl MacroCommand {
     /// `macro_name` - macro to delete, required, value_name: macro_NAME
     pub fn execute(&self, macro_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<fn(&safer_ffi::String)>;
-        let remove_macro: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
+        let print_content: Symbol<PrintContentFn>;
+        let remove_macro: Symbol<RemoveMacroFn>;
         unsafe {
-            print_content = lib
-                .get::<fn(&safer_ffi::String)>(b"print_content")
-                .expect("Failed to get `print_content`");
-            remove_macro = lib
-                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(b"remove_macro")
-                .expect("Failed to get `remove_macro`");
+            print_content =
+                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
+            remove_macro =
+                lib.get::<RemoveMacroFn>(b"remove_macro").expect("Failed to get `remove_macro`");
         }
 
         if remove_macro(&macro_name.clone().into()).into_rust().is_some() {

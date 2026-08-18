@@ -4,8 +4,8 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
+use cli_core_types::GetGlobalOptionFn;
 use libloading::Symbol;
-use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
@@ -71,12 +71,10 @@ impl EditorCommand {
     /// `editor` - set editor
     pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let get_global_option: Symbol<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>;
+        let get_global_option: Symbol<GetGlobalOptionFn>;
         unsafe {
             get_global_option = lib
-                .get::<fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>>(
-                    b"get_global_option",
-                )
+                .get::<GetGlobalOptionFn>(b"get_global_option")
                 .expect("Failed to get `get_global_option`");
         }
         let opt_saferffi_string: Option<safer_ffi::String> =

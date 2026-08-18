@@ -1,4 +1,7 @@
-use cli_core_types::{HostMetadata, PluginMetadata, PluginResult};
+use cli_core_types::{
+    HostMetadata, PluginMetadata, PluginResult, plugin_fn_types::GetPluginMetadataFn,
+    plugin_fn_types::OnInitPluginFn,
+};
 use hook_macro::register_hook;
 use libloading::Library;
 use process_path::get_dylib_path;
@@ -47,7 +50,7 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                 };
 
                 let get_plugin_metadata = match lib
-                    .get::<unsafe extern "C" fn() -> PluginMetadata>(b"get_plugin_metadata")
+                    .get::<GetPluginMetadataFn>(b"get_plugin_metadata")
                 {
                     Ok(f) => f,
                     Err(_) => {
@@ -60,9 +63,7 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                     }
                 };
                 let meta: PluginMetadata = get_plugin_metadata();
-                let on_init_plugin = match lib
-                    .get::<unsafe extern "C" fn(HostMetadata) -> PluginResult>(b"on_init_plugin")
-                {
+                let on_init_plugin = match lib.get::<OnInitPluginFn>(b"on_init_plugin") {
                     Ok(f) => f,
                     Err(_) => {
                         // Err loading.

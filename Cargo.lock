@@ -529,7 +529,9 @@ dependencies = [
 name = "cli-core-types"
 version = "0.1.0"
 dependencies = [
+ "quote",
  "safer-ffi",
+ "syn 2.0.119",
 ]
 
 [[package]]

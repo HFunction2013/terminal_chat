@@ -2,8 +2,9 @@ use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
-use cli_core_types::Result as RunCommandResult;
-use cli_core_types::{PluginMetadata, PluginResult};
+use cli_core_types::{
+    GetAllPluginsFn, IsInCmdFn, LoadPluginFn, PluginMetadata, RunCommandFn, SetInterruptedFn,
+};
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{
@@ -60,20 +61,14 @@ fn get_cli_core() -> &'static Library {
 }
 
 fn install_ctrlc_handler() {
-    // type IsInterruptedFn = unsafe extern "C" fn() -> bool;
-    type IsInCmdFn = unsafe extern "C" fn() -> bool;
-    type SetInterruptedFn = unsafe extern "C" fn(bool);
-
     let lib = get_cli_core();
-    // 立即解引用为原始函数指针，不保留 Symbol
-    // let is_interrupted: IsInterruptedFn = *unsafe { lib.get(b"is_interrupted") }.expect("Failed to find symbol 'is_interrupted'");
 
-    let is_in_cmd: IsInCmdFn =
-        *unsafe { lib.get(b"is_in_cmd") }.expect("Failed to find symbol 'is_in_cmd'");
-    let set_interrupted: SetInterruptedFn =
-        *unsafe { lib.get(b"set_interrupted") }.expect("Failed to find symbol 'set_interrupted'");
+    let is_in_cmd: Symbol<IsInCmdFn> =
+        unsafe { lib.get(b"is_in_cmd") }.expect("Failed to find symbol 'is_in_cmd'");
+    let set_interrupted: Symbol<SetInterruptedFn> =
+        unsafe { lib.get(b"set_interrupted") }.expect("Failed to find symbol 'set_interrupted'");
 
-    ctrlc::set_handler(move || unsafe {
+    ctrlc::set_handler(move || {
         set_interrupted(true);
         if !is_in_cmd() {
             #[cfg(not(debug_assertions))]
@@ -346,12 +341,7 @@ fn prepare_startup() -> String {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 获取 run_command 函数指针
-    type RunCommandFn =
-        unsafe extern "C" fn(&safer_ffi::vec::Vec<safer_ffi::String>) -> RunCommandResult;
-    type GetAllPluginsFn = unsafe extern "C" fn() -> safer_ffi::Vec<PluginMetadata>;
-    type LoadPluginFn = unsafe extern "C" fn(&safer_ffi::String) -> PluginResult;
-
+    // 获取函数指针
     let run_command: Symbol<RunCommandFn> = unsafe { get_cli_core().get(b"run_command") }
         .map_err(|e| format!("Failed to find symbol 'run_command': {e}"))?;
     let get_all_plugins: Symbol<GetAllPluginsFn> =
@@ -359,7 +349,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| format!("Failed to find symbol 'get_all_plugins': {e}"))?;
     let load_plugin: Symbol<LoadPluginFn> = unsafe { get_cli_core().get(b"load_plugin") }
         .map_err(|e| format!("Failed to find symbol 'load_plugin': {e}"))?;
-    let _ = unsafe { load_plugin(&"cli_standard".into()) };
+    let _ = load_plugin(&"cli_standard".into());
 
     unsafe {
         signal(SIGTSTP, libc::SIG_IGN);
@@ -374,7 +364,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Stub now. will make cli-core command part a module named std.
     // let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
-    let plugins: Vec<PluginMetadata> = unsafe { get_all_plugins() }.into();
+    let plugins: Vec<PluginMetadata> = get_all_plugins().into();
     let mut cli = Command::new("tc-cli").no_binary_name(true);
     for plugin in &plugins {
         let command_yaml: &safer_ffi::String = &plugin.command_yaml;
@@ -489,7 +479,7 @@ Because everyone deserves a good cup of coffee."
             args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
 
         // 通过动态库调用 run_command
-        let result = unsafe { run_command(&args_ffi) };
+        let result = run_command(&args_ffi);
         if result.code != 0 {
             eprintln!("{}", result.message);
         }
