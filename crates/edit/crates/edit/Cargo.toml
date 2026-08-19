@@ -2,12 +2,19 @@
 name = "edit"
 version = "2.0.0"
 
+authors = ["microsoft"]
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 build = "build/main.rs"
 categories = ["text-editors"]
+
+[package.metadata.wix]
+upgrade-guid = "E5D1C99D-6DC6-4095-A181-18F59BDE1388"
+path-guid = "72E58D22-6CD2-4C00-BFEB-BAADBA7D3A78"
+license = false
+eula = false
 
 [[bench]]
 name = "lib"
