@@ -94,6 +94,20 @@ impl EditorCommand {
         };
 
         let mut cmd = Command::new(&editor_path);
+
+        let stem = editor_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(str::to_lowercase)
+            .unwrap_or_default();
+
+        match stem.as_str() {
+            "code" | "subl" | "zed" => {
+                cmd.arg("--wait");
+            }
+            _ => {}
+        }
+
         if let Some(f) = file {
             cmd.arg(f);
         }
