@@ -26,6 +26,7 @@ edition = "2024"
 license = "MIT"
 rust-version = "1.93"
 version = "0.1.0"
+repository = "https://github.com/HFunction2013/terminal_chat"
 authors = ["HZFY"]
 
 [profile.release]

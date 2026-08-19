@@ -6,6 +6,7 @@ authors.workspace = true
 license.workspace = true
 rust-version.workspace = true
 build = "build.rs"
+repository.workspace = true
 
 [dependencies]
 prost = { workspace = true }
