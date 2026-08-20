@@ -5,8 +5,6 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use cli_core_types::MacroDef;
-use cli_core_types::{PrintContentFn, SetMacroFn};
-use libloading::Symbol;
 use std::env;
 use std::fs;
 
@@ -17,13 +15,7 @@ impl MacroCommand {
     /// `macro_body` - macro body, default: open editor to get input
     pub fn execute(&self, macro_name: String, macro_body: Option<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<PrintContentFn>;
-        let set_macro: Symbol<SetMacroFn>;
-        unsafe {
-            print_content =
-                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
-            set_macro = lib.get::<SetMacroFn>(b"set_macro").expect("Failed to get `set_macro`");
-        }
+        cli_core_macros::load_core_symbols!(lib, print_content, set_macro);
 
         let mut path = env::current_exe()?;
         path.pop();

@@ -4,8 +4,6 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core_types::{PrintContentFn, RemoveMacroFn};
-use libloading::Symbol;
 use safer_ffi::prelude::*;
 
 pub struct MacroCommand;
@@ -14,14 +12,7 @@ impl MacroCommand {
     /// `macro_name` - macro to delete, required, value_name: macro_NAME
     pub fn execute(&self, macro_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<PrintContentFn>;
-        let remove_macro: Symbol<RemoveMacroFn>;
-        unsafe {
-            print_content =
-                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
-            remove_macro =
-                lib.get::<RemoveMacroFn>(b"remove_macro").expect("Failed to get `remove_macro`");
-        }
+        cli_core_macros::load_core_symbols!(lib, print_content, remove_macro);
 
         if remove_macro(&macro_name.clone().into()).into_rust().is_some() {
             print_content(&format!("Macro {macro_name} deleted.").into());

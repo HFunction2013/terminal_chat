@@ -17,6 +17,7 @@ members = [
     "crates/cli-core-types",
     "crates/helper/which_dylib",
     "crates/rs-fortune",
+    "crates/cli-core-macros",
 ]
 resolver = "2"
 
@@ -42,6 +43,7 @@ yaml2cmd = { path = "./crates/helper/yaml2cmd" }
 hook_macro = { path = "./crates/helper/hook_macro" }
 which_dylib = { path = "./crates/helper/which_dylib" }
 rs-fortune = { path = "./crates/rs-fortune" }
+cli-core-macros = { path = "./crates/cli-core-macros" }
 prost = "0.13"
 # prost-types = "0.14"
 tonic = "0.12"

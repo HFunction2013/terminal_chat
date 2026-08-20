@@ -5,8 +5,6 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use cli_core_types::GlobalOption;
-use cli_core_types::{PrintContentFn, SetGlobalOptionFn};
-use libloading::Symbol;
 
 pub struct SetgCommand;
 
@@ -16,15 +14,7 @@ impl SetgCommand {
     /// `password` - use rpassword to read the value, conflicts with: value
     pub fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        let print_content: Symbol<PrintContentFn>;
-        let set_global_option: Symbol<SetGlobalOptionFn>;
-        unsafe {
-            print_content =
-                lib.get::<PrintContentFn>(b"print_content").expect("Failed to get `print_content`");
-            set_global_option = lib
-                .get::<SetGlobalOptionFn>(b"set_global_option")
-                .expect("Failed to get `set_global_option`");
-        }
+        cli_core_macros::load_core_symbols!(lib, print_content, set_global_option);
 
         let value = if password {
             rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()

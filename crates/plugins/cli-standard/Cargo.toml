@@ -19,6 +19,7 @@ which = "8.0.5"
 shell-words = "1.1.1"
 safer-ffi = { workspace = true }
 cli-core-types = { workspace = true }
+cli-core-macros = { workspace = true }
 libloading = { workspace = true }
 
 [build-dependencies]
