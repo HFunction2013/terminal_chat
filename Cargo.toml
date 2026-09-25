@@ -11,11 +11,7 @@ members = [
     "crates/neo-lolcat", 
     "crates/protos",
     "crates/plugins/cli-standard", 
-    "crates/helper/yaml2cmd-build",
-    "crates/helper/yaml2cmd", 
-    "crates/helper/hook_macro",
     "crates/cli-core-types",
-    "crates/helper/which_dylib",
     "crates/rs-fortune",
     "crates/cli-core-macros",
 ]
@@ -35,13 +31,13 @@ codegen-units = 1
 
 [workspace.dependencies]
 cli-core-types = { path = "./crates/cli-core-types" }
-yaml2cmd-build = { path = "./crates/helper/yaml2cmd-build" }
+yaml2cmd-build = "0.1.0"
 sl-rs = { path = "./crates/sl-rs" }
 lolcat = { path = "./crates/neo-lolcat" }
 protos = { path = "./crates/protos" }
-yaml2cmd = { path = "./crates/helper/yaml2cmd" }
-hook_macro = { path = "./crates/helper/hook_macro" }
-which_dylib = { path = "./crates/helper/which_dylib" }
+yaml2cmd = "0.1.2"
+hook_macro = "0.1.0"
+which_dylib = "0.1.1"
 rs-fortune = { path = "./crates/rs-fortune" }
 cli-core-macros = { path = "./crates/cli-core-macros" }
 prost = "0.13"

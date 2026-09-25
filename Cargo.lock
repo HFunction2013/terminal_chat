@@ -371,6 +371,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "301b56658598e48f3648647ac6fc887be7e7108eddfa4e9b63fcf3ec58c0cadf"
 dependencies = [
  "clap_builder",
+ "clap_derive",
 ]
 
 [[package]]
@@ -395,6 +396,18 @@ dependencies = [
  "clap_lex",
  "is_executable",
  "shlex",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d012d2b9d65aca7f18f4d9878a045bc17899bba951561ba5ec3c2ba1eed9a061"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -1049,6 +1062,8 @@ dependencies = [
 [[package]]
 name = "hook_macro"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad8b15a22ea693852de71cf34d87017d2b307402b68f0e5254153be7ee40e1f9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3256,7 +3271,9 @@ dependencies = [
 
 [[package]]
 name = "which_dylib"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02bd0f15befd343302214aaadcda72806779a30571a34dcf9e254c9d5a989d3a"
 dependencies = [
  "process_path",
  "walkdir",
@@ -3506,7 +3523,9 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "yaml2cmd"
-version = "0.1.0"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9aa84598c24ae0465c4af7955a0be4f841ae30de1ba4c7624c115f4c858083c"
 dependencies = [
  "clap",
  "serde",
@@ -3516,6 +3535,8 @@ dependencies = [
 [[package]]
 name = "yaml2cmd-build"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e61b5bbb54f5d913f8627d1ffbe9c712aa308f902ec22cbe5490f9993ee2e40"
 dependencies = [
  "serde",
  "serde_yaml",
