@@ -31,13 +31,13 @@ codegen-units = 1
 
 [workspace.dependencies]
 cli-core-types = { path = "./crates/cli-core-types" }
-yaml2cmd-build = "0.1.0"
+yaml2cmd-build = "0.1"
 sl-rs = { path = "./crates/sl-rs" }
 lolcat = { path = "./crates/neo-lolcat" }
 protos = { path = "./crates/protos" }
-yaml2cmd = "0.1.2"
-hook_macro = "0.1.0"
-which_dylib = "0.1.1"
+yaml2cmd = "0.1"
+hook_macro = "0.1"
+which_dylib = "0.1"
 rs-fortune = { path = "./crates/rs-fortune" }
 cli-core-macros = { path = "./crates/cli-core-macros" }
 prost = "0.13"
