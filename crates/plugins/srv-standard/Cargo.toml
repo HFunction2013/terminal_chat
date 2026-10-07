@@ -1,0 +1,19 @@
+[package]
+name = "srv-standard"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libloading = { workspace = true }
+safer-ffi = { workspace = true }
+srv-core-types = { workspace = true }
+
+[lints]
+workspace = true
