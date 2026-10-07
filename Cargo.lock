@@ -2553,10 +2553,41 @@ dependencies = [
 name = "srv"
 version = "0.1.0"
 dependencies = [
- "prost",
- "protos",
- "tokio",
- "tonic",
+ "anyhow",
+ "libloading",
+ "safer-ffi",
+ "srv-core-types",
+ "which_dylib",
+]
+
+[[package]]
+name = "srv-core"
+version = "0.1.0"
+dependencies = [
+ "hook_macro",
+ "libloading",
+ "process_path",
+ "safer-ffi",
+ "srv-core-types",
+ "which_dylib",
+]
+
+[[package]]
+name = "srv-core-types"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "safer-ffi",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "srv-standard"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "safer-ffi",
+ "srv-core-types",
 ]
 
 [[package]]
