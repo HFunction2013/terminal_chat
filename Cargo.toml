@@ -2,10 +2,13 @@
 members = [
     "crates/cli-core",
     "crates/cli",
-    "crates/srv", 
+    "crates/srv",
+    "crates/srv-core",
+    "crates/srv-core-types",
 	"crates/plugins/werewolf", 
 	"crates/plugins/translations", 
 	"crates/plugins/ai-glm", 
+    "crates/plugins/srv-standard",
     "crates/helper/cmd-gen",
     "crates/sl-rs",
     "crates/neo-lolcat", 
@@ -31,6 +34,7 @@ codegen-units = 1
 
 [workspace.dependencies]
 cli-core-types = { path = "./crates/cli-core-types" }
+srv-core-types = { path = "./crates/srv-core-types" }
 yaml2cmd-build = "0.1"
 sl-rs = { path = "./crates/sl-rs" }
 lolcat = { path = "./crates/neo-lolcat" }
