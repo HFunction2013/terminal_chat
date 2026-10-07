@@ -1,0 +1,22 @@
+[package]
+name = "srv-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libloading = { workspace = true }
+safer-ffi = { workspace = true }
+hook_macro = { workspace = true }
+srv-core-types = { workspace = true }
+which_dylib = { workspace = true }
+process_path = "0.1"
+
+[lints]
+workspace = true
