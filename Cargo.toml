@@ -12,6 +12,7 @@ members = [
     "crates/helper/cmd-gen",
     "crates/sl-rs",
     "crates/neo-lolcat", 
+    "crates/protos",
     "crates/plugins/cli-standard", 
     "crates/cli-core-types",
     "crates/rs-fortune",
@@ -45,8 +46,7 @@ rs-fortune = { path = "./crates/rs-fortune" }
 cli-core-macros = { path = "./crates/cli-core-macros" }
 prost = "0.13"
 # prost-types = "0.14"
-tonic = "0.12"
-tonic-build = "0.12"
+prost-build = "0.13"
 tokio = { version = "1", features = ["full"] }
 libloading = "0.9.0"
 safer-ffi = "0.2.0-rc1"

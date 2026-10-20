@@ -3,7 +3,8 @@ use std::fs;
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = tonic_build::configure();
+    // 需要系统安装 protoc（prost-build 从 PATH 查找）。
+    let mut config = prost_build::Config::new();
 
     let protos: Vec<_> = glob::glob("./proto/**/*.proto")?.filter_map(|e| e.ok()).collect();
 
@@ -14,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("cargo:rerun-if-changed={}", proto.display());
         }
 
-        config = config.out_dir(&out_dir);
+        config.out_dir(&out_dir);
         config.compile_protos(&protos, &["./proto/"])?;
     }
 

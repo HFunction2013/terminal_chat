@@ -23,6 +23,9 @@ figlet-rs = "1.0.0"
 crossterm = "0.28"
 indicatif = "0.17"
 rand = "0.8"
+prost = { workspace = true }
+protos = { workspace = true }
+# prost-types = { workspace = true }
 libloading = { workspace = true }
 safer-ffi = { workspace = true }
 yaml2cmd = { workspace = true }
