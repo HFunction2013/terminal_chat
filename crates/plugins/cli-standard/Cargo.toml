@@ -17,7 +17,6 @@ humantime = "2.1"
 rpassword = "7.5.4"
 which = "8.0.5"
 shell-words = "1.1.1"
-sha2 = "0.10"
 safer-ffi = { workspace = true }
 cli-core-types = { workspace = true }
 cli-core-macros = { workspace = true }
