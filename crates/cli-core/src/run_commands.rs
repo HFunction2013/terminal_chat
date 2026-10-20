@@ -1,6 +1,8 @@
 use crate::aliases::get_alias;
 use crate::cmd_state::{set_in_cmd, set_interrupted};
-use crate::plugins::{get_plugin_by_command_name, is_plugin_command_name_registered};
+use crate::plugins::{
+    get_plugin_by_command_name, get_plugin_library, is_plugin_command_name_registered,
+};
 use ::safer_ffi::prelude::*;
 use cli_core_types::PluginMetadata;
 use cli_core_types::Result;
@@ -76,46 +78,63 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
     let metadata: PluginMetadata = (*boxed).clone();
     let plugin_name = metadata.name;
     let plugin_dylib_name = metadata.dylib_name;
-    match FindLibBuilder::new().find_result(&plugin_dylib_name) {
-        Ok(plugin_lib) => {
-            let plugin_lib_path =
-                plugin_lib.to_str().expect("Failed to convert `PathBuf` to `&str`");
-            let lib = match unsafe { Library::new(plugin_lib_path) } {
-                Ok(lib) => lib,
+
+    // 优先复用 `load_plugin` 保留的句柄：Windows 上重复 `Library::new`
+    // 每次 LoadLibrary 都是新句柄，插件内 static（cli-standard 的 LIB）
+    // 会重新初始化，导致 "cli-core not initialized"。复用同一句柄跨平台一致。
+    let lib_run_command: RunCommandFn =
+        if let Some(plugin_lib) = get_plugin_library(&plugin_name.to_string()) {
+            match unsafe { plugin_lib.get::<RunCommandFn>(b"run_command") } {
+                Ok(f) => *f,
                 Err(_) => {
-                    // Err loading.
                     return Result {
                         code: 101,
-                        message: format!(
-                            "Failed to load plugin {plugin_name} ({plugin_dylib_name})"
-                        )
-                        .into(),
+                        message: "Failed to load symbol run_command".to_string().into(),
                     };
                 }
-            };
-            let lib_run_command = unsafe {
-                match lib.get::<RunCommandFn>(b"run_command") {
-                    Ok(f) => f,
-                    Err(_) => {
-                        // Err loading.
-                        return Result {
-                            code: 101,
-                            message: "Failed to load symbol run_command".to_string().into(),
-                        };
+            }
+        } else {
+            // 回退：未通过 load_plugin 注册的插件，按路径临时加载。
+            match FindLibBuilder::new().find_result(&plugin_dylib_name) {
+                Ok(plugin_lib) => {
+                    let plugin_lib_path =
+                        plugin_lib.to_str().expect("Failed to convert `PathBuf` to `&str`");
+                    let lib = match unsafe { Library::new(plugin_lib_path) } {
+                        Ok(lib) => lib,
+                        Err(_) => {
+                            return Result {
+                                code: 101,
+                                message: format!(
+                                    "Failed to load plugin {plugin_name} ({plugin_dylib_name})"
+                                )
+                                .into(),
+                            };
+                        }
+                    };
+                    match unsafe { lib.get::<RunCommandFn>(b"run_command") } {
+                        Ok(f) => *f,
+                        Err(_) => {
+                            return Result {
+                                code: 101,
+                                message: "Failed to load symbol run_command".to_string().into(),
+                            };
+                        }
                     }
                 }
-            };
-            set_in_cmd(true);
-            let _guard = CommandGuard;
-            lib_run_command(&args)
-        }
-        Err(e) => match e {
-            FindError::NotFound(s) => {
-                Result { code: 100, message: format!("NotFoundError: {}", s).into() }
+                Err(e) => {
+                    return match e {
+                        FindError::NotFound(s) => {
+                            Result { code: 100, message: format!("NotFoundError: {}", s).into() }
+                        }
+                        FindError::Ambiguous(v) => {
+                            Result { code: 99, message: format!("AmbiguousError: {:?}", v).into() }
+                        }
+                    };
+                }
             }
-            FindError::Ambiguous(v) => {
-                Result { code: 99, message: format!("AmbiguousError: {:?}", v).into() }
-            }
-        },
-    }
+        };
+
+    set_in_cmd(true);
+    let _guard = CommandGuard;
+    lib_run_command(&args)
 }

@@ -8,6 +8,7 @@ use process_path::get_dylib_path;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use which_dylib::{FindError, FindLibBuilder};
@@ -20,13 +21,19 @@ static COMMAND_PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
 
 /// 已加载插件库的句柄表：插件名 → Library。
 ///
-/// 必须持有句柄：若 `load_plugin` 返回后句柄被 `dlclose`，
-/// 之后 `run_command` 重新加载插件会得到新句柄，插件内部的
-/// static（如 cli-standard 的 `LIB`）会重新初始化，导致
-/// 已注册的 hook / 状态丢失。持有句柄后，Linux 上同路径
-/// `dlopen` 会复用同一句柄，static 保持一致。
-static PLUGIN_LIBS: LazyLock<Mutex<HashMap<String, Library>>> =
+/// 必须持有句柄：若 `load_plugin` 返回后句柄被 `dlclose` /
+/// `FreeLibrary`，后续执行命令重新加载插件会得到新句柄，插件
+/// 内部的 static（如 cli-standard 的 `LIB`）会重新初始化，
+/// 导致 "cli-core not initialized"。`run_command` 必须复用这里
+/// 保留的同一个句柄——Linux 下同路径 dlopen 复用句柄，但
+/// Windows 下每次 LoadLibrary 都是新句柄，因此统一从这里取。
+static PLUGIN_LIBS: LazyLock<Mutex<HashMap<String, Arc<Library>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// （内部）取已加载插件的库句柄（Arc 克隆，生命周期不依赖锁）。
+pub(crate) fn get_plugin_library(name: &str) -> Option<Arc<Library>> {
+    PLUGIN_LIBS.lock().unwrap().get(name).cloned()
+}
 
 #[register_hook]
 pub fn is_plugin_name_registered(identifier: &safer_ffi::String) -> bool {
@@ -103,8 +110,8 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                 }
 
                 register_plugin(&meta);
-                // 持有插件库句柄，避免后续 run_command 重新加载时 static 重置。
-                PLUGIN_LIBS.lock().unwrap().insert(meta.name.to_string(), lib);
+                // 持有插件库句柄，run_command 复用同一句柄（跨平台）。
+                PLUGIN_LIBS.lock().unwrap().insert(meta.name.to_string(), Arc::new(lib));
                 PluginResult {
                     success: 1,
                     exit_code: 0,
