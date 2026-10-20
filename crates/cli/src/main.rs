@@ -345,7 +345,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| format!("Failed to find symbol 'get_all_plugins': {e}"))?;
     let load_plugin: Symbol<LoadPluginFn> = unsafe { get_cli_core().get(b"load_plugin") }
         .map_err(|e| format!("Failed to find symbol 'load_plugin': {e}"))?;
-    let _ = load_plugin(&"cli_standard".into());
+    // 默认加载 cli-standard；失败时明确报错而不是静默忽略。
+    let load_res = load_plugin(&"cli_standard".into());
+    if load_res.success != 1 {
+        eprintln!(
+            "Failed to load cli_standard: exit_code={} msg={:?}",
+            load_res.exit_code, load_res.msg
+        );
+    }
 
     #[cfg(unix)]
     unsafe {

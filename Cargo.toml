@@ -12,7 +12,6 @@ members = [
     "crates/helper/cmd-gen",
     "crates/sl-rs",
     "crates/neo-lolcat", 
-    "crates/protos",
     "crates/plugins/cli-standard", 
     "crates/cli-core-types",
     "crates/rs-fortune",
