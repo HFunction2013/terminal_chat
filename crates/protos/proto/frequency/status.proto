@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package frequency.status;
+
+import "utils/empty.proto";
+
+// 频点运行状态查询：show active_freqs / active_users / moderators。
+
+// ---------- ActiveFreqs (show active_freqs) ----------
+
+message ActiveFreq {
+    string freq = 1;
+    int32 current_members = 2;
+    int32 max_members = 3;       // 0 表示无限制
+    bool has_password = 4;
+    string creator = 5;
+}
+
+message ActiveFreqsRequest {}
+
+message ActiveFreqsResponse {
+    repeated ActiveFreq freqs = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+// ---------- ActiveUsers (show active_users) ----------
+
+message ActiveUsersRequest {
+    string freq = 1; // 缺省为当前频点
+}
+
+message ActiveUser {
+    string user = 1;       // user@ip
+    string nickname = 2;
+    bool is_moderator = 3;
+    bool is_creator = 4;
+    bool away = 5;
+}
+
+message ActiveUsersResponse {
+    string freq = 1;
+    repeated ActiveUser users = 2;
+    bool success = 3;
+    string message = 4;
+}
+
+// ---------- Moderators (show moderators) ----------
+
+message ModeratorsRequest {
+    string freq = 1; // 缺省为当前频点
+}
+
+message ModeratorsResponse {
+    string freq = 1;
+    repeated ActiveUser moderators = 2;
+    bool success = 3;
+    string message = 4;
+}
+
+service FreqStatusService {
+    rpc GetActiveFreqs(ActiveFreqsRequest) returns (ActiveFreqsResponse);
+    rpc GetActiveUsers(ActiveUsersRequest) returns (ActiveUsersResponse);
+    rpc GetModerators(ModeratorsRequest) returns (ModeratorsResponse);
+}

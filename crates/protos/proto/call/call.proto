@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package call;
+
+import "utils/empty.proto";
+
+// ---------- Call (call an user) ----------
+
+message CallRequest {
+    string user = 1;      // 被呼叫用户（完整用户名 user@ip）
+    string freq = 2;      // 当前频点（信令上下文）
+}
+
+enum CallResult {
+    CALL_RESULT_UNSPECIFIED = 0;
+    CALL_RINGING = 1;            // 已向对方发起振铃
+    CALL_ACCEPTED = 2;           // 对方已接听
+    CALL_REJECTED = 3;           // 对方拒绝
+    CALL_USER_OFFLINE = 4;
+    CALL_USER_BUSY = 5;
+    CALL_ERROR = 6;
+}
+
+message CallResponse {
+    CallResult result = 1;
+    string message = 2;
+}
+
+// ---------- Call hangup / accept (信令，后续通话建立扩展) ----------
+
+message HangupRequest {
+    string call_id = 1;
+    string user = 2;
+}
+
+message HangupResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message AcceptCallRequest {
+    string call_id = 1;
+    string user = 2;
+}
+
+message AcceptCallResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+service CallService {
+    rpc Call(CallRequest) returns (CallResponse);
+    rpc Accept(AcceptCallRequest) returns (AcceptCallResponse);
+    rpc Hangup(HangupRequest) returns (HangupResponse);
+}

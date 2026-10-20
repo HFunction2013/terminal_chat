@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package plugin.registry;
+
+import "utils/empty.proto";
+
+// Terminal Chat Package Manager (tcpm) 云端 registry 交互协议。
+// 本地插件文件管理（load/unload/install -l 本地路径）由 cli 处理，不在此列。
+
+// ---------- 插件元信息 ----------
+
+message PluginInfo {
+    string name = 1;
+    string version = 2;
+    string author = 3;
+    string description = 4;
+    string registry = 5;         // 来源 registry
+    string homepage = 6;
+    string license = 7;
+    int64 published_at = 8;
+    string checksum = 9;         // 包校验和
+    int64 size = 10;             // 包大小（字节）
+    bool installed = 11;         // 已安装
+    bool loaded = 12;            // 已加载
+    string installed_version = 13;
+    bool has_update = 14;
+    string latest_version = 15;
+}
+
+// ---------- Search ----------
+
+message PluginSearchRequest {
+    string plugin_name = 1;
+}
+
+message PluginSearchResponse {
+    repeated PluginInfo results = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+// ---------- Show ----------
+
+message PluginShowRequest {
+    string plugin = 1;
+    bool local = 2;              // -l: 从本地存储展示而非 registry
+}
+
+message PluginShowResponse {
+    optional PluginInfo info = 1;
+    bool found = 2;
+    string message = 3;
+}
+
+// ---------- List ----------
+
+enum PluginListScope {
+    PLUGIN_LIST_SCOPE_UNSPECIFIED = 0;
+    PLUGIN_LIST_INSTALLED = 1;
+    PLUGIN_LIST_DOWNLOADED = 2;
+    PLUGIN_LIST_LOADED = 3;
+    PLUGIN_LIST_REGISTRY = 4;
+    PLUGIN_LIST_UPDATES = 5;     // 可用的更新
+}
+
+message PluginListRequest {
+    PluginListScope scope = 1;
+}
+
+message PluginListResponse {
+    repeated PluginInfo plugins = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+// ---------- Install ----------
+
+message PluginInstallRequest {
+    repeated string plugins = 1;
+    string registry = 2;         // --registry
+    bool uload = 3;              // -u: 加载时使用插件 namespace
+    bool local = 4;              // -l: 本地文件/目录路径（列表中的第一项为路径）
+    bool force = 5;              // -f: 覆盖已存在版本
+}
+
+message PluginInstallResponse {
+    repeated string installed = 1;
+    repeated string failed = 2;
+    string message = 3;
+}
+
+// ---------- Uninstall ----------
+
+message PluginUninstallRequest {
+    repeated string plugins = 1;
+    bool delete_local = 2;       // -d: 同时删除本地文件
+}
+
+message PluginUninstallResponse {
+    repeated string uninstalled = 1;
+    repeated string failed = 2;
+    string message = 3;
+}
+
+// ---------- Download ----------
+
+message PluginDownloadRequest {
+    repeated string plugins = 1;
+    string registry = 2;
+    bool load = 3;               // -l: 下载后加载
+    bool use_namespace = 4;      // -u: 下载后加载并启用 namespace
+}
+
+message PluginDownloadResponse {
+    repeated string downloaded = 1;
+    repeated string failed = 2;
+    string message = 3;
+}
+
+// ---------- Update ----------
+
+message PluginUpdateRequest {
+    repeated string plugins = 1; // "standard" 表示主程序
+    string registry = 2;
+    bool reload = 3;             // -r: 更新后重载
+    bool force = 4;              // -f: 覆盖旧版本
+}
+
+message PluginUpdateResponse {
+    repeated string updated = 1;
+    repeated string failed = 2;
+    string message = 3;
+}
+
+service PluginRegistryService {
+    rpc Search(PluginSearchRequest) returns (PluginSearchResponse);
+    rpc Show(PluginShowRequest) returns (PluginShowResponse);
+    rpc List(PluginListRequest) returns (PluginListResponse);
+    rpc Install(PluginInstallRequest) returns (PluginInstallResponse);
+    rpc Uninstall(PluginUninstallRequest) returns (PluginUninstallResponse);
+    rpc Download(PluginDownloadRequest) returns (PluginDownloadResponse);
+    rpc Update(PluginUpdateRequest) returns (PluginUpdateResponse);
+}

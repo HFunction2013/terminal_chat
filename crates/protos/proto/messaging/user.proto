@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package messaging.user;
+
+// ---------- UserInfo (user_info) ----------
+
+message UserInfoRequest {
+    string user = 1; // 完整用户名，如 HZFY@192.168.78.91
+}
+
+message UserInfo {
+    string user = 1;                 // 完整用户名 user@ip
+    string nickname = 2;
+    string ip_address = 3;
+    bool online = 4;
+    string freq = 5;                 // 当前所在频点（在线时）
+    int64 connected_at = 6;
+    bool is_moderator = 7;
+    bool is_creator = 8;
+    bool ignored_you = 9;            // 对方是否忽略了你
+}
+
+message UserInfoResponse {
+    bool found = 1;
+    optional UserInfo info = 2;
+    string message = 3;
+}
+
+// ---------- Ignore / Unignore ----------
+
+message IgnoreRequest {
+    string user = 1; // 完整用户名，如 HZFY@192.168.78.91
+}
+
+message IgnoreResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message UnignoreRequest {
+    string user = 1;
+}
+
+message UnignoreResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+service UserService {
+    rpc GetUserInfo(UserInfoRequest) returns (UserInfoResponse);
+    rpc Ignore(IgnoreRequest) returns (IgnoreResponse);
+    rpc Unignore(UnignoreRequest) returns (UnignoreResponse);
+}

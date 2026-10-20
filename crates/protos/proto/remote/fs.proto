@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package remote.fs;
+
+import "utils/empty.proto";
+
+// 远程文件系统命令（pwd/ls/cd/mkdir/checksum/file_info/upload/download）
+// 对应 cli 的云端命令；本地路径由 cli 侧处理，这里只描述远程操作。
+
+// ---------- Pwd ----------
+
+message PwdRequest {}
+
+message PwdResponse {
+    string directory = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+// ---------- Ls ----------
+
+message LsRequest {}
+
+message FileEntry {
+    string name = 1;
+    bool is_dir = 2;
+    int64 size = 3;          // 文件大小（字节），目录可为 0
+    int64 modified_at = 4;
+}
+
+message LsResponse {
+    string directory = 1;
+    repeated FileEntry entries = 2;
+    bool success = 3;
+    string message = 4;
+}
+
+// ---------- Cd ----------
+
+message CdRequest {
+    string dir = 1;
+}
+
+message CdResponse {
+    string directory = 1;    // 切换后的当前目录
+    bool success = 2;
+    string message = 3;
+}
+
+// ---------- Mkdir ----------
+
+message MkdirRequest {
+    string directory = 1;
+}
+
+message MkdirResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// ---------- Checksum (remote SHA256) ----------
+
+message RemoteChecksumRequest {
+    string file = 1; // 远程文件，NOT FOLDERS
+}
+
+message RemoteChecksumResponse {
+    string checksum = 1; // SHA256 hex
+    bool found = 2;
+    string message = 3;
+}
+
+// ---------- FileInfo ----------
+
+message RemoteFileInfo {
+    string path = 1;
+    int64 size = 2;
+    int64 modified_at = 3;
+    bool is_dir = 4;
+}
+
+message RemoteFileInfoRequest {
+    string file = 1;
+}
+
+message RemoteFileInfoResponse {
+    bool found = 1;
+    optional RemoteFileInfo info = 2;
+    string message = 3;
+}
+
+// ---------- Upload ----------
+
+// 上传元信息：cli 先发 UploadRequest，随后分块传输。
+message UploadRequest {
+    string local_path = 1;   // 客户端本地路径（用于日志/校验）
+    string remote_path = 2;  // 远程目标路径（缺省用 local_path 基名）
+    int64 total_size = 3;    // 总字节数
+}
+
+message UploadChunk {
+    string remote_path = 1;
+    int64 offset = 2;        // 偏移
+    bytes data = 3;          // 块数据
+}
+
+message UploadResponse {
+    string remote_path = 1;
+    int64 received_bytes = 2;
+    bool success = 3;
+    string message = 4;
+}
+
+// ---------- Download ----------
+
+message DownloadRequest {
+    string remote_path = 1;
+    string local_path = 2;   // 客户端本地存储路径（缺省用远程基名）
+}
+
+message DownloadResponse {
+    int64 total_size = 1;
+    bool found = 2;
+    string message = 3;
+}
+
+// 下载数据块（服务器 -> 客户端 流式 / 分块轮询）。
+message DownloadChunk {
+    int64 offset = 1;
+    bytes data = 2;
+}
+
+service RemoteFsService {
+    rpc Pwd(PwdRequest) returns (PwdResponse);
+    rpc Ls(LsRequest) returns (LsResponse);
+    rpc Cd(CdRequest) returns (CdResponse);
+    rpc Mkdir(MkdirRequest) returns (MkdirResponse);
+    rpc Checksum(RemoteChecksumRequest) returns (RemoteChecksumResponse);
+    rpc FileInfo(RemoteFileInfoRequest) returns (RemoteFileInfoResponse);
+    rpc Upload(stream UploadChunk) returns (UploadResponse);
+    rpc Download(DownloadRequest) returns (stream DownloadChunk);
+}

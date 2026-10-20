@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package connection.session;
+
+import "utils/empty.proto";
+
+// ---------- Route (trace route to server) ----------
+
+message RouteRequest {}
+
+message RouteHop {
+    int32 hop = 1;
+    string host = 2;
+    string ip = 3;
+    double rtt_ms = 4;
+}
+
+message RouteResponse {
+    string server = 1;
+    repeated RouteHop hops = 2;
+    bool success = 3;
+    string message = 4;
+}
+
+// ---------- Disconnect ----------
+
+message DisconnectRequest {}
+
+enum DisconnectResult {
+    DISCONNECT_RESULT_UNSPECIFIED = 0;
+    DISCONNECT_SUCCESS = 1;
+    DISCONNECT_NOT_CONNECTED = 2;
+    DISCONNECT_ERROR = 3;
+}
+
+message DisconnectResponse {
+    DisconnectResult result = 1;
+    string message = 2;
+}
+
+// ---------- Reconnect ----------
+
+message ReconnectRequest {}
+
+enum ReconnectResult {
+    RECONNECT_RESULT_UNSPECIFIED = 0;
+    RECONNECT_SUCCESS = 1;
+    RECONNECT_NOT_CONNECTED = 2;
+    RECONNECT_RECONNECTING = 3;
+    RECONNECT_ERROR = 4;
+}
+
+message ReconnectResponse {
+    ReconnectResult result = 1;
+    string message = 2;
+}
+
+// ---------- Status (Test network / ping) ----------
+
+message StatusRequest {
+    string nonce = 1; // 随机 nonce，用于往返延迟测量
+}
+
+message StatusResponse {
+    string nonce = 1;   // 回显 nonce
+    int64 rtt_ms = 2;   // 往返时延（毫秒）
+    string server_version = 3;
+    string message = 4;
+}
+
+// ---------- Background / Foreground ----------
+
+// background：把当前会话挂到后台，回到主控制台。
+message BackgroundRequest {
+    string session_id = 1; // 要挂起的会话；空表示当前会话
+}
+
+message BackgroundResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// foreground：切换回唯一后台会话。
+message ForegroundRequest {}
+
+message ForegroundResponse {
+    string session_id = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+// ---------- Sessions (multi-session manager) ----------
+
+message SessionInfo {
+    string id = 1;
+    string freq = 2;           // 当前所在频点
+    string user = 3;
+    bool backgrounded = 4;
+    int64 started_at = 5;
+}
+
+message SessionsRequest {
+    // list / interact / kill 三种操作合一
+    string action = 1; // "list" | "interact" | "kill"
+    string session_id = 2; // interact/kill 时目标会话 id
+}
+
+message SessionsResponse {
+    bool success = 1;
+    repeated SessionInfo sessions = 2;
+    string message = 3;
+}
+
+// ---------- Away / presence ----------
+
+enum PresenceStatus {
+    PRESENCE_STATUS_UNSPECIFIED = 0;
+    PRESENCE_AWAY = 1;  // 离开，自动回复私聊
+    PRESENCE_BUSY = 2;  // 忙碌，自动回复私聊
+    PRESENCE_ONLINE = 3;
+}
+
+message SetPresenceRequest {
+    PresenceStatus status = 1;
+}
+
+message SetPresenceResponse {
+    bool success = 1;
+    PresenceStatus status = 2;
+    string message = 3;
+}
+
+service SessionService {
+    rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+    rpc Reconnect(ReconnectRequest) returns (ReconnectResponse);
+    rpc Status(StatusRequest) returns (StatusResponse);
+    rpc Route(RouteRequest) returns (RouteResponse);
+    rpc Background(BackgroundRequest) returns (BackgroundResponse);
+    rpc Foreground(utils.empty.Empty) returns (ForegroundResponse);
+    rpc Sessions(SessionsRequest) returns (SessionsResponse);
+    rpc SetPresence(SetPresenceRequest) returns (SetPresenceResponse);
+}

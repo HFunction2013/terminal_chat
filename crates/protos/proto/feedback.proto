@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package feedback;
+
+// ---------- Feedback (feedback command) ----------
+
+message FeedbackRequest {
+    string content = 1;         // 反馈内容（未给时由编辑器输入）
+    string client_version = 2;  // cli 版本，便于服务器归类
+    string system = 3;          // 客户端系统信息（可选）
+}
+
+message FeedbackResponse {
+    bool success = 1;
+    string message = 2;         // 如 "feedback received"
+}
+
+service FeedbackService {
+    rpc SendFeedback(FeedbackRequest) returns (FeedbackResponse);
+}

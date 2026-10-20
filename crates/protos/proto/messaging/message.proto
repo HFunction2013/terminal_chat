@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package messaging.message;
+
+// ---------- SendMessage (msg) ----------
+
+message SendMessageRequest {
+    string message = 1;              // 消息内容（未给时由编辑器输入）
+    repeated string users = 2;       // 目标用户，空表示发给所有人
+    string freq = 3;                 // 所在频点（由服务器填充或校验）
+}
+
+enum SendMessageResult {
+    SEND_MESSAGE_RESULT_UNSPECIFIED = 0;
+    SEND_MESSAGE_SUCCESS = 1;
+    SEND_MESSAGE_USER_NOT_FOUND = 2;
+    SEND_MESSAGE_MUTED = 3;          // 被禁言
+    SEND_MESSAGE_NOT_IN_FREQ = 4;
+    SEND_MESSAGE_ERROR = 5;
+}
+
+message SendMessageResponse {
+    SendMessageResult result = 1;
+    string message = 2;
+}
+
+// ---------- ReplyMessage (reply) ----------
+
+message ReplyMessageRequest {
+    string message = 1;              // 回复内容（未给时由编辑器输入）
+}
+
+message ReplyMessageResponse {
+    SendMessageResult result = 1;
+    string message = 2;
+}
+
+// ---------- ScheduleMessage (schedule_msg) ----------
+
+message ScheduleMessageRequest {
+    int64 send_at = 1;               // 发送时间（Unix 秒）
+    string message = 2;              // 消息内容（未给时由编辑器输入）
+    repeated string users = 3;       // 目标用户，空表示所有人
+}
+
+enum ScheduleMessageResult {
+    SCHEDULE_MESSAGE_RESULT_UNSPECIFIED = 0;
+    SCHEDULE_MESSAGE_SUCCESS = 1;
+    SCHEDULE_MESSAGE_INVALID_TIME = 2;
+    SCHEDULE_MESSAGE_ERROR = 3;
+}
+
+message ScheduleMessageResponse {
+    ScheduleMessageResult result = 1;
+    string task_id = 2;
+    string message = 3;
+}
+
+service MessagingService {
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+    rpc ReplyMessage(ReplyMessageRequest) returns (ReplyMessageResponse);
+    rpc ScheduleMessage(ScheduleMessageRequest) returns (ScheduleMessageResponse);
+}
