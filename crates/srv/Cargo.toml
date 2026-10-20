@@ -13,6 +13,8 @@ libloading = { workspace = true }
 safer-ffi = { workspace = true }
 srv-core-types = { workspace = true }
 which_dylib = { workspace = true }
+prost = { workspace = true }
+protos = { workspace = true }
 
 [lints]
 workspace = true

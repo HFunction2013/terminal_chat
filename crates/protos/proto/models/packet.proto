@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package models.packet;
+
+// 通用数据包：连接建立后，客户端与服务端之间传输消息的帧。
+// 与 srv-core-types 的 Packet（FFI 侧）字段一一对应。
+message Packet {
+    string channel = 1;      // 目标频道名（路由键），如 "call" / "chat"
+    string sender = 2;       // 发送者标识（会话 id / 用户名）
+    string payload = 3;      // 负载（文本）
+    uint64 timestamp = 4;    // 发送时间戳（Unix 秒）
+    uint64 seq = 5;          // 递增序号
+}
