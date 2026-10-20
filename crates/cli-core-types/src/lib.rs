@@ -1,4 +1,6 @@
 use safer_ffi::option::TaggedOption;
+pub mod aliases;
+pub use aliases::*;
 pub mod global_settings;
 pub use global_settings::*;
 pub mod macros;
