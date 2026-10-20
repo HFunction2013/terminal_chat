@@ -407,6 +407,8 @@ dependencies = [
  "cli-core-types",
  "humantime",
  "libloading",
+ "prost",
+ "protos",
  "rpassword",
  "safer-ffi",
  "shell-words",
@@ -2386,6 +2388,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "libloading",
+ "prost",
+ "protos",
  "safer-ffi",
  "srv-core-types",
  "which_dylib",

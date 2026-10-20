@@ -29,6 +29,7 @@ fn init_library(path: &str) -> &Library {
 }
 
 mod commands;
+mod connection;
 mod command {
     use std::sync::LazyLock;
 

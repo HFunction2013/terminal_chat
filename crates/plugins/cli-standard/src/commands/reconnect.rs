@@ -11,9 +11,9 @@ pub struct ReconnectCommand;
 impl ReconnectCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Reconnect the server
-        println!("Command `reconnect` is not yet implemented.");
-        Ok(())
+        // 先断开旧连接（未连接时静默），再重新连接。
+        crate::connection::disconnect_now()?;
+        crate::connection::connect_now()
     }
 }
 

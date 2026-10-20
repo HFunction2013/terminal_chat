@@ -11,9 +11,7 @@ pub struct DisconnectCommand;
 impl DisconnectCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Disconnect from server
-        println!("Command `disconnect` is not yet implemented.");
-        Ok(())
+        crate::connection::disconnect_now()
     }
 }
 
