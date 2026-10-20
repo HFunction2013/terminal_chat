@@ -1,3 +1,4 @@
+use crate::aliases::get_alias;
 use crate::cmd_state::{set_in_cmd, set_interrupted};
 use crate::plugins::{get_plugin_by_command_name, is_plugin_command_name_registered};
 use ::safer_ffi::prelude::*;
@@ -6,10 +7,14 @@ use cli_core_types::Result;
 use cli_core_types::RunCommandFn;
 use hook_macro::register_hook;
 use libloading::Library;
+use safer_ffi::option::TaggedOption;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use which_dylib::{FindError, FindLibBuilder};
+
+/// 别名展开的最大深度，防止 alias 互相指向形成死循环。
+const MAX_ALIAS_EXPANSION_DEPTH: usize = 10;
 
 struct CommandGuard;
 impl Drop for CommandGuard {
@@ -19,9 +24,37 @@ impl Drop for CommandGuard {
     }
 }
 
+/// 展开命令行开头的别名（可含参数、可链式指向别名）。
+///
+/// 例如别名 `ll -> ls -la`：输入 `ll /tmp` 展开为 `ls -la /tmp`。
+/// 深度超过 [`MAX_ALIAS_EXPANSION_DEPTH`] 时停止，避免环。
+fn expand_aliases(args: &mut Vec<safer_ffi::String>) {
+    for _ in 0..MAX_ALIAS_EXPANSION_DEPTH {
+        let Some(first) = args.first().cloned() else { return };
+        // `get_alias` 是 register_hook 生成的 unsafe wrapper。
+        let target = match unsafe { get_alias(&first) } {
+            TaggedOption::Some(t) => t.to_string(),
+            TaggedOption::None => return,
+        };
+        // target 可能是 `cmd` 或 `cmd arg1 arg2`，按 shell 词法拆分。
+        let mut expanded: Vec<safer_ffi::String> = shell_words::split(&target)
+            .unwrap_or_else(|_| vec![target])
+            .into_iter()
+            .map(|s| s.into())
+            .collect();
+        expanded.extend(args.iter().skip(1).cloned());
+        *args = expanded;
+    }
+}
+
 #[register_hook]
 fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
     let mut args = args.clone();
+    // 先做别名展开，再判断命令名是否已注册（否则 `ll` 这类别名会被加 std 前缀）。
+    let mut args_vec: Vec<safer_ffi::String> = args.iter().cloned().collect();
+    expand_aliases(&mut args_vec);
+    args = safer_ffi::Vec::from(args_vec);
+
     if !unsafe { is_plugin_command_name_registered(args.first().unwrap()) } {
         let full_args: Vec<safer_ffi::String> =
             std::iter::once("std".into()).chain(args.iter().cloned()).collect();

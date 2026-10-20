@@ -18,6 +18,16 @@ static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
 static COMMAND_PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// 已加载插件库的句柄表：插件名 → Library。
+///
+/// 必须持有句柄：若 `load_plugin` 返回后句柄被 `dlclose`，
+/// 之后 `run_command` 重新加载插件会得到新句柄，插件内部的
+/// static（如 cli-standard 的 `LIB`）会重新初始化，导致
+/// 已注册的 hook / 状态丢失。持有句柄后，Linux 上同路径
+/// `dlopen` 会复用同一句柄，static 保持一致。
+static PLUGIN_LIBS: LazyLock<Mutex<HashMap<String, Library>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 #[register_hook]
 pub fn is_plugin_name_registered(identifier: &safer_ffi::String) -> bool {
     let map = PLUGIN_MAP.lock().unwrap();
@@ -93,6 +103,8 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                 }
 
                 register_plugin(&meta);
+                // 持有插件库句柄，避免后续 run_command 重新加载时 static 重置。
+                PLUGIN_LIBS.lock().unwrap().insert(meta.name.to_string(), lib);
                 PluginResult {
                     success: 1,
                     exit_code: 0,
@@ -167,6 +179,7 @@ pub fn unregister_plugin(name: &safer_ffi::String) -> i32 {
     // 先从 name map 取出 metadata 以获取 command_name
     if let Some(meta) = map.remove(&name.to_string()) {
         cmd_map.remove(&meta.command_name.to_string());
+        PLUGIN_LIBS.lock().unwrap().remove(&name.to_string());
         true.into()
     } else {
         false.into()
@@ -192,8 +205,10 @@ pub fn plugin_count() -> i32 {
 pub fn clear_plugins() {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
+    let mut libs = PLUGIN_LIBS.lock().unwrap();
     map.clear();
     cmd_map.clear();
+    libs.clear();
 }
 
 #[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
