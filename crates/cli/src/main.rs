@@ -82,6 +82,7 @@ fn install_ctrlc_handler() {
     .expect("failed to install Ctrl+C handler");
 }
 
+mod notifications;
 mod tasks;
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -385,6 +386,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         // 检查到期的本地调度任务（schedule / schedule_msg）
         let _ = tasks::check_and_run(&run_command);
+        // 轮询服务器端待读通知（消息 / call / mute / kick / ban）
+        notifications::poll(&run_command);
         let input = match rl.readline("tc> ") {
             Ok(line) => line,
             Err(ReadlineError::Interrupted) => {

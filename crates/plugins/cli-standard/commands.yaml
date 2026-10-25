@@ -43,6 +43,8 @@ commands:
         help: Session config value
   - name: route
     about: Trace route to server
+  - name: notifications
+    about: Poll pending notifications (message/call/mute/kick/ban)
   - name: proxy
     about: Turn on/off system proxy
     subcommands:

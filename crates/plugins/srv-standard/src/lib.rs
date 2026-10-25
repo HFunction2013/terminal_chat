@@ -90,6 +90,20 @@ static STATE: LazyLock<Mutex<ServerState>> = LazyLock::new(|| {
 
 static VFS: LazyLock<Mutex<HashMap<String, VfsUser>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// 按用户（user@ip）排队的待读通知（文本），由 `notifications` RPC 拉取后清空。
+static NOTIFICATIONS: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// 向用户追加一条待读通知。
+fn notify(target: &str, text: String) {
+    NOTIFICATIONS
+        .lock()
+        .unwrap()
+        .entry(target.to_string())
+        .or_default()
+        .push(text);
+}
+
 fn now_ts() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -232,6 +246,12 @@ fn handle_send_message(sender: String, req: protos::messaging::message::SendMess
             targets.join(","),
             req.message
         );
+        // 通知每个定向目标（在线的用户稍后由 cli 轮询拉取）。
+        for t in &targets {
+            if t.as_str() != sender {
+                notify(t, format!("[msg:{freq}] {}: {}", user_part(&sender), req.message));
+            }
+        }
         state.last_speaker.insert(freq, sender);
         SendMessageResponse {
             result: R::SendMessageSuccess as i32,
@@ -315,6 +335,7 @@ fn handle_call_user(sender: String, req: protos::call::CallRequest) -> protos::c
         format!("[call] {} @{}: {}", user_part(&sender), freq, req.message)
     };
     println!("[srv-standard] @{target} -> {msg}");
+    notify(&target, msg.clone());
     CallResponse {
         result: R::CallRinging as i32,
         message: format!("calling {target} ... {msg}"),
@@ -762,12 +783,13 @@ fn handle_moderators(sender: String, req: protos::frequency::status::ModeratorsR
             is_creator: room.creator == m.user,
             away: !m.away.is_empty(),
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let n = mods.len();
     ModeratorsResponse {
         freq: freq.clone(),
         moderators: mods,
         success: true,
-        message: format!("{} moderator(s) in freq `{freq}`", room.members.len()),
+        message: format!("{n} moderator(s) in freq `{freq}`"),
     }
 }
 
@@ -817,6 +839,7 @@ fn handle_kick(sender: String, req: protos::frequency::mod_ops::KickRequest) -> 
     }
     state.users.get_mut(&req.user).map(|u| u.freq = String::new());
     println!("[srv-standard] {freq}: {} kicked {}", user_part(&sender), user_part(&req.user));
+    notify(&req.user, format!("[kick:{freq}] you were kicked by {}", user_part(&sender)));
     KickResponse { result: R::KickSuccess as i32, message: format!("kicked {} from {freq}", req.user) }
 }
 
@@ -848,6 +871,7 @@ fn handle_ban(sender: String, req: protos::frequency::mod_ops::BanRequest) -> pr
     }
     state.users.get_mut(&req.user).map(|u| u.freq = String::new());
     println!("[srv-standard] {freq}: {} banned {}", user_part(&sender), user_part(&req.user));
+    notify(&req.user, format!("[ban:{freq}] you were banned by {}", user_part(&sender)));
     BanResponse { result: R::BanSuccess as i32, message: format!("banned {} from {freq}", req.user) }
 }
 
@@ -902,6 +926,7 @@ fn handle_mute(sender: String, req: protos::frequency::mod_ops::MuteRequest) -> 
         _ => u64::MAX, // -1 / 缺省：永久
     };
     println!("[srv-standard] {freq}: {} muted {}", user_part(&sender), user_part(&req.user));
+    notify(&req.user, format!("[mute:{freq}] you were muted by {}", user_part(&sender)));
     MuteResponse { result: R::MuteSuccess as i32, message: format!("muted {} in {freq}", req.user) }
 }
 
@@ -1111,8 +1136,8 @@ fn handle_remote_cd(sender: String, req: protos::remote::fs::CdRequest) -> proto
         .entry(sender.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.dir);
-    // 目标必须存在且是目录。
-    let exists = vfs.files.get(&target).map(|e| e.is_dir).unwrap_or(false);
+    // 根目录 "/" 总是存在（无对应 VFS 条目也视为合法目录）。
+    let exists = target == "/" || vfs.files.get(&target).map(|e| e.is_dir).unwrap_or(false);
     if !exists {
         return CdResponse {
             directory: vfs.cwd.clone(),
@@ -1261,6 +1286,31 @@ fn handle_route(_sender: String, _req: protos::connection::session::RouteRequest
     }
 }
 
+fn handle_notifications(sender: String, _req: protos::frequency::notification::NotificationsRequest) -> protos::frequency::notification::NotificationsResponse {
+    use protos::frequency::notification::{NotificationMessage, NotificationsResponse};
+    let now = now_ts();
+    let mut all = NOTIFICATIONS.lock().unwrap();
+    let items = all
+        .remove(&sender)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|text| {
+            let (kind, rest) = text.split_once(':').unwrap_or(("msg", text.as_str()));
+            NotificationMessage {
+                kind: kind.trim_start_matches('[').to_string(),
+                from: String::new(),
+                text: rest.to_string(),
+                at: now as i64,
+            }
+        })
+        .collect();
+    NotificationsResponse {
+        success: true,
+        items,
+        message: "notifications".into(),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // RPC handler 注册
 // ---------------------------------------------------------------------------
@@ -1299,6 +1349,7 @@ rpc_handler!(on_upload, protos::remote::fs::UploadRequest, protos::remote::fs::U
 rpc_handler!(on_download, protos::remote::fs::DownloadRequest, protos::remote::fs::DownloadResponse, handle_download);
 rpc_handler!(on_status, protos::connection::session::StatusRequest, protos::connection::session::StatusResponse, handle_status);
 rpc_handler!(on_route, protos::connection::session::RouteRequest, protos::connection::session::RouteResponse, handle_route);
+rpc_handler!(on_notifications, protos::frequency::notification::NotificationsRequest, protos::frequency::notification::NotificationsResponse, handle_notifications);
 
 // ---------------------------------------------------------------------------
 // 插件生命周期
@@ -1358,6 +1409,7 @@ const CHANNELS: &[(&str, &str, ChannelHandlerFn)] = &[
     ("download", "Download a file from server", on_download),
     ("status", "Server ping / network test", on_status),
     ("route", "Trace route to server", on_route),
+    ("notifications", "Poll pending notifications", on_notifications),
 ];
 
 fn channel_metadata(name: &str, desc: &str) -> ChannelMetadata {

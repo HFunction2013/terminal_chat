@@ -140,6 +140,23 @@ message SubscribeRequest {
     repeated NotificationType filter = 3;  // 可选：只订阅特定类型的通知
 }
 
+// ---------- 拉取通知（请求-响应式，供 CLI 轮询） ----------
+
+message NotificationsRequest {}
+
+message NotificationMessage {
+    string kind = 1;    // message / call / mute / unmute / kick / ban / unban / join / leave ...
+    string from = 2;    // 触发者（USERNAME@IP）
+    string text = 3;    // 已格式化的通知文本
+    int64 at = 4;       // Unix 时间戳
+}
+
+message NotificationsResponse {
+    bool success = 1;
+    repeated NotificationMessage items = 2;
+    string message = 3;
+}
+
 // ---------- 服务定义 ----------
 
 service NotificationService {

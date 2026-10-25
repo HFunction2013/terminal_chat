@@ -31,6 +31,7 @@ fn init_library(path: &str) -> &Library {
 pub mod local;
 mod commands;
 mod connection;
+pub mod editor;
 mod command {
     use std::sync::LazyLock;
 
