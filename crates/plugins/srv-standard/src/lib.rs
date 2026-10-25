@@ -1363,7 +1363,7 @@ static METADATA: LazyLock<SrvPluginMetadata> = LazyLock::new(|| SrvPluginMetadat
     description: "srv standard channels: freq / user / message / remote fs.".into(),
     homepage: "".into(),
     license: option_env!("CARGO_PKG_LICENSE").unwrap_or("UNLICENSED").into(),
-    min_host_version: TaggedOption::None,
+    min_host_version: TaggedOption::Some("0.1.0".into()),
     max_host_version: TaggedOption::None,
 });
 

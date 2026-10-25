@@ -30,6 +30,51 @@ static COMMAND_PLUGIN_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
 static PLUGIN_LIBS: LazyLock<Mutex<HashMap<String, Arc<Library>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// 简单语义化版本比较：a < b → -1，a == b → 0，a > b → 1。
+fn cmp_version(a: &str, b: &str) -> i32 {
+    let pa: Vec<u64> = a.split('.').filter_map(|s| s.parse().ok()).collect();
+    let pb: Vec<u64> = b.split('.').filter_map(|s| s.parse().ok()).collect();
+    for i in 0..pa.len().max(pb.len()) {
+        let x = pa.get(i).copied().unwrap_or(0);
+        let y = pb.get(i).copied().unwrap_or(0);
+        if x < y {
+            return -1;
+        }
+        if x > y {
+            return 1;
+        }
+    }
+    0
+}
+
+/// 校验插件声明的 host 版本范围（min_host_version / max_host_version）。
+fn check_host_version(meta: &PluginMetadata) -> Option<PluginResult> {
+    let host_ver = env!("CARGO_PKG_VERSION");
+    let mut bound = None;
+    if let TaggedOption::Some(v) = &meta.min_host_version {
+        if cmp_version(host_ver, &v.to_string()) < 0 {
+            bound = Some(format!(
+                "plugin `{}` requires host >= {} but host is {}",
+                meta.name, v.to_string(), host_ver
+            ));
+        }
+    }
+    if bound.is_none()
+        && let TaggedOption::Some(v) = &meta.max_host_version
+        && cmp_version(host_ver, &v.to_string()) > 0
+    {
+        bound = Some(format!(
+            "plugin `{}` requires host <= {} but host is {}",
+            meta.name, v.to_string(), host_ver
+        ));
+    }
+    bound.map(|m| PluginResult {
+        success: 0,
+        exit_code: 103,
+        msg: TaggedOption::Some(m.into()),
+    })
+}
+
 /// （内部）取已加载插件的库句柄（Arc 克隆，生命周期不依赖锁）。
 pub(crate) fn get_plugin_library(name: &str) -> Option<Arc<Library>> {
     PLUGIN_LIBS.lock().unwrap().get(name).cloned()
@@ -80,6 +125,10 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                     }
                 };
                 let meta: PluginMetadata = get_plugin_metadata();
+                // 检查插件声明的 host 版本范围。
+                if let Some(err) = check_host_version(&meta) {
+                    return err;
+                }
                 let on_init_plugin = match lib.get::<OnInitPluginFn>(b"on_init_plugin") {
                     Ok(f) => f,
                     Err(_) => {
