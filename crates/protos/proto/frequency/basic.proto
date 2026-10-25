@@ -12,6 +12,7 @@ message CreateFreqRequest {
     optional string password = 2;   // -p 密码保护（可选）
     optional int32 max_people = 3;  // --max-people 最大人数限制（可选）
     bool join_after_create = 4;     // -j 创建后立即加入
+    bool no_mod = 5;                // -n/--no-mod 无版主频点（创建者可退出）
 }
 
 // 创建频点的结果枚举

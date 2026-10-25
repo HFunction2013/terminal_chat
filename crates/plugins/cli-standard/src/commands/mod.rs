@@ -33,6 +33,9 @@ pub mod getg;
 pub mod ignore;
 pub mod join_freq;
 pub mod kick;
+pub mod lcd;
+pub mod lls;
+pub mod lpwd;
 pub mod leave_freq;
 pub mod load;
 #[cfg(debug_assertions)]
@@ -122,6 +125,9 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         #[cfg(debug_assertions)]
         Arc::new(logs::LogsCommand),
         Arc::new(kick::KickCommand),
+        Arc::new(lcd::LcdCommand),
+        Arc::new(lls::LlsCommand),
+        Arc::new(lpwd::LpwdCommand),
         Arc::new(ban::BanCommand),
         Arc::new(unban::UnbanCommand),
         Arc::new(mute::MuteCommand),

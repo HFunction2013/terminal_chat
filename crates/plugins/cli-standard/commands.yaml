@@ -43,6 +43,17 @@ commands:
         help: Session config value
   - name: route
     about: Trace route to server
+  - name: lls
+    about: List files in local current directory
+  - name: lcd
+    about: Change local directory
+    args:
+      - name: dir
+        required: false
+        value_name: DIR
+        help: Directory to change into (defaults to current)
+  - name: lpwd
+    about: Print local working directory
   - name: notifications
     about: Poll pending notifications (message/call/mute/kick/ban)
   - name: proxy
@@ -106,6 +117,11 @@ commands:
         help: Max online user limit
         action: set
         required: false
+      - name: no_mod
+        short: n
+        long: no-mod
+        help: Create freq without mod (creator can quit)
+        action: set_true
   - name: background
     aliases:
       - bg

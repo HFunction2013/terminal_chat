@@ -36,6 +36,7 @@ struct FreqRoom {
     creator: String,                     // user@ip
     members: HashMap<String, Member>,    // user@ip -> member
     banned: HashSet<String>,             // 被 ban 的 user（user@ip）
+    no_mod: bool,                        // -n/--no-mod：无版主，创建者也可退出
     #[allow(dead_code)] // 元数据保留
     created_at: u64,
 }
@@ -136,6 +137,20 @@ fn user_part(full: &str) -> String {
     full.split('@').next().unwrap_or(full).to_string()
 }
 
+/// 展示用用户名：freq 内该用户名唯一时省略 @IP，否则显示完整 user@ip。
+fn display_user(state: &ServerState, freq: &str, user: &str) -> String {
+    let name = user_part(user);
+    let room = state.freqs.get(freq);
+    let same_name = room
+        .map(|r| r.members.values().filter(|m| user_part(&m.user) == name).count())
+        .unwrap_or(0);
+    if same_name <= 1 {
+        name
+    } else {
+        user.to_string()
+    }
+}
+
 // ---------------------------------------------------------------------------
 // RPC handler 基础设施
 // ---------------------------------------------------------------------------
@@ -219,15 +234,15 @@ fn handle_send_message(sender: String, req: protos::messaging::message::SendMess
     }
     let targets: Vec<String> = req.users.iter().map(|u| u.to_string()).collect();
     if targets.is_empty() {
+        let who = display_user(&state, &freq, &sender);
         println!(
-            "[srv-standard] [{freq}] {}: {}",
-            user_part(&sender),
+            "[srv-standard] [{freq}] {who}: {}",
             req.message
         );
         state.last_speaker.insert(freq.clone(), sender.clone());
         SendMessageResponse {
             result: R::SendMessageSuccess as i32,
-            message: format!("[{}] {}: {}", freq, user_part(&sender), req.message),
+            message: format!("[{freq}] {who}: {}", req.message),
         }
     } else {
         // 定向发送：校验每个目标是否在频点内（不在则失败）。
@@ -240,16 +255,16 @@ fn handle_send_message(sender: String, req: protos::messaging::message::SendMess
                 };
             }
         }
+        let who = display_user(&state, &freq, &sender);
         println!(
-            "[srv-standard] [{freq}] {} -> {}: {}",
-            user_part(&sender),
+            "[srv-standard] [{freq}] {who} -> {}: {}",
             targets.join(","),
             req.message
         );
         // 通知每个定向目标（在线的用户稍后由 cli 轮询拉取）。
         for t in &targets {
             if t.as_str() != sender {
-                notify(t, format!("[msg:{freq}] {}: {}", user_part(&sender), req.message));
+                notify(t, format!("[msg:{freq}] {who}: {}", req.message));
             }
         }
         state.last_speaker.insert(freq, sender);
@@ -281,15 +296,15 @@ fn handle_reply_message(sender: String, req: protos::messaging::message::ReplyMe
             }
         }
     };
+    let who = display_user(&state, &freq, &sender);
+    let target_disp = display_user(&state, &freq, &target);
     println!(
-        "[srv-standard] [{freq}] {} -> {}: {}",
-        user_part(&sender),
-        user_part(&target),
+        "[srv-standard] [{freq}] {who} -> {target_disp}: {}",
         req.message
     );
     ReplyMessageResponse {
         result: R::SendMessageSuccess as i32,
-        message: format!("-> {}: {}", user_part(&target), req.message),
+        message: format!("-> {target_disp}: {}", req.message),
     }
 }
 
@@ -320,19 +335,18 @@ fn handle_call_user(sender: String, req: protos::call::CallRequest) -> protos::c
         };
     }
     let freq = profile.freq.clone();
+    let who = display_user(&state, &freq, &sender);
+    let target_disp = display_user(&state, &freq, &target);
     println!(
-        "[srv-standard] CALL {} -> {} ({}) @{}: {}",
-        user_part(&sender),
-        user_part(&target),
-        freq,
+        "[srv-standard] CALL {who} -> {target_disp} ({freq}) @{}: {}",
         req.freq,
         req.message
     );
     // 呼叫即通知目标用户（打印到服务端日志，等价于 @user 提醒）。
     let msg = if req.message.is_empty() {
-        format!("[call] {} is calling you in {} (ring ring)", user_part(&sender), freq)
+        format!("[call] {who} is calling you in {freq} (ring ring)")
     } else {
-        format!("[call] {} @{}: {}", user_part(&sender), freq, req.message)
+        format!("[call] {who} @{freq}: {}", req.message)
     };
     println!("[srv-standard] @{target} -> {msg}");
     notify(&target, msg.clone());
@@ -471,6 +485,7 @@ fn handle_create_freq(sender: String, req: protos::frequency::basic::CreateFreqR
             creator: sender.clone(),
             members: HashMap::new(),
             banned: HashSet::new(),
+            no_mod: req.no_mod,
             #[allow(dead_code)]
             created_at: now,
         },
@@ -582,8 +597,9 @@ fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empty) -> proto
             }
         }
     };
-    // 创建者不能直接离开（用 disband）。
-    if state.freqs.get(&freq).map(|f| f.creator == sender).unwrap_or(false) {
+    // 创建者不能直接离开（除非 -n/--no-mod 无版主频点）。
+    let no_mod = state.freqs.get(&freq).map(|f| f.no_mod).unwrap_or(false);
+    if state.freqs.get(&freq).map(|f| f.creator == sender).unwrap_or(false) && !no_mod {
         return LeaveFreqResponse {
             result: R::LeaveFailed as i32,
             message: "you are the creator; use `disband` to remove the freq".into(),
@@ -593,6 +609,16 @@ fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empty) -> proto
         room.members.remove(&sender);
     }
     state.users.get_mut(&sender).unwrap().freq = String::new();
+    // 无版主频点的创建者离开后，若不再有人则自动解散。
+    if no_mod && state.freqs.get(&freq).map(|f| f.members.is_empty()).unwrap_or(false) {
+        state.freqs.remove(&freq);
+        VFS.lock().unwrap().remove(&freq);
+        println!("[srv-standard] freq `{freq}` auto-disbanded (no_mod creator left)");
+        return LeaveFreqResponse {
+            result: R::LeaveSuccess as i32,
+            message: format!("left freq `{freq}` (auto-disbanded)"),
+        };
+    }
     println!("[srv-standard] {} left freq `{}`", user_part(&sender), freq);
     LeaveFreqResponse {
         result: R::LeaveSuccess as i32,
@@ -667,6 +693,8 @@ fn handle_disband_freq(sender: String, req: protos::frequency::mod_ops::DisbandR
     }
     state.freqs.remove(&freq);
     state.users.get_mut(&sender).unwrap().freq = String::new();
+    // 频点销毁时同时销毁其共享 VFS（freq 内共享，无私有文件系统）。
+    VFS.lock().unwrap().remove(&freq);
     println!("[srv-standard] freq `{freq}` disbanded by {}", user_part(&sender));
     DisbandResponse {
         result: R::DisbandSuccess as i32,
@@ -839,7 +867,7 @@ fn handle_kick(sender: String, req: protos::frequency::mod_ops::KickRequest) -> 
     }
     state.users.get_mut(&req.user).map(|u| u.freq = String::new());
     println!("[srv-standard] {freq}: {} kicked {}", user_part(&sender), user_part(&req.user));
-    notify(&req.user, format!("[kick:{freq}] you were kicked by {}", user_part(&sender)));
+    notify(&req.user, format!("[kick:{freq}] you were kicked by {}", display_user(&state, &freq, &sender)));
     KickResponse { result: R::KickSuccess as i32, message: format!("kicked {} from {freq}", req.user) }
 }
 
@@ -871,7 +899,7 @@ fn handle_ban(sender: String, req: protos::frequency::mod_ops::BanRequest) -> pr
     }
     state.users.get_mut(&req.user).map(|u| u.freq = String::new());
     println!("[srv-standard] {freq}: {} banned {}", user_part(&sender), user_part(&req.user));
-    notify(&req.user, format!("[ban:{freq}] you were banned by {}", user_part(&sender)));
+    notify(&req.user, format!("[ban:{freq}] you were banned by {}", display_user(&state, &freq, &sender)));
     BanResponse { result: R::BanSuccess as i32, message: format!("banned {} from {freq}", req.user) }
 }
 
@@ -926,7 +954,7 @@ fn handle_mute(sender: String, req: protos::frequency::mod_ops::MuteRequest) -> 
         _ => u64::MAX, // -1 / 缺省：永久
     };
     println!("[srv-standard] {freq}: {} muted {}", user_part(&sender), user_part(&req.user));
-    notify(&req.user, format!("[mute:{freq}] you were muted by {}", user_part(&sender)));
+    notify(&req.user, format!("[mute:{freq}] you were muted by {}", display_user(&state, &freq, &sender)));
     MuteResponse { result: R::MuteSuccess as i32, message: format!("muted {} in {freq}", req.user) }
 }
 
@@ -1082,9 +1110,14 @@ fn vfs_ensure_dirs(vfs: &mut VfsUser, path: &str, now: u64) {
 
 fn handle_remote_pwd(sender: String, _req: protos::remote::fs::PwdRequest) -> protos::remote::fs::PwdResponse {
     use protos::remote::fs::PwdResponse;
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return PwdResponse { directory: String::new(), success: false, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     PwdResponse {
         directory: vfs.cwd.clone(),
@@ -1095,9 +1128,14 @@ fn handle_remote_pwd(sender: String, _req: protos::remote::fs::PwdRequest) -> pr
 
 fn handle_remote_ls(sender: String, _req: protos::remote::fs::LsRequest) -> protos::remote::fs::LsResponse {
     use protos::remote::fs::{FileEntry, LsResponse};
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return LsResponse { directory: String::new(), entries: vec![], success: false, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let mut entries = Vec::new();
     let prefix = if vfs.cwd == "/" { String::new() } else { vfs.cwd.clone() };
@@ -1131,9 +1169,14 @@ fn handle_remote_ls(sender: String, _req: protos::remote::fs::LsRequest) -> prot
 
 fn handle_remote_cd(sender: String, req: protos::remote::fs::CdRequest) -> protos::remote::fs::CdResponse {
     use protos::remote::fs::CdResponse;
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return CdResponse { directory: String::new(), success: false, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.dir);
     // 根目录 "/" 总是存在（无对应 VFS 条目也视为合法目录）。
@@ -1155,9 +1198,14 @@ fn handle_remote_cd(sender: String, req: protos::remote::fs::CdRequest) -> proto
 
 fn handle_remote_mkdir(sender: String, req: protos::remote::fs::MkdirRequest) -> protos::remote::fs::MkdirResponse {
     use protos::remote::fs::MkdirResponse;
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return MkdirResponse { success: false, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let mut vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.directory);
     if vfs.files.contains_key(&target) {
@@ -1170,9 +1218,14 @@ fn handle_remote_mkdir(sender: String, req: protos::remote::fs::MkdirRequest) ->
 
 fn handle_file_info(sender: String, req: protos::remote::fs::RemoteFileInfoRequest) -> protos::remote::fs::RemoteFileInfoResponse {
     use protos::remote::fs::{RemoteFileInfo, RemoteFileInfoResponse};
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return RemoteFileInfoResponse { found: false, info: None, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.file);
     match vfs.files.get(&target) {
@@ -1196,9 +1249,14 @@ fn handle_file_info(sender: String, req: protos::remote::fs::RemoteFileInfoReque
 
 fn handle_remote_checksum(sender: String, req: protos::remote::fs::RemoteChecksumRequest) -> protos::remote::fs::RemoteChecksumResponse {
     use protos::remote::fs::RemoteChecksumResponse;
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return RemoteChecksumResponse { checksum: String::new(), found: false, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.file);
     match vfs.files.get(&target) {
@@ -1217,9 +1275,14 @@ fn handle_remote_checksum(sender: String, req: protos::remote::fs::RemoteChecksu
 
 fn handle_upload(sender: String, req: protos::remote::fs::UploadRequest) -> protos::remote::fs::UploadResponse {
     use protos::remote::fs::UploadResponse;
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return UploadResponse { remote_path: String::new(), received_bytes: 0, success: false, message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let mut vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.remote_path);
     let now = now_ts();
@@ -1245,9 +1308,14 @@ fn handle_upload(sender: String, req: protos::remote::fs::UploadRequest) -> prot
 
 fn handle_download(sender: String, req: protos::remote::fs::DownloadRequest) -> protos::remote::fs::DownloadResponse {
     use protos::remote::fs::DownloadResponse;
+    // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: "not in any freq; join or create one first".into() },
+    };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
-        .entry(sender.clone())
+        .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.remote_path);
     match vfs.files.get(&target) {
