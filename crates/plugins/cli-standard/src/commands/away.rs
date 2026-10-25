@@ -9,11 +9,19 @@ use clap::ArgMatches;
 pub struct AwayCommand;
 
 impl AwayCommand {
-    /// `status` - Your status, only away and busy avaliable. Auto replies private messages. Like:   [bot-reply] I am busy now. Contact me later. , value_name: STATUS, default: away
     #[allow(unused_variables)]
     pub fn execute(&self, status: Option<String>) -> Result<()> {
-        // TODO: Set your status to be busy or away
-        println!("Command `away` is not yet implemented.");
+        let status = status.unwrap_or_else(|| "away".to_string());
+        let p = match status.as_str() {
+            "away" => protos::connection::session::PresenceStatus::PresenceAway as i32,
+            "busy" => protos::connection::session::PresenceStatus::PresenceBusy as i32,
+            _ => return Err(anyhow!("invalid status `{status}`; only away and busy available")),
+        };
+                let resp: protos::connection::session::SetPresenceResponse =
+            crate::connection::rpc("set_presence", &protos::connection::session::SetPresenceRequest { status: p })?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&resp.message.clone().into());
         Ok(())
     }
 }

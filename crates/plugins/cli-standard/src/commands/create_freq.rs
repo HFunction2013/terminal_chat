@@ -9,13 +9,22 @@ use clap::ArgMatches;
 pub struct CreateFreqCommand;
 
 impl CreateFreqCommand {
-    /// `freq` - New frequency unique id, required, value_name: FREQ_ID
-    /// `p` - Create frequency with password
-    /// `max_people` - Max online user limit, value_name: NUM
     #[allow(unused_variables)]
     pub fn execute(&self, freq: String, p: bool, max_people: Option<String>) -> Result<()> {
-        // TODO: Create a new frequency channel
-        println!("Command `create_freq` is not yet implemented.");
+        let password = if p {
+            Some(rpassword::prompt_password("Freq password: ")?)
+        } else {
+            None
+        };
+        let max_people = match max_people {
+            Some(s) => Some(s.parse::<i32>().map_err(|_| anyhow!("invalid max-people `{s}`"))?),
+            None => None,
+        };
+                let resp: protos::frequency::basic::CreateFreqResponse =
+            crate::connection::rpc("create_freq", &protos::frequency::basic::CreateFreqRequest { freq: freq.clone(), password, max_people, join_after_create: true })?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&resp.message.clone().into());
         Ok(())
     }
 }

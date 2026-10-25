@@ -9,11 +9,25 @@ use clap::ArgMatches;
 pub struct FreqInfoCommand;
 
 impl FreqInfoCommand {
-    /// `frequency` - freq ID, required, value_name: FREQ
     #[allow(unused_variables)]
     pub fn execute(&self, frequency: String) -> Result<()> {
-        // TODO: Get frequency information
-        println!("Command `freq_info` is not yet implemented.");
+        let resp: protos::frequency::basic::FreqInfoResponse =
+            crate::connection::rpc("freq_info", &protos::frequency::basic::FreqInfoRequest { freq: frequency.clone() })?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        match resp.info {
+            Some(info) => {
+                print_content(&format!("Freq:    {}", info.freq).into());
+                print_content(&format!("Creator: {} ({})", info.creator_nickname, info.creator_ip).into());
+                print_content(&format!("Members: {}/{}", info.current_members,
+                    if info.max_members == 0 { "inf".to_string() } else { info.max_members.to_string() }).into());
+                print_content(&format!("Password: {}", if info.has_password { "yes" } else { "no" }).into());
+                for m in info.members {
+                    print_content(&format!("  - {} ({})", m.nickname, m.ip_address).into());
+                }
+            }
+            None => print_content(&format!("freq `{frequency}` not found").into()),
+        }
         Ok(())
     }
 }

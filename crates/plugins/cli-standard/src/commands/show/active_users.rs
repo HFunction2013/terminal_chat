@@ -11,8 +11,23 @@ pub struct ActiveUsersCommand;
 impl ActiveUsersCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Show active users in current frequency
-        println!("Command `active_users` is not yet implemented.");
+        let resp: protos::frequency::status::ActiveUsersResponse =
+            crate::connection::rpc("active_users", &protos::frequency::status::ActiveUsersRequest { freq: String::new() })?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        if !resp.success {
+            print_content(&resp.message.into());
+            return Ok(());
+        }
+        for u in resp.users {
+            let flags: String = [
+                if u.is_creator { "@" } else { "" },
+                if u.is_moderator { "+" } else { "" },
+                if u.away { "away" } else { "" },
+            ].iter().filter(|s| !s.is_empty()).cloned().collect::<String>();
+            print_content(&format!("  {:<28} {:<16} {}", u.user, u.nickname, flags).into());
+        }
+        print_content(&format!("{}", resp.message).into());
         Ok(())
     }
 }

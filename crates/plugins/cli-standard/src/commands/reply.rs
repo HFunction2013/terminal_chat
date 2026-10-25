@@ -9,11 +9,17 @@ use clap::ArgMatches;
 pub struct ReplyCommand;
 
 impl ReplyCommand {
-    /// `message` - Your message, if not given, fallback to editor mode.
     #[allow(unused_variables)]
     pub fn execute(&self, message: Option<String>) -> Result<()> {
-        // TODO: Reply to the user who has just spoken quickly
-        println!("Command `reply` is not yet implemented.");
+        let message = match message {
+            Some(m) if !m.trim().is_empty() => m,
+            _ => return Err(anyhow!("empty message; use `reply -m <message>`")),
+        };
+                let resp: protos::messaging::message::ReplyMessageResponse =
+            crate::connection::rpc("reply_message", &protos::messaging::message::ReplyMessageRequest { message })?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&resp.message.clone().into());
         Ok(())
     }
 }

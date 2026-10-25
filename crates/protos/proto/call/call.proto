@@ -4,21 +4,25 @@ package call;
 
 import "utils/empty.proto";
 
-// ---------- Call (call an user) ----------
+// ---------- Call (@user) ----------
+//
+// `call` 的语义等价于在消息中 @ 某用户：向目标用户发起一次定向呼叫
+// （提醒/振铃），并携带一段呼叫附言。目标用户在线时收到呼叫通知；
+// 离线时报错。与 msg 的区别：call 是点对点提醒，msg 是广播/定向消息。
 
 message CallRequest {
     string user = 1;      // 被呼叫用户（完整用户名 user@ip）
-    string freq = 2;      // 当前频点（信令上下文）
+    string freq = 2;      // 当前频点（上下文）
+    string message = 3;   // 呼叫附言，如 "@alice 来一下，有事问你"
 }
 
 enum CallResult {
     CALL_RESULT_UNSPECIFIED = 0;
-    CALL_RINGING = 1;            // 已向对方发起振铃
-    CALL_ACCEPTED = 2;           // 对方已接听
-    CALL_REJECTED = 3;           // 对方拒绝
-    CALL_USER_OFFLINE = 4;
-    CALL_USER_BUSY = 5;
-    CALL_ERROR = 6;
+    CALL_RINGING = 1;            // 已向对方发起呼叫（对方在线）
+    CALL_USER_OFFLINE = 2;       // 对方不在线
+    CALL_USER_NOT_FOUND = 3;     // 用户不存在
+    CALL_USER_BUSY = 4;          // 对方忙碌（away/busy 状态）
+    CALL_ERROR = 5;
 }
 
 message CallResponse {
@@ -26,30 +30,10 @@ message CallResponse {
     string message = 2;
 }
 
-// ---------- Call hangup / accept (信令，后续通话建立扩展) ----------
-
-message HangupRequest {
-    string call_id = 1;
-    string user = 2;
-}
-
-message HangupResponse {
-    bool success = 1;
-    string message = 2;
-}
-
-message AcceptCallRequest {
-    string call_id = 1;
-    string user = 2;
-}
-
-message AcceptCallResponse {
-    bool success = 1;
-    string message = 2;
-}
-
-service CallService {
-    rpc Call(CallRequest) returns (CallResponse);
-    rpc Accept(AcceptCallRequest) returns (AcceptCallResponse);
-    rpc Hangup(HangupRequest) returns (HangupResponse);
+// 呼叫通知（服务端推送给被呼叫用户的载荷，经 Packet 信封下发）。
+message CallNotice {
+    string from = 1;      // 呼叫发起者
+    string freq = 2;      // 呼叫所在频点
+    string message = 3;   // 呼叫附言
+    int64 at = 4;         // 呼叫时间（Unix 秒）
 }

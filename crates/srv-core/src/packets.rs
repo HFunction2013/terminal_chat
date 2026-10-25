@@ -36,12 +36,14 @@ pub fn on_recieve_packet(packet: &Packet) -> PacketResult {
                         packet.channel
                     )
                     .into(),
+                    payload: "".into(),
                 }
             } else {
                 PacketResult {
                     handled: 0,
                     code: 1,
                     message: format!("unknown channel '{}'", packet.channel).into(),
+                    payload: "".into(),
                 }
             }
         }

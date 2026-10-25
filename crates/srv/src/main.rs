@@ -161,7 +161,24 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
                         "[srv] packet from {peer}: channel={} handled={} code={} msg={}",
                         sp.channel, res.handled, res.code, res.message
                     );
-                    // TODO(transport): 按需把结果/推送回包给客户端（send_packet 通路）。
+                    // 若 handler 携带了响应负载（base64），构造响应 Packet 写回客户端。
+                    if !res.payload.is_empty() {
+                        let resp_packet = protos::models::packet::Packet {
+                            channel: sp.channel.clone().into(),
+                            sender: "srv".to_string(),
+                            payload: res.payload.clone().into(),
+                            timestamp: now_ts(),
+                            seq: sp.seq,
+                        };
+                        if let Err(e) = write_frame(
+                            &mut stream,
+                            frame_type::PACKET,
+                            &resp_packet.encode_to_vec(),
+                        ) {
+                            println!("[srv] failed to write response to {peer}: {e}");
+                            break;
+                        }
+                    }
                 }
             }
             frame_type::DISCONNECT_REQUEST => {

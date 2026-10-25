@@ -402,6 +402,7 @@ name = "cli-standard"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "clap",
  "cli-core-macros",
  "cli-core-types",
@@ -2387,6 +2388,7 @@ name = "srv"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "libloading",
  "prost",
  "protos",
@@ -2420,8 +2422,12 @@ dependencies = [
 name = "srv-standard"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "libloading",
+ "prost",
+ "protos",
  "safer-ffi",
+ "sha2",
  "srv-core-types",
 ]
 

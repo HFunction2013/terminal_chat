@@ -11,8 +11,19 @@ pub struct ActiveFreqsCommand;
 impl ActiveFreqsCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Show all active frequencies
-        println!("Command `active_freqs` is not yet implemented.");
+        let resp: protos::frequency::status::ActiveFreqsResponse =
+            crate::connection::rpc("active_freqs", &protos::frequency::status::ActiveFreqsRequest {})?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        if resp.freqs.is_empty() {
+            print_content(&"no active freqs.".into());
+        }
+        for f in resp.freqs {
+            print_content(&format!("{:<12} {:>4}/{}  creator={}  {}",
+                f.freq, f.current_members, if f.max_members == 0 { "inf".to_string() } else { f.max_members.to_string() },
+                f.creator, if f.has_password { "[pwd]" } else { "" }).into());
+        }
+        print_content(&format!("{}", resp.message).into());
         Ok(())
     }
 }

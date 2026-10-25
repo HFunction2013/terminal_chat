@@ -154,3 +154,66 @@ pub fn disconnect_now() -> Result<()> {
         }
     }
 }
+
+/// 递增序号，用于请求-响应关联。
+static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+/// 当前显示用户名（session 设置 `user`，缺省 anonymous）。
+pub fn current_user() -> String {
+    let lib = LIB.get().expect("`cli-core` not initialized");
+    cli_core_macros::load_core_symbols!(lib, get_session_option);
+    match get_session_option(&"user".into()) {
+        TaggedOption::Some(v) => v.to_string(),
+        TaggedOption::None => "anonymous".to_string(),
+    }
+}
+
+/// 通过 Packet 信封向服务器发送一个 RPC 请求并等待响应。
+///
+/// - `channel`：路由键（如 `send_message`、`create_freq`）；
+/// - `payload`：请求 proto 的编码字节；
+/// - 返回：响应 proto 的编码字节。
+pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
+    let mut guard = CONNECTION.lock().unwrap();
+    let stream = guard.as_mut().ok_or_else(|| anyhow!("Not connected. Use `connect` first."))?;
+
+    let req = protos::models::packet::Packet {
+        channel: channel.to_string(),
+        sender: current_user(),
+        payload: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, payload),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        seq: SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+    };
+    write_frame(stream, frame_type::PACKET, &req.encode_to_vec())?;
+
+    let (ft, buf) = read_frame(stream)?;
+    if ft != frame_type::PACKET {
+        return Err(anyhow!("unexpected frame type {ft} waiting for packet response"));
+    }
+    let resp = protos::models::packet::Packet::decode(&buf[..])
+        .context("Failed to decode response Packet")?;
+    if !resp.payload.is_empty() {
+        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &resp.payload)
+            .context("Failed to base64-decode response payload")?;
+        Ok(bytes)
+    } else {
+        // 无响应负载：返回空（调用方按 channel 决定如何处理）。
+        Ok(Vec::new())
+    }
+}
+
+/// 发送 RPC 请求并解码响应（类型安全的便捷封装）。
+pub fn rpc<T: prost::Message + Default, R: prost::Message + Default>(
+    channel: &str,
+    req: &T,
+) -> Result<R> {
+    let bytes = send_request(channel, &req.encode_to_vec())?;
+    if bytes.is_empty() {
+        return Err(anyhow!("server returned an empty response for `{channel}`"));
+    }
+    R::decode(&bytes[..]).context(format!("Failed to decode response for `{channel}`"))
+}
+

@@ -9,12 +9,17 @@ use clap::ArgMatches;
 pub struct MsgCommand;
 
 impl MsgCommand {
-    /// `message` - Your message, fallback to editor
-    /// `users` - The users, default everybody., value_name: USERS
     #[allow(unused_variables)]
     pub fn execute(&self, message: Option<String>, users: Vec<String>) -> Result<()> {
-        // TODO: send message
-        println!("Command `msg` is not yet implemented.");
+        let message = match message {
+            Some(m) if !m.trim().is_empty() => m,
+            _ => return Err(anyhow!("empty message; use `msg -m <message>` or `msg <message>`")),
+        };
+                let resp: protos::messaging::message::SendMessageResponse =
+            crate::connection::rpc("send_message", &protos::messaging::message::SendMessageRequest { message, users, freq: String::new() })?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&resp.message.clone().into());
         Ok(())
     }
 }

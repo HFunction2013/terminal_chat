@@ -28,6 +28,7 @@ fn init_library(path: &str) -> &Library {
     LIB.get_or_init(|| unsafe { Library::new(path).expect("Failed to load library") })
 }
 
+pub mod local;
 mod commands;
 mod connection;
 mod command {

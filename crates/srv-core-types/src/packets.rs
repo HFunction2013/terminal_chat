@@ -46,22 +46,36 @@ pub struct PacketResult {
     pub code: i32,
     /// 处理说明 / 错误信息。
     pub message: safer_ffi::String,
+    /// 响应负载（base64 编码的 proto 字节；空 = 无需回包）。
+    pub payload: safer_ffi::String,
 }
 
 impl Default for PacketResult {
     fn default() -> Self {
-        Self { handled: 0, code: 0, message: "".into() }
+        Self { handled: 0, code: 0, message: "".into(), payload: "".into() }
     }
 }
 
 impl PacketResult {
     /// 构造一个“已处理且成功”的结果。
     pub fn handled_ok() -> Self {
-        Self { handled: 1, code: 0, message: "ok".into() }
+        Self { handled: 1, code: 0, message: "ok".into(), payload: "".into() }
     }
 
     /// 构造一个“未处理”的结果。
     pub fn unhandled(msg: impl Into<String>) -> Self {
-        Self { handled: 0, code: 1, message: msg.into().into() }
+        Self { handled: 0, code: 1, message: msg.into().into(), payload: "".into() }
+    }
+
+    /// 构造一个带响应负载的“已处理且成功”结果。
+    ///
+    /// `payload` 为待回传给客户端的响应 proto 字节，调用方先 base64 编码。
+    pub fn handled_with(msg: impl Into<String>, payload_b64: impl Into<String>) -> Self {
+        Self {
+            handled: 1,
+            code: 0,
+            message: msg.into().into(),
+            payload: payload_b64.into().into(),
+        }
     }
 }

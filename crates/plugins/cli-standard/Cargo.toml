@@ -18,6 +18,7 @@ rpassword = "7.5.4"
 which = "8.0.5"
 shell-words = "1.1.1"
 prost = { workspace = true }
+base64 = { workspace = true }
 protos = { workspace = true }
 safer-ffi = { workspace = true }
 cli-core-types = { workspace = true }

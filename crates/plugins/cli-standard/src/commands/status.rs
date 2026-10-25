@@ -11,8 +11,13 @@ pub struct StatusCommand;
 impl StatusCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Test network
-        println!("Command `status` is not yet implemented.");
+        let nonce = format!("{}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
+        let resp: protos::connection::session::StatusResponse =
+            crate::connection::rpc("status", &protos::connection::session::StatusRequest { nonce })?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&format!("rtt={}ms {} (server v{})", resp.rtt_ms, resp.message, resp.server_version).into());
         Ok(())
     }
 }

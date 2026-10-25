@@ -11,8 +11,18 @@ pub struct ModeratorsCommand;
 impl ModeratorsCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Show moderators in current frequency
-        println!("Command `moderators` is not yet implemented.");
+        let resp: protos::frequency::status::ModeratorsResponse =
+            crate::connection::rpc("moderators", &protos::frequency::status::ModeratorsRequest { freq: String::new() })?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        if !resp.success {
+            print_content(&resp.message.into());
+            return Ok(());
+        }
+        for u in resp.moderators {
+            print_content(&format!("  {} {}", if u.is_creator { "@" } else { "+" }, u.user).into());
+        }
+        print_content(&format!("{}", resp.message).into());
         Ok(())
     }
 }

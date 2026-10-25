@@ -9,11 +9,13 @@ use clap::ArgMatches;
 pub struct JoinFreqCommand;
 
 impl JoinFreqCommand {
-    /// `freq` - Target frequency id, required, value_name: FREQ_ID
     #[allow(unused_variables)]
     pub fn execute(&self, freq: String) -> Result<()> {
-        // TODO: Join a target frequency channel
-        println!("Command `join_freq` is not yet implemented.");
+        let resp: protos::frequency::basic::JoinFreqResponse =
+            crate::connection::rpc("join_freq", &protos::frequency::basic::JoinFreqRequest { freq: freq.clone(), password: None })?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&resp.message.clone().into());
         Ok(())
     }
 }

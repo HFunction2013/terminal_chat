@@ -11,8 +11,11 @@ pub struct RouteCommand;
 impl RouteCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        // TODO: Trace route to server
-        println!("Command `route` is not yet implemented.");
+        let resp: protos::connection::session::RouteResponse =
+            crate::connection::rpc("route", &protos::connection::session::RouteRequest {})?;
+                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        cli_core_macros::load_core_symbols!(lib, print_content);
+        print_content(&format!("{}: {}", resp.server, resp.message).into());
         Ok(())
     }
 }

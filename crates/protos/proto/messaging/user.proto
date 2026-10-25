@@ -26,6 +26,17 @@ message UserInfoResponse {
     string message = 3;
 }
 
+// ---------- Whoami ----------
+
+message WhoamiRequest {}
+
+message WhoamiResponse {
+    string user = 1;          // 显示用户名（user 部分）
+    string full_user = 2;     // 完整标识 user@ip
+    bool success = 3;
+    string message = 4;
+}
+
 // ---------- Ignore / Unignore ----------
 
 message IgnoreRequest {
@@ -48,6 +59,7 @@ message UnignoreResponse {
 
 service UserService {
     rpc GetUserInfo(UserInfoRequest) returns (UserInfoResponse);
+    rpc Whoami(WhoamiRequest) returns (WhoamiResponse);
     rpc Ignore(IgnoreRequest) returns (IgnoreResponse);
     rpc Unignore(UnignoreRequest) returns (UnignoreResponse);
 }
