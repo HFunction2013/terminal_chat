@@ -33,7 +33,7 @@ impl ScheduleMsgCommand {
 
 impl CommandExecutor for ScheduleMsgCommand {
     fn name(&self) -> &'static str {
-        "schedulemsg"
+        "schedule_msg"
     }
 
     #[allow(unused_variables)]

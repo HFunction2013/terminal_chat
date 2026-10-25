@@ -96,6 +96,7 @@ message UploadRequest {
     string local_path = 1;   // 客户端本地路径（用于日志/校验）
     string remote_path = 2;  // 远程目标路径（缺省用 local_path 基名）
     int64 total_size = 3;    // 总字节数
+    bytes content = 4;       // 文件内容（一次传完）
 }
 
 message UploadChunk {
@@ -122,6 +123,7 @@ message DownloadResponse {
     int64 total_size = 1;
     bool found = 2;
     string message = 3;
+    bytes content = 4;       // 文件内容（一次取回）
 }
 
 // 下载数据块（服务器 -> 客户端 流式 / 分块轮询）。

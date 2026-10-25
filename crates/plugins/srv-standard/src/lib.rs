@@ -1206,15 +1206,15 @@ fn handle_upload(sender: String, req: protos::remote::fs::UploadRequest) -> prot
     }
     vfs.files.insert(target.clone(), VfsEntry {
         is_dir: false,
-        size: req.total_size as u64,
-        content: Vec::new(), // 分块上传在后续扩展；此处建空文件占位
+        size: req.content.len() as u64,
+        content: req.content.clone(),
         modified_at: now,
     });
     UploadResponse {
         remote_path: target.clone(),
-        received_bytes: 0,
+        received_bytes: req.content.len() as i64,
         success: true,
-        message: format!("uploaded to {target}"),
+        message: format!("uploaded {} bytes to {target}", req.content.len()),
     }
 }
 
@@ -1229,10 +1229,11 @@ fn handle_download(sender: String, req: protos::remote::fs::DownloadRequest) -> 
         Some(e) if !e.is_dir => DownloadResponse {
             total_size: e.size as i64,
             found: true,
+            content: e.content.clone(),
             message: format!("{} bytes at {target}", e.size),
         },
-        Some(_) => DownloadResponse { total_size: 0, found: false, message: "cannot download a directory".into() },
-        None => DownloadResponse { total_size: 0, found: false, message: format!("`{target}` not found") },
+        Some(_) => DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: "cannot download a directory".into() },
+        None => DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: format!("`{target}` not found") },
     }
 }
 

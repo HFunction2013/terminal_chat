@@ -24,12 +24,26 @@ use srv_core_types::{
 };
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use which_dylib::{FindError, FindLibBuilder};
 
 static SRV_CORE: OnceLock<Library> = OnceLock::new();
+
+/// 会话用户名：peer("ip:port") -> username（握手时写入）。
+static SESSION_USERS: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// 从 peer 地址（"ip:port"）提取 ip 部分（兼容 IPv6-mapped IPv4 显示）。
+fn peer_ip(peer: &str) -> String {
+    let host = peer.rsplit_once(':').map(|(h, _)| h).unwrap_or(peer);
+    host.trim_start_matches('[')
+        .trim_end_matches(']')
+        .trim_start_matches("::ffff:")
+        .to_string()
+}
 
 fn get_srv_core() -> &'static Library {
     match FindLibBuilder::new().find_result("srv_core") {
@@ -102,10 +116,21 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
         Ok((frame_type, buf)) if frame_type == frame_type::CONNECT_REQUEST => {
             match protos::connect::ConnectRequest::decode(&buf[..]) {
                 Ok(req) => {
-                    println!("[srv] handshake from {peer}: vers={}", req.prog_vers);
+                    // 提取用户名（cli 侧强制 `setg USERNAME`；此处兜底 anonymous）。
+                    let username = req
+                        .sync_keys
+                        .get("username")
+                        .cloned()
+                        .filter(|u| !u.trim().is_empty())
+                        .unwrap_or_else(|| "anonymous".to_string());
+                    SESSION_USERS.lock().unwrap().insert(peer.clone(), username.clone());
+                    println!(
+                        "[srv] handshake from {peer}: user={username} vers={}",
+                        req.prog_vers
+                    );
                     let resp = protos::connect::ConnectResponse {
                         status: protos::connect::ConnectStatus::ConnectSuccess as i32,
-                        message: Some(format!("welcome, {}", peer)),
+                        message: Some(format!("welcome, {username}@{}", peer_ip(&peer))),
                     };
                     let _ = write_frame(&mut stream, frame_type::CONNECT_RESPONSE, &resp.encode_to_vec());
                     true
@@ -149,9 +174,17 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
         match frame_type {
             frame_type::PACKET => {
                 if let Ok(packet) = protos::models::packet::Packet::decode(&buf[..]) {
+                    // 用户标识统一为握手注册的 `USERNAME@ip`（以服务端记录为准）。
+                    let username = SESSION_USERS
+                        .lock()
+                        .unwrap()
+                        .get(&peer)
+                        .cloned()
+                        .unwrap_or_else(|| "anonymous".to_string());
+                    let full_user = format!("{username}@{}", peer_ip(&peer));
                     let sp = srv_core_types::packets::Packet {
                         channel: packet.channel.clone().into(),
-                        sender: packet.sender.clone().into(),
+                        sender: full_user.clone().into(),
                         payload: packet.payload.into(),
                         timestamp: packet.timestamp,
                         seq: packet.seq,
@@ -197,6 +230,7 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
     }
 
     // 清理会话。
+    SESSION_USERS.lock().unwrap().remove(&peer);
     let removed = (symbols.remove_session)(&peer.clone().into());
     println!("[srv] session removed: {peer} removed={removed}");
 }

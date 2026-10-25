@@ -86,13 +86,19 @@ pub fn connect_now() -> Result<()> {
     }
 
     let (server, port) = server_config()?;
+
+    // 必须先用 `setg USERNAME` 设置用户名，否则不允许加入。
+    let username = require_username()?;
+
     let addr = format!("{server}:{port}");
     let mut stream =
         TcpStream::connect(&addr).with_context(|| format!("Failed to connect to {addr}"))?;
 
-    // 握手：ConnectRequest → ConnectResponse。
+    // 握手：ConnectRequest → ConnectResponse，携带用户名。
+    let mut sync_keys = HashMap::new();
+    sync_keys.insert("username".to_string(), username);
     let req = protos::connect::ConnectRequest {
-        sync_keys: HashMap::new(),
+        sync_keys,
         system_info: Some(protos::models::system::SystemInfo {
             name: std::env::consts::OS.to_string(),
             arch: std::env::consts::ARCH.to_string(),
@@ -158,13 +164,22 @@ pub fn disconnect_now() -> Result<()> {
 /// 递增序号，用于请求-响应关联。
 static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
-/// 当前显示用户名（session 设置 `user`，缺省 anonymous）。
-pub fn current_user() -> String {
+/// 读取全局 `USERNAME`；未设置时返回错误（不允许加入）。
+fn require_username() -> Result<String> {
     let lib = LIB.get().expect("`cli-core` not initialized");
-    cli_core_macros::load_core_symbols!(lib, get_session_option);
-    match get_session_option(&"user".into()) {
-        TaggedOption::Some(v) => v.to_string(),
-        TaggedOption::None => "anonymous".to_string(),
+    cli_core_macros::load_core_symbols!(lib, get_global_option);
+    match get_global_option(&"USERNAME".into()) {
+        TaggedOption::Some(v) => {
+            let name = v.to_string();
+            if name.trim().is_empty() {
+                Err(anyhow!("USERNAME is empty; use `setg USERNAME <name>` first"))
+            } else {
+                Ok(name)
+            }
+        }
+        TaggedOption::None => {
+            Err(anyhow!("USERNAME not set; use `setg USERNAME <name>` first"))
+        }
     }
 }
 
@@ -176,10 +191,12 @@ pub fn current_user() -> String {
 pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
     let mut guard = CONNECTION.lock().unwrap();
     let stream = guard.as_mut().ok_or_else(|| anyhow!("Not connected. Use `connect` first."))?;
+    // 未设置 USERNAME 不允许参与任何云端操作（加入约束）。
+    let user = require_username()?;
 
     let req = protos::models::packet::Packet {
         channel: channel.to_string(),
-        sender: current_user(),
+        sender: user,
         payload: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, payload),
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

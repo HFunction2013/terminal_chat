@@ -11,22 +11,20 @@ pub struct UploadCommand;
 impl UploadCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, local_path: String, remote_path: Option<String>) -> Result<()> {
-        let meta = std::fs::metadata(&local_path)
-            .map_err(|e| anyhow!("cannot stat `{local_path}`: {e}"))?;
-        if !meta.is_file() {
-            return Err(anyhow!("`{local_path}` is not a file"));
-        }
+        let content = std::fs::read(&local_path)
+            .map_err(|e| anyhow!("cannot read `{local_path}`: {e}"))?;
         let remote = remote_path.unwrap_or_else(|| {
             local_path.rsplit(['/', '\\']).next().unwrap_or("file").to_string()
         });
         let req = protos::remote::fs::UploadRequest {
             local_path: local_path.clone(),
             remote_path: remote.clone(),
-            total_size: meta.len() as i64,
+            total_size: content.len() as i64,
+            content,
         };
-                let resp: protos::remote::fs::UploadResponse =
+        let resp: protos::remote::fs::UploadResponse =
             crate::connection::rpc("upload", &req)?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
         Ok(())

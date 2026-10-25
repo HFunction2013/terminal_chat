@@ -11,12 +11,27 @@ pub struct DownloadCommand;
 impl DownloadCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, remote_path: String, local_path: Option<String>) -> Result<()> {
-        let resp: protos::remote::fs::DownloadResponse =
-            crate::connection::rpc("download", &protos::remote::fs::DownloadRequest { remote_path: remote_path.clone(), local_path: local_path.unwrap_or_default() })?;
+        let resp: protos::remote::fs::DownloadResponse = crate::connection::rpc(
+            "download",
+            &protos::remote::fs::DownloadRequest {
+                remote_path: remote_path.clone(),
+                local_path: local_path.clone().unwrap_or_default(),
+            },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if resp.found {
-            print_content(&format!("{} bytes at {} (transfer stub; run with transport to fetch)", resp.total_size, remote_path).into());
+            let dest = local_path.unwrap_or_else(|| {
+                remote_path
+                    .rsplit('/')
+                    .next()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("download.bin")
+                    .to_string()
+            });
+            std::fs::write(&dest, &resp.content)
+                .map_err(|e| anyhow!("cannot write `{dest}`: {e}"))?;
+            print_content(&format!("{} bytes downloaded to {dest}", resp.content.len()).into());
         } else {
             print_content(&format!("`{remote_path}` not found").into());
         }
