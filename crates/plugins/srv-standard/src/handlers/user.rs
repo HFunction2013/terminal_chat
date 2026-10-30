@@ -4,12 +4,23 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 #[allow(unused_imports)]
-use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
+use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, resolve_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
 
 pub(crate) fn handle_user_info(sender: String, req: protos::messaging::user::UserInfoRequest) -> protos::messaging::user::UserInfoResponse {
     use protos::messaging::user::{UserInfo, UserInfoResponse};
     let state = STATE.lock().unwrap();
-    match state.users.get(&req.user) {
+    let scope = user_freq(&state, &sender).unwrap_or_default();
+    let target = match resolve_user(&state, &scope, &req.user) {
+        Ok(t) => t,
+        Err(e) => {
+            return UserInfoResponse {
+                found: false,
+                info: None,
+                message: e,
+            }
+        }
+    };
+    match state.users.get(&target) {
         Some(u) => {
             let info = UserInfo {
                 user: u.user.clone(),
@@ -53,28 +64,38 @@ pub(crate) fn handle_whoami(sender: String, _req: protos::messaging::user::Whoam
 pub(crate) fn handle_ignore(sender: String, req: protos::messaging::user::IgnoreRequest) -> protos::messaging::user::IgnoreResponse {
     use protos::messaging::user::IgnoreResponse;
     let mut state = STATE.lock().unwrap();
-    if !state.users.contains_key(&req.user) {
-        return IgnoreResponse { success: false, message: format!("user `{}` not found", req.user) };
+    let scope = user_freq(&state, &sender).unwrap_or_default();
+    let target = match resolve_user(&state, &scope, &req.user) {
+        Ok(t) => t,
+        Err(e) => return IgnoreResponse { success: false, message: e },
+    };
+    if !state.users.contains_key(&target) {
+        return IgnoreResponse { success: false, message: format!("user `{}` not found", target) };
     }
     ensure_user(&mut state, &sender);
-    state.users.get_mut(&sender).unwrap().ignored.insert(req.user.clone());
-    IgnoreResponse { success: true, message: format!("you are now ignoring {}", req.user) }
+    state.users.get_mut(&sender).unwrap().ignored.insert(target.clone());
+    IgnoreResponse { success: true, message: format!("you are now ignoring {}", target) }
 }
 
 pub(crate) fn handle_unignore(sender: String, req: protos::messaging::user::UnignoreRequest) -> protos::messaging::user::UnignoreResponse {
     use protos::messaging::user::UnignoreResponse;
     let mut state = STATE.lock().unwrap();
+    let scope = user_freq(&state, &sender).unwrap_or_default();
+    let target = match resolve_user(&state, &scope, &req.user) {
+        Ok(t) => t,
+        Err(e) => return UnignoreResponse { success: false, message: e },
+    };
     let removed = state
         .users
         .get_mut(&sender)
-        .map(|u| u.ignored.remove(&req.user))
+        .map(|u| u.ignored.remove(&target))
         .unwrap_or(false);
     UnignoreResponse {
         success: removed,
         message: if removed {
-            format!("you are no longer ignoring {}", req.user)
+            format!("you are no longer ignoring {}", target)
         } else {
-            format!("you were not ignoring {}", req.user)
+            format!("you were not ignoring {}", target)
         },
     }
 }

@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
 #[allow(unused_imports)]
-use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
+use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, resolve_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
 
 pub(crate) fn handle_send_message(sender: String, req: protos::messaging::message::SendMessageRequest) -> protos::messaging::message::SendMessageResponse {
     use protos::messaging::message::{SendMessageResponse, SendMessageResult as R};
@@ -40,9 +40,21 @@ pub(crate) fn handle_send_message(sender: String, req: protos::messaging::messag
             message: format!("[{freq}] {who}: {}", req.message),
         }
     } else {
-        // 定向发送：校验每个目标是否在频点内（不在则失败）。
-        let room = state.freqs.get(&freq).expect("freq exists");
+        // 定向发送：先解析目标（freq 内用户名唯一时允许省略 @IP）。
+        let mut resolved: Vec<String> = Vec::new();
         for t in &targets {
+            match resolve_user(&state, &freq, t) {
+                Ok(u) => resolved.push(u),
+                Err(e) => {
+                    return SendMessageResponse {
+                        result: R::SendMessageUserNotFound as i32,
+                        message: e,
+                    }
+                }
+            }
+        }
+        let room = state.freqs.get(&freq).expect("freq exists");
+        for t in &resolved {
             if !room.members.contains_key(t) {
                 return SendMessageResponse {
                     result: R::SendMessageUserNotFound as i32,
@@ -53,11 +65,11 @@ pub(crate) fn handle_send_message(sender: String, req: protos::messaging::messag
         let who = display_user(&state, &freq, &sender);
         println!(
             "[srv-standard] [{freq}] {who} -> {}: {}",
-            targets.join(","),
+            resolved.join(","),
             req.message
         );
         // 通知每个定向目标（在线的用户稍后由 cli 轮询拉取）。
-        for t in &targets {
+        for t in &resolved {
             if t.as_str() != sender {
                 notify(t, format!("[msg:{freq}] {who}: {}", req.message));
             }
@@ -65,7 +77,7 @@ pub(crate) fn handle_send_message(sender: String, req: protos::messaging::messag
         state.last_speaker.insert(freq, sender);
         SendMessageResponse {
             result: R::SendMessageSuccess as i32,
-            message: format!("-> {}: {}", targets.join(","), req.message),
+            message: format!("-> {}: {}", resolved.join(","), req.message),
         }
     }
 }
@@ -106,7 +118,21 @@ pub(crate) fn handle_reply_message(sender: String, req: protos::messaging::messa
 pub(crate) fn handle_call_user(sender: String, req: protos::call::CallRequest) -> protos::call::CallResponse {
     use protos::call::{CallResponse, CallResult as R};
     let state = STATE.lock().unwrap();
-    let target = req.user;
+    // 解析目标（freq 内用户名唯一时允许省略 @IP；优先 req.freq，其次调用者所在 freq）。
+    let scope = if req.freq.is_empty() {
+        user_freq(&state, &sender).unwrap_or_default()
+    } else {
+        req.freq.clone()
+    };
+    let target = match resolve_user(&state, &scope, &req.user) {
+        Ok(t) => t,
+        Err(e) => {
+            return CallResponse {
+                result: R::CallUserNotFound as i32,
+                message: e,
+            }
+        }
+    };
     // 目标必须存在且在线。
     let profile = match state.users.get(&target) {
         Some(u) => u,

@@ -150,6 +150,42 @@ pub(crate) fn display_user(state: &ServerState, freq: &str, user: &str) -> Strin
     }
 }
 
+/// 把参数中的用户标识解析为完整 user@ip（#14：freq 内用户名唯一时允许省略 @IP）。
+/// - 已含 '@'：原样返回（语义由调用方决定）。
+/// - 裸名：先按 freq 成员匹配；无结果再按全局用户匹配；多于一个匹配视为歧义。
+pub(crate) fn resolve_user(state: &ServerState, freq: &str, name: &str) -> Result<String, String> {
+    let name_trim = name.trim();
+    if name_trim.is_empty() {
+        return Err("empty user".into());
+    }
+    if name_trim.contains('@') {
+        return Ok(name_trim.to_string());
+    }
+    let mut cands: Vec<String> = Vec::new();
+    if let Some(room) = state.freqs.get(freq) {
+        for m in room.members.keys() {
+            if user_part(m) == name_trim {
+                cands.push(m.clone());
+            }
+        }
+    }
+    if cands.is_empty() {
+        for u in state.users.keys() {
+            if user_part(u) == name_trim {
+                cands.push(u.clone());
+            }
+        }
+    }
+    match cands.len() {
+        0 => Err(format!("user `{name}` not found")),
+        1 => Ok(cands[0].clone()),
+        _ => Err(format!(
+            "user `{name}` is ambiguous ({}); use full user@ip",
+            cands.join(", ")
+        )),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // RPC handler 基础设施
 // ---------------------------------------------------------------------------
@@ -201,6 +237,7 @@ use handlers::fs::handle_download;
 use handlers::session::handle_status;
 use handlers::session::handle_route;
 use handlers::session::handle_notifications;
+use handlers::session::handle_heartbeat;
 
 macro_rules! rpc_handler {
     ($name:ident, $req_ty:ty, $resp_ty:ty, $handler:expr) => {
@@ -384,6 +421,7 @@ rpc_handler!(on_download, protos::remote::fs::DownloadRequest, protos::remote::f
 rpc_handler!(on_status, protos::connection::session::StatusRequest, protos::connection::session::StatusResponse, handle_status);
 rpc_handler!(on_route, protos::connection::session::RouteRequest, protos::connection::session::RouteResponse, handle_route);
 rpc_handler!(on_notifications, protos::frequency::notification::NotificationsRequest, protos::frequency::notification::NotificationsResponse, handle_notifications);
+rpc_handler!(on_heartbeat, protos::connection::session::HeartbeatRequest, protos::connection::session::HeartbeatResponse, handle_heartbeat);
 
 // ---------------------------------------------------------------------------
 // 插件生命周期
@@ -444,6 +482,7 @@ const CHANNELS: &[(&str, &str, ChannelHandlerFn)] = &[
     ("status", "Server ping / network test", on_status),
     ("route", "Trace route to server", on_route),
     ("notifications", "Poll pending notifications", on_notifications),
+    ("heartbeat", "Long-connection heartbeat, carries pending notifications", on_heartbeat),
 ];
 
 fn channel_metadata(name: &str, desc: &str) -> ChannelMetadata {

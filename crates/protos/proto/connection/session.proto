@@ -3,6 +3,7 @@ syntax = "proto3";
 package connection.session;
 
 import "utils/empty.proto";
+import "notifications.proto";
 
 // ---------- Route (trace route to server) ----------
 
@@ -128,6 +129,20 @@ message SetPresenceResponse {
     bool success = 1;
     PresenceStatus status = 2;
     string message = 3;
+}
+
+
+// ---------- Heartbeat（长连接保活心跳 + 随包推送通知） ----------
+
+message HeartbeatRequest {
+    int64 client_ts = 1; // 客户端时钟（Unix 毫秒），服务端用于计算 RTT
+}
+
+message HeartbeatResponse {
+    int64 rtt_ms = 1;                                // 往返时延（毫秒）
+    string server_version = 2;                       // 服务端版本
+    repeated frequency.notification.NotificationMessage notifications = 3; // 待推送通知
+    string message = 4;                              // "pong" 或错误信息
 }
 
 service SessionService {

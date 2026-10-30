@@ -25,6 +25,41 @@ pub(crate) fn handle_route(_sender: String, _req: protos::connection::session::R
     }
 }
 
+
+pub(crate) fn handle_heartbeat(sender: String, req: protos::connection::session::HeartbeatRequest) -> protos::connection::session::HeartbeatResponse {
+    use protos::connection::session::HeartbeatResponse;
+    use protos::frequency::notification::NotificationMessage;
+    // RTT：客户端上报 Unix 毫秒时钟，服务端与本地时钟差值（正数才有效）。
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    let rtt = if req.client_ts > 0 { (now_ms - req.client_ts).max(0) } else { 0 };
+    // 长连接心跳包顺带把待推送通知带回去（取出即清空，语义与 notifications RPC 一致）。
+    let now = now_ts();
+    let mut all = NOTIFICATIONS.lock().unwrap();
+    let items = all
+        .remove(&sender)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|text| {
+            let (kind, rest) = text.split_once(':').unwrap_or(("msg", text.as_str()));
+            NotificationMessage {
+                kind: kind.trim_start_matches('[').to_string(),
+                from: String::new(),
+                text: rest.to_string(),
+                at: now as i64,
+            }
+        })
+        .collect();
+    HeartbeatResponse {
+        rtt_ms: rtt,
+        server_version: env!("CARGO_PKG_VERSION").to_string(),
+        notifications: items,
+        message: "pong".into(),
+    }
+}
+
 pub(crate) fn handle_notifications(sender: String, _req: protos::frequency::notification::NotificationsRequest) -> protos::frequency::notification::NotificationsResponse {
     use protos::frequency::notification::{NotificationMessage, NotificationsResponse};
     let now = now_ts();

@@ -56,6 +56,8 @@ commands:
     about: Print local working directory
   - name: notifications
     about: Poll pending notifications (message/call/mute/kick/ban)
+  - name: heartbeat
+    about: Long-connection heartbeat, carries pending notifications
   - name: proxy
     about: Turn on/off system proxy
     subcommands:
