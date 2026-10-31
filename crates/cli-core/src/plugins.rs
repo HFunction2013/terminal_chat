@@ -4,7 +4,6 @@ use cli_core_types::{
 };
 use hook_macro::register_hook;
 use libloading::Library;
-use process_path::get_dylib_path;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use std::collections::HashMap;
@@ -140,22 +139,25 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                         };
                     }
                 };
-                if let Some(dylib_path) = get_dylib_path()
-                    && let Some(dylib_path_str) = dylib_path.to_str()
-                {
-                    let res = on_init_plugin(HostMetadata {
-                        version: env!("CARGO_PKG_VERSION").into(),
-                        cli_core_path: dylib_path_str.into(),
-                    });
-                    if res.success != 1 {
-                        return res;
+                let core_path = match FindLibBuilder::new().find_result("cli_core") {
+                    Ok(p) => p,
+                    Err(_) => {
+                        return PluginResult {
+                            success: 0,
+                            exit_code: 99,
+                            msg: TaggedOption::Some("Failed to get `cli_core`'s path.".into()),
+                        };
                     }
-                } else {
-                    return PluginResult {
-                        success: 0,
-                        exit_code: 99,
-                        msg: TaggedOption::Some("Failed to get `cli_core`'s path.".into()),
-                    };
+                };
+                let core_path_str = core_path
+                    .to_str()
+                    .expect("Failed to convert `PathBuf` to `&str`");
+                let res = on_init_plugin(HostMetadata {
+                    version: env!("CARGO_PKG_VERSION").into(),
+                    cli_core_path: core_path_str.into(),
+                });
+                if res.success != 1 {
+                    return res;
                 }
 
                 register_plugin(&meta);

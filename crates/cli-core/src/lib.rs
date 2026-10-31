@@ -5,5 +5,6 @@ mod init;
 mod macros;
 mod plugins;
 mod print_content;
+mod push_queue;
 mod run_commands;
 mod session_settings;

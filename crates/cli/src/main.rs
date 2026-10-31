@@ -25,13 +25,14 @@ use rustyline::{
     highlight::Highlighter,
     hint::Hinter,
     validate::Validator,
+    ExternalPrinter,
 };
 use safer_ffi::prelude::*;
 use sha2::{Digest, Sha256};
 use shell_words::split;
 use std::{
     ffi::OsString,
-    io::{self, stdout},
+    io::{self, stdout, IsTerminal},
     path::Path,
     sync::{
         Arc, Mutex, OnceLock,
@@ -61,6 +62,9 @@ fn get_cli_core() -> &'static Library {
     }
 }
 
+/// cli-core 导出：取走异步推送队列（safer_ffi Vec<String>，C ABI）。
+type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::Vec<safer_ffi::String>;
+
 fn install_ctrlc_handler() {
     let lib = get_cli_core();
 
@@ -82,7 +86,6 @@ fn install_ctrlc_handler() {
     .expect("failed to install Ctrl+C handler");
 }
 
-mod notifications;
 mod tasks;
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -380,14 +383,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
+    // 异步推送显示：tty 下用 rustyline 的 ExternalPrinter（在输入行上方打印，
+    // 保留已输入内容、不打断输入）；管道/重定向下退化到 stdout 直接打印。
+    // 队列在宿主 cli_core（单实例），由 cli_core 的 tc_cli_push_drain 取走。
+    let core_lib = get_cli_core();
+    let take_pushes: Symbol<PushDrainFn> = unsafe { core_lib.get(b"tc_cli_push_drain") }
+        .map_err(|e| format!("Failed to find symbol 'tc_cli_push_drain': {e}"))?;
+    if io::stdout().is_terminal() {
+        let mut printer = rl.create_external_printer()?;
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_millis(150));
+            let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
+            for t in texts {
+                let _ = printer.print(t.to_string());
+            }
+        });
+    } else {
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_millis(150));
+            let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
+            for t in texts {
+                println!("{t}");
+            }
+        });
+    }
     rl.clear_screen()?;
     print_banner(&colored);
     welcome(true);
     loop {
         // 检查到期的本地调度任务（schedule / schedule_msg）
         let _ = tasks::check_and_run(&run_command);
-        // 轮询服务器端待读通知（消息 / call / mute / kick / ban）
-        notifications::poll(&run_command);
+        // 通知不再每轮轮询：由后台推送线程异步接收并显示在输入行上方。
         let input = match rl.readline("tc> ") {
             Ok(line) => line,
             Err(ReadlineError::Interrupted) => {

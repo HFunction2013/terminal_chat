@@ -31,6 +31,7 @@ fn init_library(path: &str) -> &Library {
 pub mod local;
 mod commands;
 mod connection;
+mod session;
 pub mod editor;
 mod command {
     use std::sync::LazyLock;
@@ -56,6 +57,12 @@ pub fn get_plugin_metadata() -> PluginMetadata {
 pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
     init_library(&h_meta.cli_core_path);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
+}
+
+/// 取走异步推送队列（QUIET on 时静默），供 cli 主程序后台线程显示。
+#[ffi_export]
+pub fn cli_take_pushes() -> safer_ffi::Vec<safer_ffi::String> {
+    crate::connection::take_pushes().into_iter().map(|s| s.into()).collect::<Vec<_>>().into()
 }
 
 #[ffi_export]

@@ -8,14 +8,19 @@ use crate::LIB;
 use anyhow::{Context, Result, anyhow};
 use prost::Message;
 use safer_ffi::option::TaggedOption;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::thread;
 use std::sync::{LazyLock, Mutex};
 
 /// 当前活动连接（`None` = 未连接）。
 pub static CONNECTION: LazyLock<Mutex<Option<TcpStream>>> =
     LazyLock::new(|| Mutex::new(None));
+
+/// 响应帧队列：后台读线程把非推送的 PACKET 帧入队，`send_request` 取出匹配。
+pub static RESP_QUEUE: LazyLock<Mutex<VecDeque<protos::models::packet::Packet>>> =
+    LazyLock::new(|| Mutex::new(VecDeque::new()));
 
 const DEFAULT_PORT: &str = "50051";
 
@@ -128,6 +133,30 @@ pub fn connect_now() -> Result<()> {
         return Err(anyhow!("server rejected the connection"));
     }
 
+    // 常驻后台读线程：持续读帧，推送帧旁路收集，其余响应入队供 send_request 取用。
+    let mut reader_stream = stream.try_clone().context("Failed to clone stream for reader")?;
+    thread::spawn(move || loop {
+        match read_frame(&mut reader_stream) {
+            Ok((ft, buf)) => {
+                if ft != frame_type::PACKET {
+                    // 非 PACKET 帧（如 DisconnectResponse）由主流程处理/忽略。
+                    continue;
+                }
+                if let Ok(p) = protos::models::packet::Packet::decode(&buf[..]) {
+                    if p.channel == "notification_push" {
+                        collect_push(&p);
+                    } else {
+                        RESP_QUEUE.lock().unwrap().push_back(p);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[cli-standard] reader error: {e}");
+                break;
+            }
+        }
+    });
+
     *CONNECTION.lock().unwrap() = Some(stream);
     print_content(&format!("Connected to {addr}.").into());
     Ok(())
@@ -143,14 +172,9 @@ pub fn disconnect_now() -> Result<()> {
         Some(mut stream) => {
             let req = protos::connection::session::DisconnectRequest {};
             let _ = write_frame(&mut stream, frame_type::DISCONNECT_REQUEST, &req.encode_to_vec());
-            // 尽力读取响应后关闭。
-            if let Ok((ft, buf)) = read_frame(&mut stream)
-                && ft == frame_type::DISCONNECT_RESPONSE
-                && let Ok(resp) =
-                    protos::connection::session::DisconnectResponse::decode(&buf[..])
-            {
-                print_content(&format!("Disconnect: {}.", resp.message).into());
-            }
+            // 读线程收到 DisconnectResponse 后读到 EOF 自然退出；
+            // 这里稍等让响应帧有机会到达，再关闭连接。
+            std::thread::sleep(std::time::Duration::from_millis(100));
             print_content(&"Disconnected.".into());
             Ok(())
         }
@@ -205,20 +229,74 @@ pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
         seq: SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
     };
     write_frame(stream, frame_type::PACKET, &req.encode_to_vec())?;
+    drop(guard); // 读由后台线程负责，释放连接锁避免与读线程无关的等待。
 
-    let (ft, buf) = read_frame(stream)?;
-    if ft != frame_type::PACKET {
-        return Err(anyhow!("unexpected frame type {ft} waiting for packet response"));
+    // 等待匹配 seq 的响应帧（推送帧已由读线程旁路）。
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        if std::time::Instant::now() > deadline {
+            return Err(anyhow!("timeout waiting for response to `{channel}`"));
+        }
+        let resp = {
+            let mut q = RESP_QUEUE.lock().unwrap();
+            q.pop_front()
+        };
+        if let Some(resp) = resp {
+            if resp.seq == req.seq {
+                if !resp.payload.is_empty() {
+                    let bytes = base64::Engine::decode(
+                        &base64::engine::general_purpose::STANDARD,
+                        &resp.payload,
+                    )
+                    .context("Failed to base64-decode response payload")?;
+                    return Ok(bytes);
+                }
+                return Ok(Vec::new());
+            }
+            // seq 不匹配（理论顺序队列不应出现）：丢弃继续等。
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
     }
-    let resp = protos::models::packet::Packet::decode(&buf[..])
-        .context("Failed to decode response Packet")?;
-    if !resp.payload.is_empty() {
-        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &resp.payload)
-            .context("Failed to base64-decode response payload")?;
-        Ok(bytes)
-    } else {
-        // 无响应负载：返回空（调用方按 channel 决定如何处理）。
-        Ok(Vec::new())
+}
+
+/// 解析并暂存一条服务端推送帧（notification_push 信封 → NotificationMessage）。
+fn collect_push(frame: &protos::models::packet::Packet) {
+    let Ok(bytes) = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        &frame.payload,
+    ) else {
+        return;
+    };
+    let Ok(msg) = protos::frequency::notification::NotificationMessage::decode(&bytes[..]) else {
+        return;
+    };
+    // 服务端通知格式为 `[kind:freq] ...`，这里保留 kind、去掉 `0.5] ` 前缀。
+    let text = msg
+        .text
+        .split_once(']')
+        .map(|(_, rest)| rest.trim())
+        .unwrap_or(msg.text.as_str());
+    let display = format!("!! [{}] {}", msg.kind, text);
+    // 写入宿主单实例队列（经 LIB 调 cli_core 的 tc_cli_push_enqueue）。
+    if let Some(lib) = LIB.get() {
+        type EnqueueFn = extern "C" fn(&safer_ffi::String);
+        if let Ok(enqueue) = unsafe { lib.get::<EnqueueFn>(b"tc_cli_push_enqueue") } {
+            let text: safer_ffi::String = display.into();
+            enqueue(&text);
+        }
+    }
+}
+
+/// 取走并清空推送队列（宿主单实例），由 cli 主程序后台线程经 FFI 调用。
+pub fn take_pushes() -> Vec<String> {
+    let Some(lib) = LIB.get() else { return Vec::new() };
+    type DrainFn = unsafe extern "C" fn() -> safer_ffi::Vec<safer_ffi::String>;
+    match unsafe { lib.get::<DrainFn>(b"tc_cli_push_drain") } {
+        Ok(drain) => {
+            let items: Vec<safer_ffi::String> = unsafe { drain() }.into();
+            items.into_iter().map(|s| s.to_string()).collect()
+        }
+        Err(_) => Vec::new(),
     }
 }
 

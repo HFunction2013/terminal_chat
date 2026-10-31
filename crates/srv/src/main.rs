@@ -25,6 +25,9 @@ use srv_core_types::{
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::collections::HashMap;
+use std::ffi::CString;
+use std::os::raw::c_void;
+use std::sync::mpsc;
 use std::sync::{LazyLock, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -112,12 +115,13 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
     let _ = stream.set_read_timeout(Some(Duration::from_secs(300)));
 
     // 握手：读 ConnectRequest → 回 ConnectResponse。
+    let mut username = "anonymous".to_string();
     let handshake_ok = match read_frame(&mut stream) {
         Ok((frame_type, buf)) if frame_type == frame_type::CONNECT_REQUEST => {
             match protos::connect::ConnectRequest::decode(&buf[..]) {
                 Ok(req) => {
                     // 提取用户名（cli 侧强制 `setg USERNAME`；此处兜底 anonymous）。
-                    let username = req
+                    username = req
                         .sync_keys
                         .get("username")
                         .cloned()
@@ -153,6 +157,28 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
     if !handshake_ok {
         return;
     }
+
+    // 注册推送通道：写线程消费 mpsc，向本连接的 try_clone stream 写 PACKET 帧。
+    let full_user = format!("{username}@{}", peer_ip(&peer));
+    let (push_tx, push_rx) = mpsc::channel::<Vec<u8>>();
+    let mut writer_stream = match stream.try_clone() {
+        Ok(s) => s,
+        Err(e) => {
+            println!("[srv] try_clone failed for {peer}: {e}");
+            return;
+        }
+    };
+    thread::spawn(move || {
+        while let Ok(bytes) = push_rx.recv() {
+            if write_frame(&mut writer_stream, frame_type::PACKET, &bytes).is_err() {
+                break;
+            }
+        }
+    });
+    let push_name = CString::new(full_user.clone()).unwrap_or_default();
+    let push_tx_ptr = Box::into_raw(Box::new(push_tx)) as *mut c_void;
+    (symbols.pusher_register)(push_name.as_ptr(), push_tx_ptr);
+    println!("[srv] pusher registered for {full_user}");
 
     // 注册会话。
     let session = SessionInfo {
@@ -229,7 +255,10 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
         }
     }
 
-    // 清理会话。
+    // 清理会话与推送通道。
+    let cleanup_name = CString::new(full_user.clone()).unwrap_or_default();
+    (symbols.pusher_unregister)(cleanup_name.as_ptr());
+    println!("[srv] pusher removed for {full_user}");
     SESSION_USERS.lock().unwrap().remove(&peer);
     let removed = (symbols.remove_session)(&peer.clone().into());
     println!("[srv] session removed: {peer} removed={removed}");
@@ -242,7 +271,13 @@ struct SrvSymbols {
     add_session: AddSessionFn,
     remove_session: RemoveSessionFn,
     session_count: SessionCountFn,
+    pusher_register: PusherRegisterFn,
+    pusher_unregister: PusherUnregisterFn,
 }
+
+/// srv-core 提供的推送通道符号（C ABI 函数指针）。
+type PusherRegisterFn = extern "C" fn(*const std::os::raw::c_char, *mut c_void) -> i32;
+type PusherUnregisterFn = extern "C" fn(*const std::os::raw::c_char) -> i32;
 
 fn main() -> Result<()> {
     // 获取 srv-core 符号（fn 指针，便于跨线程调用）。
@@ -256,6 +291,12 @@ fn main() -> Result<()> {
         .map_err(|e| anyhow!("Failed to find symbol 'remove_session': {e}"))?;
     let session_count: SessionCountFn = *unsafe { get_srv_core().get(b"session_count") }
         .map_err(|e| anyhow!("Failed to find symbol 'session_count': {e}"))?;
+    let pusher_register: PusherRegisterFn =
+        *unsafe { get_srv_core().get(b"tc_srv_pusher_register") }
+            .map_err(|e| anyhow!("Failed to find symbol 'tc_srv_pusher_register': {e}"))?;
+    let pusher_unregister: PusherUnregisterFn =
+        *unsafe { get_srv_core().get(b"tc_srv_pusher_unregister") }
+            .map_err(|e| anyhow!("Failed to find symbol 'tc_srv_pusher_unregister': {e}"))?;
 
     // 默认加载 srv-standard。
     let res = load_plugin(&"srv_standard".into());
@@ -278,7 +319,7 @@ fn main() -> Result<()> {
     let listener = TcpListener::bind(&addr)?;
     println!("[srv] listening on {addr} (TCP, prost frames)");
 
-    let symbols = SrvSymbols { on_recieve_packet, add_session, remove_session, session_count };
+    let symbols = SrvSymbols { on_recieve_packet, add_session, remove_session, session_count, pusher_register, pusher_unregister };
 
     for conn in listener.incoming() {
         match conn {

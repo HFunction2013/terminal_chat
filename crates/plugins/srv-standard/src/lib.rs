@@ -94,14 +94,46 @@ pub(crate) static VFS: LazyLock<Mutex<HashMap<String, VfsUser>>> = LazyLock::new
 pub(crate) static NOTIFICATIONS: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// 向用户追加一条待读通知。
+/// 向用户追加一条待读通知，并尝试通过长连接推送帧实时下发。
+/// 推送失败（目标离线/通道断开）时静默——通知仍留在队列，
+/// 可经 `notifications` 命令或下次心跳拉取。
 pub(crate) fn notify(target: &str, text: String) {
     NOTIFICATIONS
         .lock()
         .unwrap()
         .entry(target.to_string())
         .or_default()
-        .push(text);
+        .push(text.clone());
+    push_notification(target, &text);
+}
+
+/// 把一条通知编码为 `notification_push` 帧并投递给在线用户。
+fn push_notification(target: &str, text: &str) {
+    // 插件未初始化（LIB 未加载）时不推送。
+    let Some(lib) = LIB.get() else { return };
+    let (kind, rest) = text.split_once(':').unwrap_or(("msg", text));
+    let kind = kind.trim_start_matches('[').to_string();
+    let msg = protos::frequency::notification::NotificationMessage {
+        kind: kind.clone(),
+        from: String::new(),
+        text: rest.to_string(),
+        at: now_ts() as i64,
+    };
+    let packet = protos::models::packet::Packet {
+        channel: "notification_push".to_string(),
+        sender: "srv".to_string(),
+        payload: b64e(&msg.encode_to_vec()),
+        timestamp: now_ts(),
+        seq: 0,
+    };
+    let bytes = packet.encode_to_vec();
+    // tc_srv_pusher_push(user: *const c_char, bytes: *const u8, len: u32) -> i32
+    type PusherPushFn = extern "C" fn(*const std::os::raw::c_char, *const u8, u32) -> i32;
+    let Ok(push) = (unsafe { lib.get::<PusherPushFn>(b"tc_srv_pusher_push") }) else {
+        return;
+    };
+    let Ok(user_c) = std::ffi::CString::new(target) else { return };
+    let _ = push(user_c.as_ptr(), bytes.as_ptr(), bytes.len() as u32);
 }
 
 pub(crate) fn now_ts() -> u64 {

@@ -13,5 +13,6 @@
 mod channels;
 mod packets;
 mod plugins;
+pub mod pusher;
 mod print_content;
 mod sessions;

@@ -29,6 +29,10 @@ impl CreateFreqCommand {
                 no_mod,
             },
         )?;
+        // 创建并加入成功即成为当前会话：一个 freq 是一个会话。
+        if resp.result == protos::frequency::basic::CreateResult::CreateSuccess as i32 {
+            crate::session::set_current(&freq);
+        }
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
