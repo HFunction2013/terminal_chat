@@ -277,6 +277,16 @@ fn collect_push(frame: &protos::models::packet::Packet) {
         .map(|(_, rest)| rest.trim())
         .unwrap_or(msg.text.as_str());
     let display = format!("!! [{}] {}", msg.kind, text);
+    // QUIET on/true/1/yes 时静音：推送到达即判定，不入队不显示。
+    if let Some(lib) = LIB.get() {
+        cli_core_macros::load_core_symbols!(lib, get_global_option);
+        if let safer_ffi::option::TaggedOption::Some(v) = get_global_option(&"QUIET".into()) {
+            let q = v.to_string().to_lowercase();
+            if matches!(q.as_str(), "on" | "true" | "1" | "yes") {
+                return;
+            }
+        }
+    }
     // `logs open` 时把收到的通知追加到日志文件。
     if crate::local::logging_enabled() {
         let ts = std::time::SystemTime::now()
