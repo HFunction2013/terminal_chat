@@ -527,8 +527,9 @@ commands:
     args:
       - name: frequency
         value_name: FREQ
-        required: true 
-        help: freq ID
+        required: false
+        default_value: ""
+        help: 'freq ID (defaults to current freq)'
   - name: reply
     about: Reply to the user who has just spoken quickly
     args:

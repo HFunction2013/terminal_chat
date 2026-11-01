@@ -172,10 +172,16 @@ pub(crate) fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empt
     }
 }
 
-pub(crate) fn handle_freq_info(_sender: String, req: protos::frequency::basic::FreqInfoRequest) -> protos::frequency::basic::FreqInfoResponse {
+pub(crate) fn handle_freq_info(sender: String, req: protos::frequency::basic::FreqInfoRequest) -> protos::frequency::basic::FreqInfoResponse {
     use protos::frequency::basic::{FreqInfo, FreqInfoResponse, MemberInfo};
     let state = STATE.lock().unwrap();
-    match state.freqs.get(&req.freq) {
+    // freq 为空时默认调用者当前所在 freq。
+    let freq = if req.freq.is_empty() {
+        user_freq(&state, &sender).unwrap_or_default()
+    } else {
+        req.freq.clone()
+    };
+    match state.freqs.get(&freq) {
         Some(room) => {
             let members = room
                 .members
