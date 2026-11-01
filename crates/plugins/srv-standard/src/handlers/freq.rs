@@ -119,9 +119,19 @@ pub(crate) fn handle_join_freq(sender: String, req: protos::frequency::basic::Jo
         count = room.members.len();
     }
     state.users.get_mut(&sender).unwrap().freq = req.freq.clone();
+    // 通知同 freq 其他成员有人加入。
+    let who = user_part(&sender);
+    let others: Vec<String> = state
+        .freqs
+        .get(&req.freq)
+        .map(|r| r.members.keys().filter(|u| **u != sender).cloned().collect())
+        .unwrap_or_default();
+    for u in &others {
+        crate::notify(u, format!("[join:{}] {who} joined the freq", req.freq));
+    }
     println!(
         "[srv-standard] {} joined freq `{}` (members={})",
-        user_part(&sender),
+        who,
         req.freq,
         count
     );
@@ -155,6 +165,16 @@ pub(crate) fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empt
         room.members.remove(&sender);
     }
     state.users.get_mut(&sender).unwrap().freq = String::new();
+    // 通知同 freq 剩余成员有人离开。
+    let who = user_part(&sender);
+    let others: Vec<String> = state
+        .freqs
+        .get(&freq)
+        .map(|r| r.members.keys().filter(|u| **u != sender).cloned().collect())
+        .unwrap_or_default();
+    for u in &others {
+        crate::notify(u, format!("[leave:{freq}] {who} left the freq"));
+    }
     // 无版主频点的创建者离开后，若不再有人则自动解散。
     if no_mod && state.freqs.get(&freq).map(|f| f.members.is_empty()).unwrap_or(false) {
         state.freqs.remove(&freq);
