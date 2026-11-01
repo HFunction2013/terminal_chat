@@ -2,6 +2,11 @@
 
 #[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
+
+/// call 冷却：同一用户两次 call 之间至少间隔的秒数（now_ts 以秒计）。
+const CALL_COOLDOWN_SECS: u64 = 3;
+static CALL_COOLDOWNS: std::sync::LazyLock<std::sync::Mutex<HashMap<String, u64>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 #[allow(unused_imports)]
 use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, resolve_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
 
@@ -117,6 +122,21 @@ pub(crate) fn handle_reply_message(sender: String, req: protos::messaging::messa
 
 pub(crate) fn handle_call_user(sender: String, req: protos::call::CallRequest) -> protos::call::CallResponse {
     use protos::call::{CallResponse, CallResult as R};
+    // call 冷却：上次 call 后 3 秒内拒绝。
+    {
+        let now = now_ts();
+        let mut cd = CALL_COOLDOWNS.lock().unwrap();
+        if let Some(&last) = cd.get(&sender) {
+            let left = CALL_COOLDOWN_SECS.saturating_sub(now.saturating_sub(last));
+            if left > 0 {
+                return CallResponse {
+                    result: R::CallError as i32,
+                    message: format!("call cooldown: try again in {}s", left),
+                };
+            }
+        }
+        cd.insert(sender.clone(), now);
+    }
     let state = STATE.lock().unwrap();
     // call 只能在调用者当前所在的 freq 内使用。
     let scope = match user_freq(&state, &sender) {
