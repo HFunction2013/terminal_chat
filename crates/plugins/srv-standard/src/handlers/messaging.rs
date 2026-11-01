@@ -118,12 +118,22 @@ pub(crate) fn handle_reply_message(sender: String, req: protos::messaging::messa
 pub(crate) fn handle_call_user(sender: String, req: protos::call::CallRequest) -> protos::call::CallResponse {
     use protos::call::{CallResponse, CallResult as R};
     let state = STATE.lock().unwrap();
-    // 解析目标（freq 内用户名唯一时允许省略 @IP；优先 req.freq，其次调用者所在 freq）。
-    let scope = if req.freq.is_empty() {
-        user_freq(&state, &sender).unwrap_or_default()
-    } else {
-        req.freq.clone()
+    // call 只能在调用者当前所在的 freq 内使用。
+    let scope = match user_freq(&state, &sender) {
+        Some(f) => f,
+        None => {
+            return CallResponse {
+                result: R::CallError as i32,
+                message: "call only works inside a freq; use `join_freq` first".into(),
+            }
+        }
     };
+    if !req.freq.is_empty() && req.freq != scope {
+        return CallResponse {
+            result: R::CallError as i32,
+            message: format!("you can only call inside your current freq `{scope}`"),
+        };
+    }
     let target = match resolve_user(&state, &scope, &req.user) {
         Ok(t) => t,
         Err(e) => {
