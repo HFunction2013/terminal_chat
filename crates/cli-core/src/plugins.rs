@@ -237,7 +237,9 @@ pub fn unregister_plugin(name: &safer_ffi::String) -> i32 {
     // 先从 name map 取出 metadata 以获取 command_name
     if let Some(meta) = map.remove(&name.to_string()) {
         cmd_map.remove(&meta.command_name.to_string());
-        PLUGIN_LIBS.lock().unwrap().remove(&name.to_string());
+        // 注意：不能移除 PLUGIN_LIBS 句柄——dlclose 正在执行的插件（如
+        // cli-standard）会使后续指令落在已卸载的代码页上导致段错误。
+        // 注册表移除后命令即失效，句柄随进程退出统一释放。
         true.into()
     } else {
         false.into()
