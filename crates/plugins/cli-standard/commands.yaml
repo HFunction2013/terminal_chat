@@ -88,6 +88,10 @@ commands:
         aliases:
           - mods
         about: Show moderators in current frequency
+      - name: plugins
+        aliases:
+          - namespaces
+        about: Show all loaded plugins (namespaces)
   - name: join_freq
     about: Join a target frequency channel
     args:

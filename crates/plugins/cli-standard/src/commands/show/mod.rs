@@ -22,6 +22,7 @@ pub mod globals;
 pub mod locals;
 pub mod moderators;
 pub mod options;
+pub mod plugins;
 pub mod variables;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
@@ -33,6 +34,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(active_freqs::ActiveFreqsCommand),
         Arc::new(active_users::ActiveUsersCommand),
         Arc::new(moderators::ModeratorsCommand),
+        Arc::new(plugins::PluginsCommand),
     ]
 }
 
