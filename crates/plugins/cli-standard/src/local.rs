@@ -13,6 +13,28 @@ pub const LOGGING_FILE: &str = "logging";
 pub const PROXY_FILE: &str = "proxy";
 pub const FEEDBACK_FILE: &str = "feedback.log";
 
+/// 日志文件（`logs open` 后追加实际日志）。
+pub const LOG_FILE: &str = "logging.log";
+
+/// `logs open` 是否已开启（logging 开关文件内容为 "on"）。
+pub fn logging_enabled() -> bool {
+    fs::read_to_string(base_dir().join(LOGGING_FILE))
+        .map(|s| s.trim() == "on")
+        .unwrap_or(false)
+}
+
+/// 追加一行到日志文件（`logs open` 后生效；文件不存在则创建）。
+pub fn append_log(line: &str) {
+    use std::io::Write;
+    if let Ok(mut f) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(base_dir().join(LOG_FILE))
+    {
+        let _ = writeln!(f, "{}", line);
+    }
+}
+
 /// 配置根目录 `~/.terminal_chat`（创建缺失目录）。
 pub fn base_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());

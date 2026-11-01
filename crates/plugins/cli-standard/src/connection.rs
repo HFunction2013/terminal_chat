@@ -277,6 +277,14 @@ fn collect_push(frame: &protos::models::packet::Packet) {
         .map(|(_, rest)| rest.trim())
         .unwrap_or(msg.text.as_str());
     let display = format!("!! [{}] {}", msg.kind, text);
+    // `logs open` 时把收到的通知追加到日志文件。
+    if crate::local::logging_enabled() {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        crate::local::append_log(&format!("[{ts}] {display}"));
+    }
     // 写入宿主单实例队列（经 LIB 调 cli_core 的 tc_cli_push_enqueue）。
     if let Some(lib) = LIB.get() {
         type EnqueueFn = extern "C" fn(&safer_ffi::String);
