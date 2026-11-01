@@ -269,7 +269,6 @@ use handlers::fs::handle_download;
 use handlers::session::handle_status;
 use handlers::session::handle_route;
 use handlers::session::handle_notifications;
-use handlers::session::handle_heartbeat;
 
 macro_rules! rpc_handler {
     ($name:ident, $req_ty:ty, $resp_ty:ty, $handler:expr) => {
@@ -453,7 +452,6 @@ rpc_handler!(on_download, protos::remote::fs::DownloadRequest, protos::remote::f
 rpc_handler!(on_status, protos::connection::session::StatusRequest, protos::connection::session::StatusResponse, handle_status);
 rpc_handler!(on_route, protos::connection::session::RouteRequest, protos::connection::session::RouteResponse, handle_route);
 rpc_handler!(on_notifications, protos::frequency::notification::NotificationsRequest, protos::frequency::notification::NotificationsResponse, handle_notifications);
-rpc_handler!(on_heartbeat, protos::connection::session::HeartbeatRequest, protos::connection::session::HeartbeatResponse, handle_heartbeat);
 
 // ---------------------------------------------------------------------------
 // 插件生命周期
@@ -514,7 +512,6 @@ const CHANNELS: &[(&str, &str, ChannelHandlerFn)] = &[
     ("status", "Server ping / network test", on_status),
     ("route", "Trace route to server", on_route),
     ("notifications", "Poll pending notifications", on_notifications),
-    ("heartbeat", "Long-connection heartbeat, carries pending notifications", on_heartbeat),
 ];
 
 fn channel_metadata(name: &str, desc: &str) -> ChannelMetadata {

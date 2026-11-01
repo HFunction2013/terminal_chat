@@ -45,7 +45,6 @@ pub mod mkdir;
 pub mod msg;
 pub mod mute;
 pub mod notifications;
-pub mod heartbeat;
 pub mod op;
 pub mod proxy;
 pub mod pwd;
@@ -140,7 +139,6 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(sleep::SleepCommand),
         Arc::new(editor::EditorCommand),
         Arc::new(notifications::NotificationsCommand),
-        Arc::new(heartbeat::HeartbeatCommand),
         Arc::new(workspace::WorkspaceCommand),
         Arc::new(feedback::FeedbackCommand),
     ]
