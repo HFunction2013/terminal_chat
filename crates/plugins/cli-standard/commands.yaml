@@ -653,6 +653,12 @@ commands:
         help: the full username, e.g., HZFY@192.168.78.91
   - name: disband
     about: disband current frequency.
+    args:
+      - name: force
+        long: force
+        short: f
+        help: Force disband even with members.
+        action: set_true
   - name: sleep
     hidden: true 
     about: Are you sleepy? Why not sleep for a while?

@@ -257,14 +257,26 @@ pub(crate) fn handle_disband_freq(sender: String, req: protos::frequency::mod_op
             message: "only the creator can disband the freq".into(),
         };
     }
-    if room.members.len() > 1 {
+    if room.members.len() > 1 && !req.force {
         return DisbandResponse {
             result: R::DisbandHasMembers as i32,
-            message: format!("freq `{freq}` still has {} members", room.members.len()),
+            message: format!("freq `{freq}` still has {} members (use `--force` to disband anyway)", room.members.len()),
         };
     }
+    // 收集成员（用于清空状态与通知），随后解散。
+    let members: Vec<String> = room.members.keys().cloned().collect();
     state.freqs.remove(&freq);
-    state.users.get_mut(&sender).unwrap().freq = String::new();
+    for m in &members {
+        if let Some(u) = state.users.get_mut(m) {
+            u.freq = String::new();
+        }
+    }
+    // 通知被解散的成员。
+    for m in &members {
+        if m != &sender {
+            crate::notify(m, format!("[disband:{freq}] freq disbanded by {}", user_part(&sender)));
+        }
+    }
     // 频点销毁时同时销毁其共享 VFS（freq 内共享，无私有文件系统）。
     VFS.lock().unwrap().remove(&freq);
     println!("[srv-standard] freq `{freq}` disbanded by {}", user_part(&sender));
