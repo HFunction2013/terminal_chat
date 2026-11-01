@@ -133,6 +133,13 @@ pub(crate) fn handle_call_user(sender: String, req: protos::call::CallRequest) -
             }
         }
     };
+    // 不能呼叫自己。
+    if target == sender {
+        return CallResponse {
+            result: R::CallError as i32,
+            message: "you cannot call yourself".into(),
+        };
+    }
     // 目标必须存在且在线。
     let profile = match state.users.get(&target) {
         Some(u) => u,
