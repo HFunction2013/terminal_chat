@@ -152,43 +152,69 @@ pub fn remove_task(id: u64) -> bool {
     }
 }
 
-/// 解析调度时间：支持 `HH:MM`（今天/明天）、`+Ns/+Nm/+Nh`（相对当前）、裸数字秒。
+/// 解析调度时间，返回 unix 秒：
+/// - 裸数字 / `+N`            → N 秒后（相对当前）
+/// - `+Ns` / `+Nm` / `+Nh` / `+Nd` → 相对当前
+/// - `HH:MM` / `HH:MM:SS`     → 本地时间的下一个该时刻（跨天自动顺延）
 pub fn parse_time(spec: &str) -> Option<u64> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
     let spec = spec.trim();
-    if let Ok(secs) = spec.parse::<u64>() {
-        return Some(now + secs);
+    if spec.is_empty() {
+        return None;
     }
-    if let Some(rest) = spec.strip_prefix('+') {
-        let (num, unit) = rest.split_at(rest.len().saturating_sub(1));
-        if let Ok(n) = num.parse::<u64>() {
-            let mult = match unit {
-                "s" => 1,
-                "m" => 60,
-                "h" => 3600,
-                _ => 1,
-            };
-            return Some(now + n * mult);
-        }
-    }
-    // HH:MM
-    let parts: Vec<&str> = spec.split(':').collect();
-    if parts.len() == 2 {
-        if let (Ok(h), Ok(m)) = (parts[0].parse::<u64>(), parts[1].parse::<u64>()) {
-            if h <= 23 && m <= 59 {
-                let mut secs_today = h * 3600 + m * 60;
-                let day_start = now - now % 86400;
-                if day_start + secs_today <= now {
-                    secs_today += 86400;
-                }
-                return Some(day_start + secs_today);
+    // 相对时间：+N 带可选单位
+    let relative: Option<(&str, i64)> = if let Some(rest) = spec.strip_prefix('+') {
+        let last = rest.chars().last()?;
+        match last {
+            's' | 'm' | 'h' | 'd' => {
+                let unit = match last {
+                    's' => 1,
+                    'm' => 60,
+                    'h' => 3600,
+                    _ => 86400,
+                };
+                Some((&rest[..rest.len() - 1], unit))
             }
+            _ => Some((rest, 1)),
         }
+    } else if spec.chars().all(|c| c.is_ascii_digit()) {
+        Some((spec, 1))
+    } else {
+        None
+    };
+    if let Some((num, unit)) = relative {
+        let n: i64 = num.parse().ok()?;
+        return Some((chrono::Local::now() + chrono::Duration::seconds(n * unit)).timestamp() as u64);
+    }
+    // HH:MM[:SS] 按本地时区
+    use chrono::Datelike;
+    use chrono::TimeZone;
+    let parts: Vec<&str> = spec.split(':').collect();
+    if parts.len() == 2 || parts.len() == 3 {
+        let h: u32 = parts[0].parse().ok()?;
+        let mi: u32 = parts[1].parse().ok()?;
+        let s: u32 = if parts.len() == 3 { parts[2].parse().ok()? } else { 0 };
+        if h > 23 || mi > 59 || s > 59 {
+            return None;
+        }
+        let now = chrono::Local::now();
+        let naive_today = chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), now.day())?
+            .and_hms_opt(h, mi, s)?;
+        let mut target = naive_today;
+        if target <= now.naive_local() {
+            target += chrono::Duration::days(1);
+        }
+        return Some(chrono::Local.from_local_datetime(&target).single()?.timestamp() as u64);
     }
     None
+}
+
+/// 把 unix 秒格式化为本地 `MM-DD HH:MM:SS`。
+pub fn format_local(at: u64) -> String {
+    use chrono::TimeZone;
+    match chrono::Local.timestamp_opt(at as i64, 0).single() {
+        Some(t) => t.format("%m-%d %H:%M:%S").to_string(),
+        None => at.to_string(),
+    }
 }
 
 // ---------------- 插件清单 ----------------

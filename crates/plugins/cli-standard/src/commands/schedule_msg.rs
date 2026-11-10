@@ -12,21 +12,34 @@ pub struct ScheduleMsgCommand;
 
 impl ScheduleMsgCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, time: String, message: Option<String>, users: Vec<String>) -> Result<()> {
+    pub fn execute(&self, time: String, message: String, users: Vec<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        let message = match message {
-            Some(m) if !m.trim().is_empty() => m,
-            _ => return Err(anyhow!("empty message; use `schedule_msg <time> -m <message>`")),
-        };
-        let at = crate::local::parse_time(&time)
-            .ok_or_else(|| anyhow!("cannot parse time `{time}`; use `HH:MM`, `+Ns/+Nm/+Nh` or seconds"))?;
+        if message.trim().is_empty() {
+            return Err(anyhow!("empty message; use `schedule_msg <time> -m <message>`"));
+        }
+        let at = crate::local::parse_time(&time).ok_or_else(|| {
+            anyhow!("cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds")
+        })?;
         let tasks = crate::local::read_tasks();
         let id = crate::local::next_task_id(&tasks);
         crate::local::add_task(crate::local::TaskEntry {
-            id, kind: "msg".into(), session: "0".into(), at, cmd: None, message: Some(message), users,
+            id,
+            kind: "msg".into(),
+            session: "0".into(),
+            at,
+            cmd: None,
+            message: Some(message.clone()),
+            users: users.clone(),
         })?;
-        print_content(&format!("[*] Message task #{id} scheduled at {at} ({time}).").into());
+        let who = if users.is_empty() { "everybody".to_string() } else { users.join(", ") };
+        print_content(
+            &format!(
+                "[*] Message task #{id} scheduled at {} ({time}) to {who}: {message}",
+                crate::local::format_local(at)
+            )
+            .into(),
+        );
         Ok(())
     }
 }
@@ -42,7 +55,10 @@ impl CommandExecutor for ScheduleMsgCommand {
             .get_one::<String>("time")
             .ok_or_else(|| anyhow!("Missing required argument: time"))?
             .clone();
-        let message = matches.get_one::<String>("message").cloned();
+        let message = matches
+            .get_one::<String>("message")
+            .cloned()
+            .unwrap_or_default();
         let users =
             matches.get_many::<String>("users").unwrap_or_default().cloned().collect::<Vec<_>>();
         self.execute(time, message, users)

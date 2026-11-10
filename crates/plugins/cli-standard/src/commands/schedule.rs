@@ -12,21 +12,34 @@ pub struct ScheduleCommand;
 
 impl ScheduleCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, session: String, time: String, cmd: Option<String>) -> Result<()> {
+    pub fn execute(&self, time: String, cmd: Vec<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        let cmd = match cmd {
-            Some(c) if !c.trim().is_empty() => c,
-            _ => return Err(anyhow!("empty command; use `schedule <time> <cmd>`")),
-        };
-        let at = crate::local::parse_time(&time)
-            .ok_or_else(|| anyhow!("cannot parse time `{time}`; use `HH:MM`, `+Ns/+Nm/+Nh` or seconds"))?;
+        if cmd.is_empty() {
+            return Err(anyhow!("empty command; use `schedule <time> <command...>`"));
+        }
+        let at = crate::local::parse_time(&time).ok_or_else(|| {
+            anyhow!("cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds")
+        })?;
+        let cmdline = shell_words::join(cmd.iter().map(String::as_str));
         let tasks = crate::local::read_tasks();
         let id = crate::local::next_task_id(&tasks);
         crate::local::add_task(crate::local::TaskEntry {
-            id, kind: "cmd".into(), session, at, cmd: Some(cmd), message: None, users: vec![],
+            id,
+            kind: "cmd".into(),
+            session: "0".into(),
+            at,
+            cmd: Some(cmdline.clone()),
+            message: None,
+            users: vec![],
         })?;
-        print_content(&format!("[*] Task #{id} scheduled at {at} ({time}).").into());
+        print_content(
+            &format!(
+                "[*] Task #{id} scheduled at {} ({time}): {cmdline}",
+                crate::local::format_local(at)
+            )
+            .into(),
+        );
         Ok(())
     }
 }
@@ -38,15 +51,15 @@ impl CommandExecutor for ScheduleCommand {
 
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let session = matches
-            .get_one::<String>("session")
-            .ok_or_else(|| anyhow!("Missing required argument: session"))?
-            .clone();
         let time = matches
             .get_one::<String>("time")
             .ok_or_else(|| anyhow!("Missing required argument: time"))?
             .clone();
-        let cmd = matches.get_one::<String>("cmd").cloned();
-        self.execute(session, time, cmd)
+        let cmd: Vec<String> = matches
+            .get_many::<String>("cmd")
+            .unwrap_or_default()
+            .cloned()
+            .collect();
+        self.execute(time, cmd)
     }
 }

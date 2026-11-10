@@ -20,13 +20,34 @@ impl TasksCommand {
             print_content(&"no scheduled tasks.".into());
             return Ok(());
         }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
         for t in tasks {
             let what = match t.kind.as_str() {
                 "cmd" => t.cmd.unwrap_or_default(),
-                "msg" => format!("[msg] {}", t.message.unwrap_or_default()),
+                "msg" => {
+                    let users = if t.users.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" -> {}", t.users.join(", "))
+                    };
+                    format!("[msg]{users} {}", t.message.unwrap_or_default())
+                }
                 _ => t.kind.clone(),
             };
-            print_content(&format!("  #{:<4} at {:<12} session={:<4} {}", t.id, t.at, t.session, what).into());
+            let in_secs = t.at.saturating_sub(now);
+            print_content(
+                &format!(
+                    "  #{:<4} at {:<16} (in {}s) {}",
+                    t.id,
+                    crate::local::format_local(t.at),
+                    in_secs,
+                    what
+                )
+                .into(),
+            );
         }
         Ok(())
     }

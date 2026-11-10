@@ -52,29 +52,27 @@ pub fn check_and_run(run_command: &RunCommandFn) -> Result<()> {
         }
         let kind = parts[1];
         let payload = decode_b64(parts[4]).unwrap_or_default();
-        let cmdline = match kind {
-            "cmd" => payload,
+        // 构造 argv：cmd 任务为 shell_words 拆分；msg 任务直接拼 argv，避免引号/反斜杠被破坏。
+        let args: Vec<String> = match kind {
+            "cmd" => shell_words::split(&payload).unwrap_or_default(),
             "msg" => {
                 let mut p = payload.split(SEP);
-                let message = p.next().unwrap_or_default();
+                let message = p.next().unwrap_or_default().to_string();
                 let users = p.next().unwrap_or_default();
-                let mut s = format!("msg -m {:?}", message);
-                for u in users.split(',').filter(|u| !u.is_empty()) {
-                    s.push(' ');
-                    s.push_str(u);
-                }
-                s
+                let mut argv: Vec<String> = vec!["msg".to_string(), "-m".to_string(), message];
+                argv.extend(users.split(',').filter(|u| !u.is_empty()).map(|u| u.to_string()));
+                argv
             }
             _ => continue,
         };
-        let args: Vec<String> = shell_words::split(&cmdline).unwrap_or_default();
         if args.is_empty() {
             continue;
         }
+        let desc = args.join(" ");
         let args_ffi: safer_ffi::Vec<safer_ffi::String> =
             args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
         let _ = run_command(&args_ffi);
-        println!("[task #{id}] executed: {cmdline}");
+        println!("[task #{id}] executed: {desc}");
     }
     std::fs::write(&path, remaining)?;
     Ok(())

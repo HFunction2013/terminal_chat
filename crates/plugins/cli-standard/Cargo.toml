@@ -14,6 +14,7 @@ crate-type = ["cdylib"]
 clap = { workspace = true }
 anyhow = { workspace = true }
 humantime = "2.1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 rpassword = "7.5.4"
 which = "8.0.5"
 shell-words = "1.1.1"

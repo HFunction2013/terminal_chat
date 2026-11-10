@@ -467,13 +467,13 @@ commands:
     args:
       - name: time
         value_name: TIME
-        help: send time
         required: true
+        help: "When to send: +30s / +5m / +2h / +1d, HH:MM (local, next), or seconds."
       - name: message
         long: message
         short: m
-        required: false
-        help: 'Your message, fallback to editor.'
+        required: true
+        help: 'Your message to send later.'
       - name: users
         value_name: USERS
         num_args: "0.."
@@ -486,21 +486,17 @@ commands:
         required: true
         value_name: TASK_ID
   - name: schedule
-    about: schedule a task
+    about: Schedule a command to run later in this console.
     args:
-      - name: session
-        required: true
-        value_name: SESSION
-        help: The certain session, 0 for main console.
       - name: time
         value_name: TIME
-        help: send time
         required: true
+        help: "When to run: +30s / +5m / +2h / +1d, HH:MM (local, next occurrence), or seconds."
       - name: cmd
-        long: code
-        short: c
-        required: false
-        help: 'Dest CMD, fallback to editor'
+        value_name: CMD
+        required: true
+        num_args: "1.."
+        help: "Command to run later (argv form)."
   - name: tasks
     about: Get scheduled tasks.
   - name: whoami
