@@ -14,13 +14,41 @@ impl SessionsCommand {
     pub fn execute(&self, list: bool, interact: Option<String>, kill: Option<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        // 一个 freq 是一个会话：当前会话在前台，其余已在后台（可 `foreground` 恢复）。
+        // 一个 freq 是一个会话：当前会话在前台，其余在后台。
+        // `sessions -i <freq>` 真正切换到目标会话；`sessions -k <freq>` 丢弃后台会话。
         if let Some(s) = interact {
-            print_content(&format!("[!] session `{s}` is in background; use `foreground` to switch back").into());
+            if crate::session::current().as_deref() == Some(s.as_str()) {
+                print_content(&format!("[!] session `{s}` is already the current session").into());
+                return Ok(());
+            }
+            if !crate::session::take_background(&s) {
+                print_content(&format!("[!] no such session `{s}`; run `sessions -l` to list").into());
+                return Ok(());
+            }
+            let resp: protos::frequency::basic::JoinFreqResponse = crate::connection::rpc(
+                "join_freq",
+                &protos::frequency::basic::JoinFreqRequest { freq: s.clone(), password: None },
+            )?;
+            if resp.status == protos::frequency::basic::FreqStatus::FreqIdle as i32 {
+                crate::session::set_current(&s);
+                print_content(&format!("[*] switched to session `{s}`").into());
+            } else {
+                // 恢复失败则放回后台列表，避免会话丢失。
+                crate::session::background_current();
+                print_content(&resp.message.clone().into());
+            }
             return Ok(());
         }
         if let Some(s) = kill {
-            print_content(&format!("[!] kill session `{s}`: use `foreground` then `leave_freq` to drop it").into());
+            if crate::session::current().as_deref() == Some(s.as_str()) {
+                print_content(&format!("[!] cannot kill the current session `{s}`; use `leave_freq` or `background`").into());
+                return Ok(());
+            }
+            if crate::session::take_background(&s) {
+                print_content(&format!("[*] session `{s}` dropped").into());
+            } else {
+                print_content(&format!("[!] no such background session `{s}`").into());
+            }
             return Ok(());
         }
         let _ = list;

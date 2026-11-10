@@ -10,9 +10,16 @@ static CURRENT_FREQ: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::n
 static BACKGROUND_FREQS: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 /// 记录当前会话（join/create 成功后调用），并从后台列表移除同名项。
+/// 切换前若已有其它当前会话，自动挂入后台列表（避免会话在切换中丢失）。
 pub fn set_current(freq: &str) {
-    *CURRENT_FREQ.lock().unwrap() = Some(freq.to_string());
+    let mut cur = CURRENT_FREQ.lock().unwrap();
+    if let Some(prev) = cur.clone() {
+        if prev != freq {
+            BACKGROUND_FREQS.lock().unwrap().push(prev);
+        }
+    }
     BACKGROUND_FREQS.lock().unwrap().retain(|f| f != freq);
+    *cur = Some(freq.to_string());
 }
 
 /// 清空当前会话（leave_freq 成功后调用）。
@@ -37,6 +44,17 @@ pub fn background_current() -> Option<String> {
 /// 恢复最近挂起的会话（foreground 用）。
 pub fn foreground_next() -> Option<String> {
     BACKGROUND_FREQS.lock().unwrap().pop()
+}
+
+/// 按名从后台取出会话（sessions -i 用）。返回是否取出成功。
+pub fn take_background(freq: &str) -> bool {
+    let mut bg = BACKGROUND_FREQS.lock().unwrap();
+    if let Some(i) = bg.iter().position(|f| f == freq) {
+        bg.remove(i);
+        true
+    } else {
+        false
+    }
 }
 
 /// (当前会话, 后台会话列表)。
