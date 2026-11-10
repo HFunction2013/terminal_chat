@@ -18,11 +18,11 @@ impl LogsCommand {
         let op = operation.unwrap_or_else(|| "open".to_string());
         match op.as_str() {
             "open" => {
-                std::fs::write(crate::local::base_dir().join(crate::local::LOGGING_FILE), "on").ok();
+                std::fs::write(crate::local::state_dir().join(crate::local::LOGGING_FILE), "on").ok();
                 print_content(&"[*] Logging opened.".into());
             }
             "close" => {
-                std::fs::write(crate::local::base_dir().join(crate::local::LOGGING_FILE), "off").ok();
+                std::fs::write(crate::local::state_dir().join(crate::local::LOGGING_FILE), "off").ok();
                 print_content(&"[*] Logging closed.".into());
             }
             _ => return Err(anyhow!("invalid operation `{op}`; use open or close")),

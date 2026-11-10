@@ -19,7 +19,7 @@ impl FeedbackCommand {
             Some(c) if !c.trim().is_empty() => c,
             _ => return Err(anyhow!("empty feedback; use `feedback -m <content>`")),
         };
-        let path = crate::local::base_dir().join(crate::local::FEEDBACK_FILE);
+        let path = crate::local::state_dir().join(crate::local::FEEDBACK_FILE);
         use std::io::Write;
         let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&path)?;
         writeln!(f, "{}: {content}", std::process::id())?;

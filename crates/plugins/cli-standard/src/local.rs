@@ -29,7 +29,7 @@ pub fn append_log(line: &str) {
     if let Ok(mut f) = fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(base_dir().join(LOG_FILE))
+        .open(state_dir().join(LOG_FILE))
     {
         let _ = writeln!(f, "{}", line);
     }
@@ -72,7 +72,7 @@ pub struct TaskEntry {
 }
 
 pub fn read_tasks() -> Vec<TaskEntry> {
-    let path = base_dir().join(TASKS_FILE);
+    let path = state_dir().join(TASKS_FILE);
     let content = match fs::read_to_string(&path) {
         Ok(c) => c,
         Err(_) => return Vec::new(),
@@ -114,7 +114,7 @@ pub fn read_tasks() -> Vec<TaskEntry> {
 }
 
 pub fn write_tasks(tasks: &[TaskEntry]) -> std::io::Result<()> {
-    let path = base_dir().join(TASKS_FILE);
+    let path = state_dir().join(TASKS_FILE);
     let mut content = String::new();
     for t in tasks {
         let payload = if t.kind == "cmd" {
@@ -246,6 +246,25 @@ pub fn set_current_workspace(name: &str) -> std::io::Result<()> {
 
 pub fn workspace_path(name: &str) -> PathBuf {
     workspaces_dir().join(name)
+}
+
+/// workspace 的独立 home 目录（切换 workspace 时把本地 cwd 切到这里）。
+pub fn workspace_home(name: &str) -> PathBuf {
+    workspace_path(name).join("home")
+}
+
+/// 当前 workspace 的状态根：`default` 沿用旧位置（~/.terminal_chat），
+/// 其它 workspace 使用 `~/.terminal_chat/workspaces/<name>`，从而实现状态隔离
+/// （任务表、日志开关、代理开关、feedback、别名/宏等各 workspace 独立）。
+pub fn state_dir() -> PathBuf {
+    let cur = current_workspace();
+    if cur == "default" {
+        base_dir()
+    } else {
+        let dir = workspaces_dir().join(&cur);
+        let _ = fs::create_dir_all(&dir);
+        dir
+    }
 }
 
 pub fn list_workspaces() -> Vec<String> {

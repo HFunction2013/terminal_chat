@@ -14,14 +14,29 @@ impl SwitchCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, workspace_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        cli_core_macros::load_core_symbols!(lib, print_content);
+        cli_core_macros::load_core_symbols!(lib, print_content, reload_aliases, reload_macros);
         let dir = crate::local::workspace_path(&workspace_name);
         if !dir.is_dir() {
-            print_content(&format!("[!] Workspace `{workspace_name}` does not exist.").into());
-            return Ok(());
+            // default 是内建 workspace，始终可进入（首次使用时创建）。
+            if workspace_name == "default" {
+                std::fs::create_dir_all(&dir)?;
+            } else {
+                print_content(&format!("[!] Workspace `{workspace_name}` does not exist.").into());
+                return Ok(());
+            }
         }
         crate::local::set_current_workspace(&workspace_name)?;
-        print_content(&format!("[*] Switched to workspace `{workspace_name}`.").into());
+        // 独立环境：本地 cwd 切到该 workspace 的 home，别名/宏按 workspace 重新加载。
+        let home = crate::local::workspace_home(&workspace_name);
+        std::fs::create_dir_all(&home)?;
+        std::env::set_current_dir(&home)
+            .map_err(|e| anyhow!("cannot switch into `{}`: {e}", home.display()))?;
+        reload_aliases();
+        reload_macros();
+        print_content(
+            &format!("[*] Switched to workspace `{workspace_name}` (home: {}).", home.display())
+                .into(),
+        );
         Ok(())
     }
 }

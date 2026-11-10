@@ -14,19 +14,28 @@ impl NewCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, workspace_name: Option<String>, enter: Option<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        cli_core_macros::load_core_symbols!(lib, print_content);
+        cli_core_macros::load_core_symbols!(lib, print_content, reload_aliases, reload_macros);
         let name = workspace_name.unwrap_or_else(|| "default".to_string());
         let dir = crate::local::workspace_path(&name);
         if dir.exists() {
             print_content(&format!("[!] Workspace `{name}` already exists.").into());
         } else {
             std::fs::create_dir_all(&dir)?;
+            let _ = std::fs::create_dir_all(dir.join("home"));
             print_content(&format!("[*] Workspace `{name}` created at {}.", dir.display()).into());
         }
         if let Some(e) = enter {
             if e == "1" || e.eq_ignore_ascii_case("true") || e.eq_ignore_ascii_case("yes") {
                 crate::local::set_current_workspace(&name)?;
-                print_content(&format!("[*] Switched to workspace `{name}`.").into());
+                let home = crate::local::workspace_home(&name);
+                std::fs::create_dir_all(&home)?;
+                std::env::set_current_dir(&home).ok();
+                reload_aliases();
+                reload_macros();
+                print_content(
+                    &format!("[*] Switched to workspace `{name}` (home: {}).", home.display())
+                        .into(),
+                );
             }
         }
         Ok(())
