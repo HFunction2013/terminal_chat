@@ -117,6 +117,13 @@ message UploadResponse {
 message DownloadRequest {
     string remote_path = 1;
     string local_path = 2;   // 客户端本地存储路径（缺省用远程基名）
+    bool recursive = 3;      // 目录递归下载
+}
+
+message DownloadEntry {
+    string path = 1;         // 相对路径（如 sub/file.txt）
+    int64 size = 2;
+    bytes content = 3;
 }
 
 message DownloadResponse {
@@ -124,6 +131,7 @@ message DownloadResponse {
     bool found = 2;
     string message = 3;
     bytes content = 4;       // 文件内容（一次取回）
+    repeated DownloadEntry files = 5;  // 目录递归下载时的文件列表
 }
 
 // 下载数据块（服务器 -> 客户端 流式 / 分块轮询）。

@@ -348,6 +348,11 @@ commands:
         required: false
         value_name: LOCAL_PATH
         help: Local path to store downloads.
+      - name: recursive
+        long: recursive
+        short: r
+        help: Download a directory recursively.
+        action: set_true
   - name: checksum
     about: Get checksum of remote file (SHA256).
     args:

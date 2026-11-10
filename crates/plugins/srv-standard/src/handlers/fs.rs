@@ -221,7 +221,7 @@ pub(crate) fn handle_download(sender: String, req: protos::remote::fs::DownloadR
     // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
     let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
         Some(f) => f,
-        None => return DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: "not in any freq; join or create one first".into() },
+        None => return DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: "not in any freq; join or create one first".into(), files: Vec::new() },
     };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
@@ -234,8 +234,36 @@ pub(crate) fn handle_download(sender: String, req: protos::remote::fs::DownloadR
             found: true,
             content: e.content.clone(),
             message: format!("{} bytes at {target}", e.size),
+            files: Vec::new(),
         },
-        Some(_) => DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: "cannot download a directory".into() },
-        None => DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: format!("`{target}` not found") },
+        Some(_) if req.recursive => {
+            // 目录递归下载：收集该目录下所有普通文件（相对路径 + 内容）。
+            use protos::remote::fs::DownloadEntry;
+            let prefix = format!("{}/", target.trim_end_matches('/'));
+            let mut entries = Vec::new();
+            let mut total: i64 = 0;
+            for (path, ent) in vfs.files.iter() {
+                if ent.is_dir || !path.starts_with(&prefix) {
+                    continue;
+                }
+                let rel = path[prefix.len()..].to_string();
+                total += ent.size as i64;
+                entries.push(DownloadEntry {
+                    path: rel,
+                    size: ent.size as i64,
+                    content: ent.content.clone(),
+                });
+            }
+            entries.sort_by(|a, b| a.path.cmp(&b.path));
+            DownloadResponse {
+                total_size: total,
+                found: true,
+                content: Vec::new(),
+                message: format!("{} files ({} bytes) in directory {target}", entries.len(), total),
+                files: entries,
+            }
+        }
+        Some(_) => DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: "cannot download a directory (use `-r` to download recursively)".into(), files: Vec::new() },
+        None => DownloadResponse { total_size: 0, found: false, content: Vec::new(), message: format!("`{target}` not found"), files: Vec::new() },
     }
 }
