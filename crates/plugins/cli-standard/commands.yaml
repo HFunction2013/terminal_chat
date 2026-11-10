@@ -557,6 +557,16 @@ commands:
             short: c
             required: false 
             help: 'macro body, default: open editor to get input'
+  - name: shell
+    aliases:
+      - sh
+    about: Run a local shell command on this machine (not remote).
+    args:
+      - name: command
+        value_name: COMMAND
+        required: true
+        num_args: "1.."
+        help: "Local shell command to run."
   - name: run
     about: run a certain macro
     args:

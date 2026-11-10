@@ -60,6 +60,7 @@ pub mod schedule_msg;
 pub mod sessions;
 pub mod set;
 pub mod setg;
+pub mod shell;
 pub mod show;
 pub mod sleep;
 pub mod status;
@@ -118,6 +119,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(unsetg::UnsetgCommand),
         Arc::new(create::CreateCommand),
         Arc::new(run::RunCommand),
+        Arc::new(shell::ShellCommand),
         Arc::new(delete::DeleteCommand),
         Arc::new(status::StatusCommand),
         Arc::new(freq_info::FreqInfoCommand),
