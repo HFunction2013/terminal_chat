@@ -15,6 +15,7 @@ pub mod call;
 pub mod cancel;
 pub mod cd;
 pub mod checksum;
+pub mod cp;
 pub mod connect;
 pub mod create;
 pub mod create_freq;
@@ -43,6 +44,7 @@ pub mod logs;
 pub mod ls;
 pub mod mkdir;
 pub mod msg;
+pub mod mv;
 pub mod mute;
 pub mod notifications;
 pub mod op;
@@ -50,6 +52,7 @@ pub mod proxy;
 pub mod pwd;
 pub mod reconnect;
 pub mod reply;
+pub mod rm;
 pub mod route;
 pub mod run;
 pub mod schedule;
@@ -62,6 +65,7 @@ pub mod sleep;
 pub mod status;
 pub mod tasks;
 pub mod tcpm;
+pub mod tree;
 pub mod trop;
 pub mod unban;
 pub mod unignore;
@@ -98,6 +102,10 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(ls::LsCommand),
         Arc::new(mkdir::MkdirCommand),
         Arc::new(file_info::FileInfoCommand),
+        Arc::new(rm::RmCommand),
+        Arc::new(mv::MvCommand),
+        Arc::new(cp::CpCommand),
+        Arc::new(tree::TreeCommand),
         Arc::new(leave_freq::LeaveFreqCommand),
         Arc::new(call::CallCommand),
         Arc::new(msg::MsgCommand),

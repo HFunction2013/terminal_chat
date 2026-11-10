@@ -68,6 +68,7 @@ pub(crate) struct ServerState {
 }
 
 /// 远程虚拟文件系统：user@ip -> 该用户的文件树。
+#[derive(Clone)]
 pub(crate) struct VfsEntry {
     is_dir: bool,
     size: u64,
@@ -266,6 +267,10 @@ use handlers::fs::handle_file_info;
 use handlers::fs::handle_remote_checksum;
 use handlers::fs::handle_upload;
 use handlers::fs::handle_download;
+use handlers::fs::handle_remote_rm;
+use handlers::fs::handle_remote_mv;
+use handlers::fs::handle_remote_cp;
+use handlers::fs::handle_remote_tree;
 use handlers::session::handle_status;
 use handlers::session::handle_route;
 use handlers::session::handle_notifications;
@@ -449,6 +454,10 @@ rpc_handler!(on_file_info, protos::remote::fs::RemoteFileInfoRequest, protos::re
 rpc_handler!(on_remote_checksum, protos::remote::fs::RemoteChecksumRequest, protos::remote::fs::RemoteChecksumResponse, handle_remote_checksum);
 rpc_handler!(on_upload, protos::remote::fs::UploadRequest, protos::remote::fs::UploadResponse, handle_upload);
 rpc_handler!(on_download, protos::remote::fs::DownloadRequest, protos::remote::fs::DownloadResponse, handle_download);
+rpc_handler!(on_remote_rm, protos::remote::fs::RemoteRmRequest, protos::remote::fs::RemoteRmResponse, handle_remote_rm);
+rpc_handler!(on_remote_mv, protos::remote::fs::RemoteMvRequest, protos::remote::fs::RemoteMvResponse, handle_remote_mv);
+rpc_handler!(on_remote_cp, protos::remote::fs::RemoteCpRequest, protos::remote::fs::RemoteCpResponse, handle_remote_cp);
+rpc_handler!(on_remote_tree, protos::remote::fs::RemoteTreeRequest, protos::remote::fs::RemoteTreeResponse, handle_remote_tree);
 rpc_handler!(on_status, protos::connection::session::StatusRequest, protos::connection::session::StatusResponse, handle_status);
 rpc_handler!(on_route, protos::connection::session::RouteRequest, protos::connection::session::RouteResponse, handle_route);
 rpc_handler!(on_notifications, protos::frequency::notification::NotificationsRequest, protos::frequency::notification::NotificationsResponse, handle_notifications);
@@ -509,6 +518,10 @@ const CHANNELS: &[(&str, &str, ChannelHandlerFn)] = &[
     ("remote_checksum", "Remote file SHA256", on_remote_checksum),
     ("upload", "Upload a file to server", on_upload),
     ("download", "Download a file from server", on_download),
+    ("remote_rm", "Remove remote file/directory", on_remote_rm),
+    ("remote_mv", "Move/rename remote file", on_remote_mv),
+    ("remote_cp", "Copy remote file", on_remote_cp),
+    ("remote_tree", "Show remote directory tree", on_remote_tree),
     ("status", "Server ping / network test", on_status),
     ("route", "Trace route to server", on_route),
     ("notifications", "Poll pending notifications", on_notifications),

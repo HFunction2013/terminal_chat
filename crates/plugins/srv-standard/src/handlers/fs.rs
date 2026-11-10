@@ -24,7 +24,7 @@ pub(crate) fn handle_remote_pwd(sender: String, _req: protos::remote::fs::PwdReq
     }
 }
 
-pub(crate) fn handle_remote_ls(sender: String, _req: protos::remote::fs::LsRequest) -> protos::remote::fs::LsResponse {
+pub(crate) fn handle_remote_ls(sender: String, req: protos::remote::fs::LsRequest) -> protos::remote::fs::LsResponse {
     use protos::remote::fs::{FileEntry, LsResponse};
     // VFS 按 freq 共享（无私有文件系统；disband 时销毁）。
     let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
@@ -35,10 +35,27 @@ pub(crate) fn handle_remote_ls(sender: String, _req: protos::remote::fs::LsReque
     let vfs = all_vfs
         .entry(freq.clone())
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
+    let target = if req.dir.is_empty() { vfs.cwd.clone() } else { norm_path(&vfs.cwd, &req.dir) };
+    if target != "/" {
+        match vfs.files.get(&target) {
+            Some(e) if !e.is_dir => {
+                return LsResponse {
+                    directory: target.clone(),
+                    entries: vec![FileEntry { name: target.rsplit('/').next().unwrap_or("").to_string(), is_dir: false, size: e.size as i64, modified_at: e.modified_at as i64 }],
+                    success: true,
+                    message: format!("{target} is a file"),
+                };
+            }
+            None => {
+                return LsResponse { directory: target.clone(), entries: vec![], success: false, message: format!("`{target}` not found") };
+            }
+            _ => {}
+        }
+    }
     let mut entries = Vec::new();
-    let prefix = if vfs.cwd == "/" { String::new() } else { vfs.cwd.clone() };
+    let prefix = if target == "/" { String::new() } else { target.clone() };
     for (path, entry) in &vfs.files {
-        if !path.starts_with(&format!("{prefix}/")) && path != &vfs.cwd {
+        if !path.starts_with(&format!("{prefix}/")) && path != &target {
             continue;
         }
         let rest = &path[prefix.len()..];
@@ -58,11 +75,164 @@ pub(crate) fn handle_remote_ls(sender: String, _req: protos::remote::fs::LsReque
     }
     entries.sort_by(|a, b| a.name.cmp(&b.name));
     LsResponse {
-        directory: vfs.cwd.clone(),
+        directory: target.clone(),
         entries,
         success: true,
-        message: format!("listing {}", vfs.cwd),
+        message: format!("listing {target}"),
     }
+}
+
+/// 远程 rm：删除文件；目录需 recursive 才会连子项一并删除。
+pub(crate) fn handle_remote_rm(sender: String, req: protos::remote::fs::RemoteRmRequest) -> protos::remote::fs::RemoteRmResponse {
+    use protos::remote::fs::RemoteRmResponse;
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return RemoteRmResponse { success: false, message: "not in any freq".into() },
+    };
+    let mut all_vfs = VFS.lock().unwrap();
+    let vfs = all_vfs
+        .entry(freq)
+        .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
+    let target = norm_path(&vfs.cwd, &req.path);
+    if target == "/" {
+        return RemoteRmResponse { success: false, message: "cannot remove the root directory".into() };
+    }
+    match vfs.files.get(&target) {
+        None => RemoteRmResponse { success: false, message: format!("`{target}` not found") },
+        Some(e) if e.is_dir && !req.recursive => RemoteRmResponse {
+            success: false,
+            message: format!("`{target}` is a directory (use `-r` to remove recursively)"),
+        },
+        Some(e) if e.is_dir => {
+            let prefix = format!("{}/", target.trim_end_matches('/'));
+            vfs.files.retain(|k, _| k != &target && !k.starts_with(&prefix));
+            RemoteRmResponse { success: true, message: format!("removed directory {target}") }
+        }
+        Some(_) => {
+            vfs.files.remove(&target);
+            RemoteRmResponse { success: true, message: format!("removed {target}") }
+        }
+    }
+}
+
+/// 远程 mv：移动/重命名（目录连带子项整体迁移）。
+pub(crate) fn handle_remote_mv(sender: String, req: protos::remote::fs::RemoteMvRequest) -> protos::remote::fs::RemoteMvResponse {
+    use protos::remote::fs::RemoteMvResponse;
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return RemoteMvResponse { success: false, message: "not in any freq".into() },
+    };
+    let mut all_vfs = VFS.lock().unwrap();
+    let vfs = all_vfs
+        .entry(freq)
+        .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
+    let from = norm_path(&vfs.cwd, &req.from);
+    let to = norm_path(&vfs.cwd, &req.to);
+    if from == to {
+        return RemoteMvResponse { success: false, message: "source and destination are the same".into() };
+    }
+    if !vfs.files.contains_key(&from) {
+        return RemoteMvResponse { success: false, message: format!("`{from}` not found") };
+    }
+    if vfs.files.contains_key(&to) {
+        return RemoteMvResponse { success: false, message: format!("`{to}` already exists") };
+    }
+    // 收集源路径（含目录的子项）并迁移。
+    let prefix = format!("{}/", from.trim_end_matches('/'));
+    let moved: Vec<(String, VfsEntry)> = vfs
+        .files
+        .iter()
+        .filter(|(k, _)| k == &&from || k.starts_with(&prefix))
+        .map(|(k, e)| (k.clone(), (*e).clone()))
+        .collect();
+    let now = now_ts();
+    for (k, mut e) in moved {
+        let new_key = if k == from {
+            to.clone()
+        } else {
+            format!("{}{}", to, &k[from.len()..])
+        };
+        if e.is_dir {
+            e.modified_at = now;
+        }
+        vfs.files.insert(new_key, e);
+        vfs.files.remove(&k);
+    }
+    RemoteMvResponse { success: true, message: format!("moved {from} -> {to}") }
+}
+
+/// 远程 cp：复制（目录连带子项复制）。
+pub(crate) fn handle_remote_cp(sender: String, req: protos::remote::fs::RemoteCpRequest) -> protos::remote::fs::RemoteCpResponse {
+    use protos::remote::fs::RemoteCpResponse;
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return RemoteCpResponse { success: false, message: "not in any freq".into() },
+    };
+    let mut all_vfs = VFS.lock().unwrap();
+    let vfs = all_vfs
+        .entry(freq)
+        .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
+    let from = norm_path(&vfs.cwd, &req.from);
+    let to = norm_path(&vfs.cwd, &req.to);
+    if from == to {
+        return RemoteCpResponse { success: false, message: "source and destination are the same".into() };
+    }
+    if !vfs.files.contains_key(&from) {
+        return RemoteCpResponse { success: false, message: format!("`{from}` not found") };
+    }
+    if vfs.files.contains_key(&to) {
+        return RemoteCpResponse { success: false, message: format!("`{to}` already exists") };
+    }
+    let prefix = format!("{}/", from.trim_end_matches('/'));
+    let copied: Vec<(String, VfsEntry)> = vfs
+        .files
+        .iter()
+        .filter(|(k, _)| k == &&from || k.starts_with(&prefix))
+        .map(|(k, e)| (k.clone(), (*e).clone()))
+        .collect();
+    let mut count = 0usize;
+    for (k, e) in copied {
+        let new_key = if k == from { to.clone() } else { format!("{}{}", to, &k[from.len()..]) };
+        vfs.files.insert(new_key, e);
+        count += 1;
+    }
+    RemoteCpResponse { success: true, message: format!("copied {from} -> {to} ({count} entries)") }
+}
+
+/// 远程 tree：以缩进文本展示目录树。
+pub(crate) fn handle_remote_tree(sender: String, req: protos::remote::fs::RemoteTreeRequest) -> protos::remote::fs::RemoteTreeResponse {
+    use protos::remote::fs::RemoteTreeResponse;
+    let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
+        Some(f) => f,
+        None => return RemoteTreeResponse { success: false, root: String::new(), text: "not in any freq".into() },
+    };
+    let all_vfs = VFS.lock().unwrap();
+    let vfs = match all_vfs.get(&freq) {
+        Some(v) => v,
+        None => return RemoteTreeResponse { success: false, root: String::new(), text: "empty directory".into() },
+    };
+    let target = if req.dir.is_empty() { vfs.cwd.clone() } else { norm_path(&vfs.cwd, &req.dir) };
+    if target != "/" && !vfs.files.contains_key(&target) {
+        return RemoteTreeResponse { success: false, root: target.clone(), text: format!("`{target}` not found") };
+    }
+    let prefix = if target == "/" { String::new() } else { format!("{}/", target.trim_end_matches('/')) };
+    let mut items: Vec<(String, bool)> = vfs
+        .files
+        .iter()
+        .filter(|(k, _)| *k != &target && (prefix.is_empty() && k.as_str() != "/" || k.starts_with(&prefix)))
+        .map(|(k, e)| {
+            let rel = if prefix.is_empty() { k.trim_start_matches('/').to_string() } else { k[prefix.len()..].to_string() };
+            (rel, e.is_dir)
+        })
+        .filter(|(rel, _)| !rel.is_empty())
+        .collect();
+    items.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut text = format!("{target}\n");
+    for (rel, is_dir) in items {
+        let depth = rel.matches('/').count();
+        text.push_str(&format!("{}{}{}\n", "  ".repeat(depth), rel.rsplit('/').next().unwrap_or(""), if is_dir { "/" } else { "" }));
+    }
+    RemoteTreeResponse { success: true, root: target.clone(), text }
 }
 
 pub(crate) fn handle_remote_cd(sender: String, req: protos::remote::fs::CdRequest) -> protos::remote::fs::CdResponse {

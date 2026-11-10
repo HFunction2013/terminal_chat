@@ -19,7 +19,9 @@ message PwdResponse {
 
 // ---------- Ls ----------
 
-message LsRequest {}
+message LsRequest {
+    string dir = 1;          // 目标目录（缺省用当前目录）
+}
 
 message FileEntry {
     string name = 1;
@@ -134,6 +136,43 @@ message DownloadResponse {
     repeated DownloadEntry files = 5;  // 目录递归下载时的文件列表
 }
 
+// ---- 更多远程文件操作（rm / mv / cp / tree）----
+message RemoteRmRequest {
+    string path = 1;
+    bool recursive = 2;      // 目录需递归删除
+}
+message RemoteRmResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message RemoteMvRequest {
+    string from = 1;
+    string to = 2;
+}
+message RemoteMvResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message RemoteCpRequest {
+    string from = 1;
+    string to = 2;
+}
+message RemoteCpResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message RemoteTreeRequest {
+    string dir = 1;          // 缺省用当前目录
+}
+message RemoteTreeResponse {
+    bool success = 1;
+    string root = 2;
+    string text = 3;         // 树形文本
+}
+
 // 下载数据块（服务器 -> 客户端 流式 / 分块轮询）。
 message DownloadChunk {
     int64 offset = 1;
@@ -149,4 +188,8 @@ service RemoteFsService {
     rpc FileInfo(RemoteFileInfoRequest) returns (RemoteFileInfoResponse);
     rpc Upload(stream UploadChunk) returns (UploadResponse);
     rpc Download(DownloadRequest) returns (stream DownloadChunk);
+    rpc Rm(RemoteRmRequest) returns (RemoteRmResponse);
+    rpc Mv(RemoteMvRequest) returns (RemoteMvResponse);
+    rpc Cp(RemoteCpRequest) returns (RemoteCpResponse);
+    rpc Tree(RemoteTreeRequest) returns (RemoteTreeResponse);
 }
