@@ -39,6 +39,18 @@ pub(crate) fn handle_send_message(sender: String, req: protos::messaging::messag
             "[srv-standard] [{freq}] {who}: {}",
             req.message
         );
+        // 广播：把消息推送给该 freq 内除发送者以外的所有成员（原实现漏了这一步，
+        // 导致别的成员有时收不到 msg）。
+        let members: Vec<String> = state
+            .freqs
+            .get(&freq)
+            .map(|r| r.members.keys().cloned().collect())
+            .unwrap_or_default();
+        for m in &members {
+            if m != &sender {
+                notify(m, format!("[msg:{freq}] {who}: {}", req.message));
+            }
+        }
         state.last_speaker.insert(freq.clone(), sender.clone());
         SendMessageResponse {
             result: R::SendMessageSuccess as i32,
