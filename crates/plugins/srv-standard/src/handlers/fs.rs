@@ -184,12 +184,24 @@ pub(crate) fn handle_upload(sender: String, req: protos::remote::fs::UploadReque
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.remote_path);
     let now = now_ts();
-    vfs_ensure_dirs(&mut vfs, &target, now);
-    let name = target.rsplit('/').next().unwrap_or("file").to_string();
-    let dir = target.trim_end_matches(&format!("/{name}"));
-    if !dir.is_empty() {
-        vfs_ensure_dirs(&mut vfs, dir, now);
+    // 同名保护：目标已存在为目录时不能覆盖成文件。
+    if let Some(e) = vfs.files.get(&target) {
+        if e.is_dir {
+            return UploadResponse {
+                remote_path: target.clone(),
+                received_bytes: 0,
+                success: false,
+                message: format!("`{target}` is a directory"),
+            };
+        }
     }
+    // 父目录只按最后一个 '/' 切分（trim_end_matches 在“文件名与上级目录同名”时
+    // 会把多级后缀反复剥掉，导致父目录缺失、文件无法正常处理）。
+    let dir = match target.rfind('/') {
+        Some(i) if i > 0 => target[..i].to_string(),
+        _ => "/".to_string(),
+    };
+    vfs_ensure_dirs(&mut vfs, &dir, now);
     vfs.files.insert(target.clone(), VfsEntry {
         is_dir: false,
         size: req.content.len() as u64,
