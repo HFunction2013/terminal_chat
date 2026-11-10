@@ -21,6 +21,7 @@ sl-rs = { workspace = true }
 lolcat = { workspace = true }
 figlet-rs = "1.0.0"
 crossterm = "0.28"
+ratatui = "0.29"
 indicatif = "0.17"
 rand = "0.8"
 prost = { workspace = true }

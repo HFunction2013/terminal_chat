@@ -87,6 +87,7 @@ fn install_ctrlc_handler() {
 }
 
 mod tasks;
+mod tui;
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
@@ -410,6 +411,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+    }
+
+    // `tc-cli --tui`：ratatui 全屏界面。
+    if std::env::args().any(|a| a == "--tui") {
+        let core_lib = get_cli_core();
+        let take_pushes: Symbol<PushDrainFn> = unsafe { core_lib.get(b"tc_cli_push_drain") }
+            .map_err(|e| format!("Failed to find symbol 'tc_cli_push_drain': {e}"))?;
+        return tui::run(&run_command, &take_pushes).map_err(|e| e.into());
     }
 
     #[cfg(not(debug_assertions))]
