@@ -10,6 +10,15 @@ static CALL_COOLDOWNS: std::sync::LazyLock<std::sync::Mutex<HashMap<String, u64>
 #[allow(unused_imports)]
 use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, resolve_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
 
+/// 接收者是否忽略了发送者（ignore 语义：被忽略者的一切交互不再触达忽略者）。
+fn ignores(state: &crate::ServerState, receiver: &str, sender: &str) -> bool {
+    state
+        .users
+        .get(receiver)
+        .map(|u| u.ignored.contains(sender))
+        .unwrap_or(false)
+}
+
 pub(crate) fn handle_send_message(sender: String, req: protos::messaging::message::SendMessageRequest) -> protos::messaging::message::SendMessageResponse {
     use protos::messaging::message::{SendMessageResponse, SendMessageResult as R};
     let mut state = STATE.lock().unwrap();
@@ -47,7 +56,7 @@ pub(crate) fn handle_send_message(sender: String, req: protos::messaging::messag
             .map(|r| r.members.keys().cloned().collect())
             .unwrap_or_default();
         for m in &members {
-            if m != &sender {
+            if m != &sender && !ignores(&state, m, &sender) {
                 notify(m, format!("[msg:{freq}] {who}: {}", req.message));
             }
         }
@@ -87,7 +96,7 @@ pub(crate) fn handle_send_message(sender: String, req: protos::messaging::messag
         );
         // 通知每个定向目标（在线的用户稍后由 cli 轮询拉取）。
         for t in &resolved {
-            if t.as_str() != sender {
+            if t.as_str() != sender && !ignores(&state, t, &sender) {
                 notify(t, format!("[msg:{freq}] {who}: {}", req.message));
             }
         }
@@ -111,6 +120,15 @@ pub(crate) fn handle_reply_message(sender: String, req: protos::messaging::messa
             }
         }
     };
+    // 被禁言者在该 freq 内不能进行任何交互（reply 同样受限）。
+    if let Some(member) = state.freqs.get(&freq).and_then(|f| f.members.get(&sender))
+        && member.muted_until > now_ts()
+    {
+        return ReplyMessageResponse {
+            result: R::SendMessageMuted as i32,
+            message: "you are muted in this freq".into(),
+        };
+    }
     let target = match state.last_speaker.get(&freq) {
         Some(t) if t.as_str() != sender => t.clone(),
         _ => {
@@ -160,6 +178,15 @@ pub(crate) fn handle_call_user(sender: String, req: protos::call::CallRequest) -
             }
         }
     };
+    // 被禁言者在该 freq 内不能进行任何交互（call 同样受限）。
+    if let Some(member) = state.freqs.get(&scope).and_then(|f| f.members.get(&sender))
+        && member.muted_until > now_ts()
+    {
+        return CallResponse {
+            result: R::CallError as i32,
+            message: "you are muted in this freq".into(),
+        };
+    }
     if !req.freq.is_empty() && req.freq != scope {
         return CallResponse {
             result: R::CallError as i32,
