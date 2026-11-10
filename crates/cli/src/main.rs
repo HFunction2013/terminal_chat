@@ -341,6 +341,27 @@ fn prepare_startup() -> String {
     colored.lock().unwrap().clone()
 }
 
+/// 输出指定 shell 的补全脚本（bash/zsh/fish/powershell/elvish）。
+fn print_completions(cli: &Command, shell_name: &str) -> Result<(), String> {
+    use clap_complete::Shell;
+    let shell = match shell_name.to_ascii_lowercase().as_str() {
+        "bash" => Shell::Bash,
+        "zsh" => Shell::Zsh,
+        "fish" => Shell::Fish,
+        "powershell" | "ps" => Shell::PowerShell,
+        "elvish" => Shell::Elvish,
+        "" => return Err("usage: tc-cli completion <bash|zsh|fish|powershell|elvish>".into()),
+        other => {
+            return Err(format!(
+                "unsupported shell `{other}` (use bash/zsh/fish/powershell/elvish)"
+            ))
+        }
+    };
+    let mut cmd = cli.clone();
+    clap_complete::generate(shell, &mut cmd, "tc-cli", &mut io::stdout());
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 获取函数指针
     let run_command: Symbol<RunCommandFn> = unsafe { get_cli_core().get(b"run_command") }
@@ -365,11 +386,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     install_ctrlc_handler();
     let _guard = AtExit;
-    #[cfg(not(debug_assertions))]
-    execute!(stdout(), EnterAlternateScreen)?;
-    execute!(stdout(), Hide)?;
-    let colored = prepare_startup();
-    execute!(stdout(), Show)?;
 
     // Stub now. will make cli-core command part a module named std.
     // let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
@@ -379,6 +395,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let command_yaml: &safer_ffi::String = &plugin.command_yaml;
         cli = yaml2cmd::add_commands_from_yaml(command_yaml, &cli);
     }
+
+    // `tc-cli completion <shell>`：输出 shell 补全脚本（供 bash/zsh/fish 等 source）。
+    // 放在 banner 之前，保证输出纯补全脚本、不被启动画面污染。
+    {
+        let argv: Vec<String> = std::env::args().collect();
+        if argv.get(1).map(|s| s.as_str()) == Some("completion") {
+            let name = argv.get(2).map(|s| s.as_str()).unwrap_or("");
+            match print_completions(&cli, name) {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(2);
+                }
+            }
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
+    execute!(stdout(), EnterAlternateScreen)?;
+    execute!(stdout(), Hide)?;
+    let colored = prepare_startup();
+    execute!(stdout(), Show)?;
 
     let helper = ClapHelper { cli: cli.clone() };
     let mut rl = Editor::<ClapHelper, _>::new()?;
