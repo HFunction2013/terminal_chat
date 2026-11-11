@@ -13,7 +13,7 @@ impl RouteCommand {
     pub fn execute(&self) -> Result<()> {
         let resp: protos::connection::session::RouteResponse =
             crate::connection::rpc("route", &protos::connection::session::RouteRequest {})?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&format!("{}: {}", resp.server, resp.message).into());
         Ok(())

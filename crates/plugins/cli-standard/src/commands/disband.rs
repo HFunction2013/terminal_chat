@@ -10,8 +10,10 @@ pub struct DisbandCommand;
 impl DisbandCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, force: bool) -> Result<()> {
-        let resp: protos::frequency::mod_ops::DisbandResponse =
-            crate::connection::rpc("disband_freq", &protos::frequency::mod_ops::DisbandRequest { freq: String::new(), force })?;
+        let resp: protos::frequency::mod_ops::DisbandResponse = crate::connection::rpc(
+            "disband_freq",
+            &protos::frequency::mod_ops::DisbandRequest { freq: String::new(), force },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());

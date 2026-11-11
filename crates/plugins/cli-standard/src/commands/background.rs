@@ -17,10 +17,8 @@ impl BackgroundCommand {
         // 一个 freq 是一个会话：background 挂起当前 freq（服务端 leave_freq，
         // 本地放入后台列表），之后可随时 `foreground` 恢复。
         if let Some(freq) = crate::session::background_current() {
-            let _resp: protos::frequency::basic::LeaveFreqResponse = crate::connection::rpc(
-                "leave_freq",
-                &protos::utils::empty::Empty {},
-            )?;
+            let _resp: protos::frequency::basic::LeaveFreqResponse =
+                crate::connection::rpc("leave_freq", &protos::utils::empty::Empty {})?;
             print_content(&format!("[!] session `{freq}` backgrounded (left freq)").into());
         } else {
             print_content(&"[!] no active session to background".into());

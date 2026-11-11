@@ -23,7 +23,11 @@ impl NamespaceCommand {
             let line = line.trim();
             if let Some((name, rest)) = line.split_once(':') {
                 if name.trim() == namespace_name {
-                    names = rest.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                    names = rest
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
                 }
             }
         }
@@ -34,7 +38,9 @@ impl NamespaceCommand {
                 unloaded += 1;
             }
         }
-        print_content(&format!("[*] Namespace `{namespace_name}`: {unloaded} plugins unloaded.").into());
+        print_content(
+            &format!("[*] Namespace `{namespace_name}`: {unloaded} plugins unloaded.").into(),
+        );
         Ok(())
     }
 }

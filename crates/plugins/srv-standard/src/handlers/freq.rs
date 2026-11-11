@@ -1,11 +1,18 @@
 //! //! 频点：create / join / leave / info / disband / active 系列
 
 #[allow(unused_imports)]
-use std::collections::{HashMap, HashSet};
+use crate::{
+    FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry, VfsUser,
+    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, user_freq, user_part,
+    valid_freq, vfs_ensure_dirs,
+};
 #[allow(unused_imports)]
-use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
+use std::collections::{HashMap, HashSet};
 
-pub(crate) fn handle_create_freq(sender: String, req: protos::frequency::basic::CreateFreqRequest) -> protos::frequency::basic::CreateFreqResponse {
+pub(crate) fn handle_create_freq(
+    sender: String,
+    req: protos::frequency::basic::CreateFreqRequest,
+) -> protos::frequency::basic::CreateFreqResponse {
     use protos::frequency::basic::{CreateFreqResponse, CreateResult as R};
     let mut state = STATE.lock().unwrap();
     ensure_user(&mut state, &sender);
@@ -49,15 +56,23 @@ pub(crate) fn handle_create_freq(sender: String, req: protos::frequency::basic::
             joined_at: now,
         },
     );
-    println!("[srv-standard] freq `{}` created by {} ({} joined)", req.freq, user_part(&sender), user_part(&sender));
+    println!(
+        "[srv-standard] freq `{}` created by {} ({} joined)",
+        req.freq,
+        user_part(&sender),
+        user_part(&sender)
+    );
     CreateFreqResponse {
         result: R::CreateSuccess as i32,
         message: format!("freq `{}` created, joined as creator", req.freq),
     }
 }
 
-pub(crate) fn handle_join_freq(sender: String, req: protos::frequency::basic::JoinFreqRequest) -> protos::frequency::basic::JoinFreqResponse {
-    use protos::frequency::basic::{JoinFreqResponse, FreqStatus as S};
+pub(crate) fn handle_join_freq(
+    sender: String,
+    req: protos::frequency::basic::JoinFreqRequest,
+) -> protos::frequency::basic::JoinFreqResponse {
+    use protos::frequency::basic::{FreqStatus as S, JoinFreqResponse};
     let mut state = STATE.lock().unwrap();
     ensure_user(&mut state, &sender);
     if !valid_freq(&req.freq) {
@@ -72,7 +87,7 @@ pub(crate) fn handle_join_freq(sender: String, req: protos::frequency::basic::Jo
             return JoinFreqResponse {
                 status: S::FreqError as i32,
                 message: format!("freq `{}` does not exist; use `create_freq` first", req.freq),
-            }
+            };
         }
     };
     if room.banned.contains(&sender) {
@@ -129,19 +144,17 @@ pub(crate) fn handle_join_freq(sender: String, req: protos::frequency::basic::Jo
     for u in &others {
         crate::notify(u, format!("[join:{}] {who} joined the freq", req.freq));
     }
-    println!(
-        "[srv-standard] {} joined freq `{}` (members={})",
-        who,
-        req.freq,
-        count
-    );
+    println!("[srv-standard] {} joined freq `{}` (members={})", who, req.freq, count);
     JoinFreqResponse {
         status: S::FreqIdle as i32,
         message: format!("joined freq `{}` (members={count})", req.freq),
     }
 }
 
-pub(crate) fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empty) -> protos::frequency::basic::LeaveFreqResponse {
+pub(crate) fn handle_leave_freq(
+    sender: String,
+    _req: protos::utils::empty::Empty,
+) -> protos::frequency::basic::LeaveFreqResponse {
     use protos::frequency::basic::{LeaveFreqResponse, LeaveResult as R};
     let mut state = STATE.lock().unwrap();
     let freq = match user_freq(&state, &sender) {
@@ -150,7 +163,7 @@ pub(crate) fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empt
             return LeaveFreqResponse {
                 result: R::LeaveNotJoined as i32,
                 message: "you are not in any freq".into(),
-            }
+            };
         }
     };
     // 创建者不能直接离开（除非 -n/--no-mod 无版主频点）。
@@ -186,13 +199,13 @@ pub(crate) fn handle_leave_freq(sender: String, _req: protos::utils::empty::Empt
         };
     }
     println!("[srv-standard] {} left freq `{}`", user_part(&sender), freq);
-    LeaveFreqResponse {
-        result: R::LeaveSuccess as i32,
-        message: format!("left freq `{freq}`"),
-    }
+    LeaveFreqResponse { result: R::LeaveSuccess as i32, message: format!("left freq `{freq}`") }
 }
 
-pub(crate) fn handle_freq_info(sender: String, req: protos::frequency::basic::FreqInfoRequest) -> protos::frequency::basic::FreqInfoResponse {
+pub(crate) fn handle_freq_info(
+    sender: String,
+    req: protos::frequency::basic::FreqInfoRequest,
+) -> protos::frequency::basic::FreqInfoResponse {
     use protos::frequency::basic::{FreqInfo, FreqInfoResponse, MemberInfo};
     let state = STATE.lock().unwrap();
     // freq 为空时默认调用者当前所在 freq。
@@ -222,11 +235,18 @@ pub(crate) fn handle_freq_info(sender: String, req: protos::frequency::basic::Fr
             };
             FreqInfoResponse { found: true, info: Some(info), message: "found".into() }
         }
-        None => FreqInfoResponse { found: false, info: None, message: format!("freq `{}` not found", req.freq) },
+        None => FreqInfoResponse {
+            found: false,
+            info: None,
+            message: format!("freq `{}` not found", req.freq),
+        },
     }
 }
 
-pub(crate) fn handle_disband_freq(sender: String, req: protos::frequency::mod_ops::DisbandRequest) -> protos::frequency::mod_ops::DisbandResponse {
+pub(crate) fn handle_disband_freq(
+    sender: String,
+    req: protos::frequency::mod_ops::DisbandRequest,
+) -> protos::frequency::mod_ops::DisbandResponse {
     use protos::frequency::mod_ops::{DisbandResponse, DisbandResult as R};
     let mut state = STATE.lock().unwrap();
     let freq = if req.freq.is_empty() {
@@ -236,7 +256,7 @@ pub(crate) fn handle_disband_freq(sender: String, req: protos::frequency::mod_op
                 return DisbandResponse {
                     result: R::DisbandNotFound as i32,
                     message: "you are not in any freq".into(),
-                }
+                };
             }
         }
     } else {
@@ -248,7 +268,7 @@ pub(crate) fn handle_disband_freq(sender: String, req: protos::frequency::mod_op
             return DisbandResponse {
                 result: R::DisbandNotFound as i32,
                 message: format!("freq `{freq}` not found"),
-            }
+            };
         }
     };
     if room.creator != sender {
@@ -260,7 +280,10 @@ pub(crate) fn handle_disband_freq(sender: String, req: protos::frequency::mod_op
     if room.members.len() > 1 && !req.force {
         return DisbandResponse {
             result: R::DisbandHasMembers as i32,
-            message: format!("freq `{freq}` still has {} members (use `--force` to disband anyway)", room.members.len()),
+            message: format!(
+                "freq `{freq}` still has {} members (use `--force` to disband anyway)",
+                room.members.len()
+            ),
         };
     }
     // 收集成员（用于清空状态与通知），随后解散。
@@ -286,7 +309,10 @@ pub(crate) fn handle_disband_freq(sender: String, req: protos::frequency::mod_op
     }
 }
 
-pub(crate) fn handle_active_freqs(_sender: String, _req: protos::frequency::status::ActiveFreqsRequest) -> protos::frequency::status::ActiveFreqsResponse {
+pub(crate) fn handle_active_freqs(
+    _sender: String,
+    _req: protos::frequency::status::ActiveFreqsRequest,
+) -> protos::frequency::status::ActiveFreqsResponse {
     use protos::frequency::status::{ActiveFreq, ActiveFreqsResponse};
     let state = STATE.lock().unwrap();
     let freqs = state
@@ -307,7 +333,10 @@ pub(crate) fn handle_active_freqs(_sender: String, _req: protos::frequency::stat
     }
 }
 
-pub(crate) fn handle_active_users(sender: String, req: protos::frequency::status::ActiveUsersRequest) -> protos::frequency::status::ActiveUsersResponse {
+pub(crate) fn handle_active_users(
+    sender: String,
+    req: protos::frequency::status::ActiveUsersRequest,
+) -> protos::frequency::status::ActiveUsersResponse {
     use protos::frequency::status::{ActiveUser, ActiveUsersResponse};
     let state = STATE.lock().unwrap();
     let freq = if req.freq.is_empty() {
@@ -319,7 +348,7 @@ pub(crate) fn handle_active_users(sender: String, req: protos::frequency::status
                     users: vec![],
                     success: false,
                     message: "you are not in any freq; specify one".into(),
-                }
+                };
             }
         }
     } else {
@@ -333,7 +362,7 @@ pub(crate) fn handle_active_users(sender: String, req: protos::frequency::status
                 users: vec![],
                 success: false,
                 message: format!("freq `{freq}` not found"),
-            }
+            };
         }
     };
     let users = room
@@ -355,7 +384,10 @@ pub(crate) fn handle_active_users(sender: String, req: protos::frequency::status
     }
 }
 
-pub(crate) fn handle_moderators(sender: String, req: protos::frequency::status::ModeratorsRequest) -> protos::frequency::status::ModeratorsResponse {
+pub(crate) fn handle_moderators(
+    sender: String,
+    req: protos::frequency::status::ModeratorsRequest,
+) -> protos::frequency::status::ModeratorsResponse {
     use protos::frequency::status::{ActiveUser, ModeratorsResponse};
     let state = STATE.lock().unwrap();
     let freq = if req.freq.is_empty() {
@@ -367,7 +399,7 @@ pub(crate) fn handle_moderators(sender: String, req: protos::frequency::status::
                     moderators: vec![],
                     success: false,
                     message: "you are not in any freq; specify one".into(),
-                }
+                };
             }
         }
     } else {
@@ -381,7 +413,7 @@ pub(crate) fn handle_moderators(sender: String, req: protos::frequency::status::
                 moderators: vec![],
                 success: false,
                 message: format!("freq `{freq}` not found"),
-            }
+            };
         }
     };
     let mods = room

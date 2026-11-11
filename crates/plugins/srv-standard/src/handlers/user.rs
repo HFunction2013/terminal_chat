@@ -1,24 +1,25 @@
 //! //! 用户：user_info / whoami / ignore / unignore / set_presence
 
 #[allow(unused_imports)]
+use crate::{
+    FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry, VfsUser,
+    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, resolve_user, user_freq,
+    user_part, valid_freq, vfs_ensure_dirs,
+};
+#[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
-#[allow(unused_imports)]
-use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, resolve_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
 
-pub(crate) fn handle_user_info(sender: String, req: protos::messaging::user::UserInfoRequest) -> protos::messaging::user::UserInfoResponse {
+pub(crate) fn handle_user_info(
+    sender: String,
+    req: protos::messaging::user::UserInfoRequest,
+) -> protos::messaging::user::UserInfoResponse {
     use protos::messaging::user::{UserInfo, UserInfoResponse};
     let state = STATE.lock().unwrap();
     let scope = user_freq(&state, &sender).unwrap_or_default();
     let target = match resolve_user(&state, &scope, &req.user) {
         Ok(t) => t,
-        Err(e) => {
-            return UserInfoResponse {
-                found: false,
-                info: None,
-                message: e,
-            }
-        }
+        Err(e) => return UserInfoResponse { found: false, info: None, message: e },
     };
     match state.users.get(&target) {
         Some(u) => {
@@ -34,24 +35,35 @@ pub(crate) fn handle_user_info(sender: String, req: protos::messaging::user::Use
                     .as_str()
                     .is_empty()
                     .not()
-                    .then(|| state.freqs.get(&u.freq).map(|f| f.members.get(&u.user).map(|m| m.is_moderator).unwrap_or(false)).unwrap_or(false))
+                    .then(|| {
+                        state
+                            .freqs
+                            .get(&u.freq)
+                            .map(|f| {
+                                f.members.get(&u.user).map(|m| m.is_moderator).unwrap_or(false)
+                            })
+                            .unwrap_or(false)
+                    })
                     .unwrap_or(false),
-                is_creator: u.freq.as_str().is_empty().not()
+                is_creator: u
+                    .freq
+                    .as_str()
+                    .is_empty()
+                    .not()
                     .then(|| state.freqs.get(&u.freq).map(|f| f.creator == u.user).unwrap_or(false))
                     .unwrap_or(false),
                 ignored_you: u.ignored.contains(&sender),
             };
-            UserInfoResponse {
-                found: true,
-                info: Some(info),
-                message: "found".into(),
-            }
+            UserInfoResponse { found: true, info: Some(info), message: "found".into() }
         }
         None => UserInfoResponse { found: false, info: None, message: "user not found".into() },
     }
 }
 
-pub(crate) fn handle_whoami(sender: String, _req: protos::messaging::user::WhoamiRequest) -> protos::messaging::user::WhoamiResponse {
+pub(crate) fn handle_whoami(
+    sender: String,
+    _req: protos::messaging::user::WhoamiRequest,
+) -> protos::messaging::user::WhoamiResponse {
     use protos::messaging::user::WhoamiResponse;
     WhoamiResponse {
         user: user_part(&sender),
@@ -61,7 +73,10 @@ pub(crate) fn handle_whoami(sender: String, _req: protos::messaging::user::Whoam
     }
 }
 
-pub(crate) fn handle_ignore(sender: String, req: protos::messaging::user::IgnoreRequest) -> protos::messaging::user::IgnoreResponse {
+pub(crate) fn handle_ignore(
+    sender: String,
+    req: protos::messaging::user::IgnoreRequest,
+) -> protos::messaging::user::IgnoreResponse {
     use protos::messaging::user::IgnoreResponse;
     let mut state = STATE.lock().unwrap();
     let scope = user_freq(&state, &sender).unwrap_or_default();
@@ -77,7 +92,10 @@ pub(crate) fn handle_ignore(sender: String, req: protos::messaging::user::Ignore
     IgnoreResponse { success: true, message: format!("you are now ignoring {}", target) }
 }
 
-pub(crate) fn handle_unignore(sender: String, req: protos::messaging::user::UnignoreRequest) -> protos::messaging::user::UnignoreResponse {
+pub(crate) fn handle_unignore(
+    sender: String,
+    req: protos::messaging::user::UnignoreRequest,
+) -> protos::messaging::user::UnignoreResponse {
     use protos::messaging::user::UnignoreResponse;
     let mut state = STATE.lock().unwrap();
     let scope = user_freq(&state, &sender).unwrap_or_default();
@@ -85,11 +103,7 @@ pub(crate) fn handle_unignore(sender: String, req: protos::messaging::user::Unig
         Ok(t) => t,
         Err(e) => return UnignoreResponse { success: false, message: e },
     };
-    let removed = state
-        .users
-        .get_mut(&sender)
-        .map(|u| u.ignored.remove(&target))
-        .unwrap_or(false);
+    let removed = state.users.get_mut(&sender).map(|u| u.ignored.remove(&target)).unwrap_or(false);
     UnignoreResponse {
         success: removed,
         message: if removed {
@@ -100,7 +114,10 @@ pub(crate) fn handle_unignore(sender: String, req: protos::messaging::user::Unig
     }
 }
 
-pub(crate) fn handle_set_presence(sender: String, req: protos::connection::session::SetPresenceRequest) -> protos::connection::session::SetPresenceResponse {
+pub(crate) fn handle_set_presence(
+    sender: String,
+    req: protos::connection::session::SetPresenceRequest,
+) -> protos::connection::session::SetPresenceResponse {
     use protos::connection::session::{PresenceStatus, SetPresenceResponse};
     let mut state = STATE.lock().unwrap();
     ensure_user(&mut state, &sender);

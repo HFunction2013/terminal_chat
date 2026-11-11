@@ -16,7 +16,13 @@ impl LlsCommand {
             let entry = entry.map_err(|e| anyhow!("read_dir entry: {e}"))?;
             let name = entry.file_name().to_string_lossy().to_string();
             let ft = entry.file_type().map_err(|e| anyhow!("file type: {e}"))?;
-            let kind = if ft.is_dir() { "d" } else if ft.is_symlink() { "l" } else { "-" };
+            let kind = if ft.is_dir() {
+                "d"
+            } else if ft.is_symlink() {
+                "l"
+            } else {
+                "-"
+            };
             lines.push(format!("{kind}  {name}"));
         }
         lines.sort();

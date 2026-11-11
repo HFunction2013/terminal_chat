@@ -11,8 +11,10 @@ pub struct FileInfoCommand;
 impl FileInfoCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, file: String) -> Result<()> {
-        let resp: protos::remote::fs::RemoteFileInfoResponse =
-            crate::connection::rpc("file_info", &protos::remote::fs::RemoteFileInfoRequest { file: file.clone() })?;
+        let resp: protos::remote::fs::RemoteFileInfoResponse = crate::connection::rpc(
+            "file_info",
+            &protos::remote::fs::RemoteFileInfoRequest { file: file.clone() },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         match resp.info {

@@ -24,12 +24,6 @@ pub struct SessionInfo {
 
 impl Default for SessionInfo {
     fn default() -> Self {
-        Self {
-            id: "".into(),
-            peer_addr: "".into(),
-            connected_at: 0,
-            channel: "".into(),
-            state: 0,
-        }
+        Self { id: "".into(), peer_addr: "".into(), connected_at: 0, channel: "".into(), state: 0 }
     }
 }

@@ -28,11 +28,11 @@ fn init_library(path: &str) -> &Library {
     LIB.get_or_init(|| unsafe { Library::new(path).expect("Failed to load library") })
 }
 
-pub mod local;
 mod commands;
 mod connection;
-mod session;
 pub mod editor;
+pub mod local;
+mod session;
 mod command {
     use std::sync::LazyLock;
 

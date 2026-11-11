@@ -25,13 +25,7 @@ pub struct Packet {
 
 impl Default for Packet {
     fn default() -> Self {
-        Self {
-            channel: "".into(),
-            sender: "".into(),
-            payload: "".into(),
-            timestamp: 0,
-            seq: 0,
-        }
+        Self { channel: "".into(), sender: "".into(), payload: "".into(), timestamp: 0, seq: 0 }
     }
 }
 
@@ -71,11 +65,6 @@ impl PacketResult {
     ///
     /// `payload` 为待回传给客户端的响应 proto 字节，调用方先 base64 编码。
     pub fn handled_with(msg: impl Into<String>, payload_b64: impl Into<String>) -> Self {
-        Self {
-            handled: 1,
-            code: 0,
-            message: msg.into().into(),
-            payload: payload_b64.into().into(),
-        }
+        Self { handled: 1, code: 0, message: msg.into().into(), payload: payload_b64.into().into() }
     }
 }

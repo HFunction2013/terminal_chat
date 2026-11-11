@@ -9,12 +9,14 @@ pub struct CreateFreqCommand;
 
 impl CreateFreqCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, freq: String, p: bool, max_people: Option<String>, no_mod: bool) -> Result<()> {
-        let password = if p {
-            Some(rpassword::prompt_password("Freq password: ")?)
-        } else {
-            None
-        };
+    pub fn execute(
+        &self,
+        freq: String,
+        p: bool,
+        max_people: Option<String>,
+        no_mod: bool,
+    ) -> Result<()> {
+        let password = if p { Some(rpassword::prompt_password("Freq password: ")?) } else { None };
         let max_people = match max_people {
             Some(s) => Some(s.parse::<i32>().map_err(|_| anyhow!("invalid max-people `{s}`"))?),
             None => None,

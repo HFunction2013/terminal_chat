@@ -1,11 +1,18 @@
 //! //! 会话：status（ping）/ route / notifications
 
 #[allow(unused_imports)]
-use std::collections::{HashMap, HashSet};
+use crate::{
+    FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry, VfsUser,
+    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, user_freq, user_part,
+    valid_freq, vfs_ensure_dirs,
+};
 #[allow(unused_imports)]
-use crate::{STATE, VFS, NOTIFICATIONS, FreqRoom, Member, UserProfile, ServerState, VfsEntry, VfsUser, ensure_user, user_freq, user_part, display_user, valid_freq, now_ts, notify, mod_auth, norm_path, vfs_ensure_dirs};
+use std::collections::{HashMap, HashSet};
 
-pub(crate) fn handle_status(sender: String, req: protos::connection::session::StatusRequest) -> protos::connection::session::StatusResponse {
+pub(crate) fn handle_status(
+    sender: String,
+    req: protos::connection::session::StatusRequest,
+) -> protos::connection::session::StatusResponse {
     use protos::connection::session::StatusResponse;
     StatusResponse {
         nonce: req.nonce,
@@ -15,7 +22,10 @@ pub(crate) fn handle_status(sender: String, req: protos::connection::session::St
     }
 }
 
-pub(crate) fn handle_route(_sender: String, _req: protos::connection::session::RouteRequest) -> protos::connection::session::RouteResponse {
+pub(crate) fn handle_route(
+    _sender: String,
+    _req: protos::connection::session::RouteRequest,
+) -> protos::connection::session::RouteResponse {
     use protos::connection::session::RouteResponse;
     RouteResponse {
         server: "srv-standard".to_string(),
@@ -25,9 +35,10 @@ pub(crate) fn handle_route(_sender: String, _req: protos::connection::session::R
     }
 }
 
-
-
-pub(crate) fn handle_notifications(sender: String, _req: protos::frequency::notification::NotificationsRequest) -> protos::frequency::notification::NotificationsResponse {
+pub(crate) fn handle_notifications(
+    sender: String,
+    _req: protos::frequency::notification::NotificationsRequest,
+) -> protos::frequency::notification::NotificationsResponse {
     use protos::frequency::notification::{NotificationMessage, NotificationsResponse};
     let now = now_ts();
     let mut all = NOTIFICATIONS.lock().unwrap();
@@ -45,9 +56,5 @@ pub(crate) fn handle_notifications(sender: String, _req: protos::frequency::noti
             }
         })
         .collect();
-    NotificationsResponse {
-        success: true,
-        items,
-        message: "notifications".into(),
-    }
+    NotificationsResponse { success: true, items, message: "notifications".into() }
 }

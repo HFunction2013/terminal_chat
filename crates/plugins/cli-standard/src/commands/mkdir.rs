@@ -11,9 +11,11 @@ pub struct MkdirCommand;
 impl MkdirCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, directory: String) -> Result<()> {
-        let resp: protos::remote::fs::MkdirResponse =
-            crate::connection::rpc("remote_mkdir", &protos::remote::fs::MkdirRequest { directory })?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let resp: protos::remote::fs::MkdirResponse = crate::connection::rpc(
+            "remote_mkdir",
+            &protos::remote::fs::MkdirRequest { directory },
+        )?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
         Ok(())

@@ -11,9 +11,11 @@ pub struct TropCommand;
 impl TropCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, user: String) -> Result<()> {
-        let resp: protos::frequency::mod_ops::TropResponse =
-            crate::connection::rpc("trop_user", &protos::frequency::mod_ops::TropRequest { user, freq: String::new() })?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let resp: protos::frequency::mod_ops::TropResponse = crate::connection::rpc(
+            "trop_user",
+            &protos::frequency::mod_ops::TropRequest { user, freq: String::new() },
+        )?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
         Ok(())

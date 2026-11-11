@@ -11,7 +11,12 @@ pub struct SessionsCommand;
 
 impl SessionsCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, list: bool, interact: Option<String>, kill: Option<String>) -> Result<()> {
+    pub fn execute(
+        &self,
+        list: bool,
+        interact: Option<String>,
+        kill: Option<String>,
+    ) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         // 一个 freq 是一个会话：当前会话在前台，其余在后台。
@@ -22,7 +27,9 @@ impl SessionsCommand {
                 return Ok(());
             }
             if !crate::session::take_background(&s) {
-                print_content(&format!("[!] no such session `{s}`; run `sessions -l` to list").into());
+                print_content(
+                    &format!("[!] no such session `{s}`; run `sessions -l` to list").into(),
+                );
                 return Ok(());
             }
             let resp: protos::frequency::basic::JoinFreqResponse = crate::connection::rpc(

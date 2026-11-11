@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# pre-commit hook：提交前在当前平台运行 Rust 静态检查。
+#
+# 本地只跑当前操作系统；Linux / macOS(arm64, x86_64) / Windows 三平台矩阵
+# 由 GitHub Actions（.github/workflows/ci.yml）在 CI 上执行。
+#
+# 启用方式（仓库已把 hooks 目录指向 .githooks）：
+#   git config core.hooksPath .githooks
+#
+set -euo pipefail
+
+# git 触发的 hook 环境可能未加载 cargo 的 PATH，这里显式补上。
+export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "[pre-commit] cargo fmt --all -- --check"
+cargo fmt --all -- --check
+
+echo "[pre-commit] cargo clippy --workspace --all-targets --locked"
+cargo clippy --workspace --all-targets --locked
+
+echo "[pre-commit] cargo check --workspace --all-targets --locked"
+cargo check --workspace --all-targets --locked
+
+echo "[pre-commit] all checks passed"

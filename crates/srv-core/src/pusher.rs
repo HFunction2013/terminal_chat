@@ -18,6 +18,7 @@ static PUSHERS: LazyLock<Mutex<HashMap<String, usize>>> =
 /// 注册推送通道。`tx` 必须是 `Box::into_raw(Box::new(mpsc::Sender<Vec<u8>>))`。
 /// 覆盖同名用户时释放旧 Sender。成功返回 1。
 #[unsafe(no_mangle)]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn tc_srv_pusher_register(user: *const c_char, tx: *mut c_void) -> i32 {
     if user.is_null() || tx.is_null() {
         return 0;
@@ -32,6 +33,7 @@ pub extern "C" fn tc_srv_pusher_register(user: *const c_char, tx: *mut c_void) -
 
 /// 移除并释放推送通道。成功返回 1。
 #[unsafe(no_mangle)]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn tc_srv_pusher_unregister(user: *const c_char) -> i32 {
     if user.is_null() {
         return 0;
@@ -49,6 +51,7 @@ pub extern "C" fn tc_srv_pusher_unregister(user: *const c_char) -> i32 {
 
 /// 向在线用户投递一帧推送字节（非阻塞）。投递成功返回 1，离线/失败返回 0。
 #[unsafe(no_mangle)]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn tc_srv_pusher_push(user: *const c_char, bytes: *const u8, len: u32) -> i32 {
     if user.is_null() {
         return 0;

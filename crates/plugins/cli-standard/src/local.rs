@@ -18,18 +18,14 @@ pub const LOG_FILE: &str = "logging.log";
 
 /// `logs open` 是否已开启（logging 开关文件内容为 "on"）。
 pub fn logging_enabled() -> bool {
-    fs::read_to_string(base_dir().join(LOGGING_FILE))
-        .map(|s| s.trim() == "on")
-        .unwrap_or(false)
+    fs::read_to_string(base_dir().join(LOGGING_FILE)).map(|s| s.trim() == "on").unwrap_or(false)
 }
 
 /// 追加一行到日志文件（`logs open` 后生效；文件不存在则创建）。
 pub fn append_log(line: &str) {
     use std::io::Write;
-    if let Ok(mut f) = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(state_dir().join(LOG_FILE))
+    if let Ok(mut f) =
+        fs::OpenOptions::new().create(true).append(true).open(state_dir().join(LOG_FILE))
     {
         let _ = writeln!(f, "{}", line);
     }
@@ -88,10 +84,11 @@ pub fn read_tasks() -> Vec<TaskEntry> {
         }
         let Ok(id) = parts[0].parse::<u64>() else { continue };
         let Ok(at) = parts[3].parse::<u64>() else { continue };
-        let payload = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, parts[4]) {
-            Ok(b) => String::from_utf8_lossy(&b).to_string(),
-            Err(_) => continue,
-        };
+        let payload =
+            match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, parts[4]) {
+                Ok(b) => String::from_utf8_lossy(&b).to_string(),
+                Err(_) => continue,
+            };
         let mut e = TaskEntry {
             id,
             kind: parts[1].to_string(),
@@ -106,7 +103,13 @@ pub fn read_tasks() -> Vec<TaskEntry> {
         } else {
             let mut p = payload.split(SEP);
             e.message = p.next().map(|s| s.to_string());
-            e.users = p.next().unwrap_or("").split(',').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect();
+            e.users = p
+                .next()
+                .unwrap_or("")
+                .split(',')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect();
         }
         out.push(e);
     }
@@ -124,8 +127,10 @@ pub fn write_tasks(tasks: &[TaskEntry]) -> std::io::Result<()> {
         };
         let payload_b64 =
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD, payload.as_bytes());
-        content.push_str(&format!("{}{SEP}{}{SEP}{}{SEP}{}{SEP}{}\n",
-            t.id, t.kind, t.session, t.at, payload_b64));
+        content.push_str(&format!(
+            "{}{SEP}{}{SEP}{}{SEP}{}{SEP}{}\n",
+            t.id, t.kind, t.session, t.at, payload_b64
+        ));
     }
     fs::write(path, content)
 }
@@ -183,7 +188,9 @@ pub fn parse_time(spec: &str) -> Option<u64> {
     };
     if let Some((num, unit)) = relative {
         let n: i64 = num.parse().ok()?;
-        return Some((chrono::Local::now() + chrono::Duration::seconds(n * unit)).timestamp() as u64);
+        return Some(
+            (chrono::Local::now() + chrono::Duration::seconds(n * unit)).timestamp() as u64
+        );
     }
     // HH:MM[:SS] 按本地时区
     use chrono::Datelike;

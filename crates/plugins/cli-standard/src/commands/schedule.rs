@@ -19,7 +19,9 @@ impl ScheduleCommand {
             return Err(anyhow!("empty command; use `schedule <time> <command...>`"));
         }
         let at = crate::local::parse_time(&time).ok_or_else(|| {
-            anyhow!("cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds")
+            anyhow!(
+                "cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds"
+            )
         })?;
         let cmdline = shell_words::join(cmd.iter().map(String::as_str));
         let tasks = crate::local::read_tasks();
@@ -55,11 +57,8 @@ impl CommandExecutor for ScheduleCommand {
             .get_one::<String>("time")
             .ok_or_else(|| anyhow!("Missing required argument: time"))?
             .clone();
-        let cmd: Vec<String> = matches
-            .get_many::<String>("cmd")
-            .unwrap_or_default()
-            .cloned()
-            .collect();
+        let cmd: Vec<String> =
+            matches.get_many::<String>("cmd").unwrap_or_default().cloned().collect();
         self.execute(time, cmd)
     }
 }

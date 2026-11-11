@@ -12,7 +12,13 @@ pub struct DownloadCommand;
 
 impl DownloadCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, plugin: String, registry: Option<String>, load: bool, use_namespace: bool) -> Result<()> {
+    pub fn execute(
+        &self,
+        plugin: String,
+        registry: Option<String>,
+        load: bool,
+        use_namespace: bool,
+    ) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&"[!] registry is not enabled in this build; plugin management without registry works via `install -l <path>` / `load plugin <name>`.".into());

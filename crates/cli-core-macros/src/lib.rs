@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Ident, Token, punctuated::Punctuated};
+use syn::{Ident, Token, parse_macro_input, punctuated::Punctuated};
 
 struct LoadSymbolsInput {
     lib_expr: syn::Expr,
@@ -19,14 +19,14 @@ impl syn::parse::Parse for LoadSymbolsInput {
 #[proc_macro]
 pub fn load_core_symbols(input: TokenStream) -> TokenStream {
     let LoadSymbolsInput { lib_expr, symbols } = parse_macro_input!(input as LoadSymbolsInput);
-    
+
     let expanded = symbols.iter().map(|sym| {
         // 将 snake_case 转换为 PascalCase
         let name_str = sym.to_string();
         let pascal_name = snake_to_pascal(&name_str);
         let type_name = Ident::new(&format!("{}Fn", pascal_name), sym.span());
         let func_name = Ident::new(&name_str, sym.span());
-        
+
         quote! {
             let #func_name: libloading::Symbol<cli_core_types::#type_name> = unsafe {
                 #lib_expr
@@ -38,7 +38,8 @@ pub fn load_core_symbols(input: TokenStream) -> TokenStream {
 
     quote! {
         #(#expanded)*
-    }.into()
+    }
+    .into()
 }
 
 fn snake_to_pascal(s: &str) -> String {

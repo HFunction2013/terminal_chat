@@ -20,15 +20,23 @@ impl NamespaceCommand {
         let mut loaded = 0usize;
         for line in content.lines() {
             let line = line.trim();
-            if line.is_empty() || line.starts_with('#') { continue; }
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
             if let Some((name, rest)) = line.split_once(':') {
-                if name.trim() != namespace { continue; }
+                if name.trim() != namespace {
+                    continue;
+                }
                 for p in rest.split(',') {
                     let p = p.trim();
-                    if p.is_empty() { continue; }
+                    if p.is_empty() {
+                        continue;
+                    }
                     cli_core_macros::load_core_symbols!(lib, load_plugin);
                     let res = load_plugin(&p.into());
-                    if res.success == 1 { loaded += 1; }
+                    if res.success == 1 {
+                        loaded += 1;
+                    }
                 }
             }
         }

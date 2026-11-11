@@ -11,9 +11,11 @@ pub struct ChecksumCommand;
 impl ChecksumCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, file: String) -> Result<()> {
-        let resp: protos::remote::fs::RemoteChecksumResponse =
-            crate::connection::rpc("remote_checksum", &protos::remote::fs::RemoteChecksumRequest { file })?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let resp: protos::remote::fs::RemoteChecksumResponse = crate::connection::rpc(
+            "remote_checksum",
+            &protos::remote::fs::RemoteChecksumRequest { file },
+        )?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&format!("{}", resp.checksum).into());
         Ok(())

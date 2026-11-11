@@ -20,7 +20,10 @@ impl PluginsCommand {
             return Ok(());
         }
         for p in plugins.iter() {
-            print_content(&format!("  {} (command: {})", p.name.to_string(), p.command_name.to_string()).into());
+            print_content(
+                &format!("  {} (command: {})", p.name.to_string(), p.command_name.to_string())
+                    .into(),
+            );
         }
         Ok(())
     }

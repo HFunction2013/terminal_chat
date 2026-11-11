@@ -21,12 +21,16 @@ impl UninstallCommand {
         installed.retain(|n| n != &plugin);
         crate::local::write_installed(&installed)?;
         if delete_local {
-            for f in std::fs::read_dir(crate::local::plugins_dir()).ok().into_iter().flatten().flatten() {
+            for f in
+                std::fs::read_dir(crate::local::plugins_dir()).ok().into_iter().flatten().flatten()
+            {
                 if f.file_name().to_string_lossy().starts_with(&plugin) {
                     let _ = std::fs::remove_file(f.path());
                 }
             }
-            print_content(&format!("[*] Plugin `{plugin}` uninstalled (local files removed).").into());
+            print_content(
+                &format!("[*] Plugin `{plugin}` uninstalled (local files removed).").into(),
+            );
         } else {
             print_content(&format!("[*] Plugin `{plugin}` uninstalled (files kept; use `--delete-local` to remove).").into());
         }

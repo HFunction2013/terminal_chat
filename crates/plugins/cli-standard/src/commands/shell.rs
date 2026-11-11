@@ -44,11 +44,8 @@ impl CommandExecutor for ShellCommand {
 
     #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let command: Vec<String> = matches
-            .get_many::<String>("command")
-            .unwrap_or_default()
-            .cloned()
-            .collect();
+        let command: Vec<String> =
+            matches.get_many::<String>("command").unwrap_or_default().cloned().collect();
         self.execute(command)
     }
 }

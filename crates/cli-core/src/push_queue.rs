@@ -27,7 +27,9 @@ pub fn tc_cli_push_drain() -> safer_ffi::Vec<safer_ffi::String> {
         return Vec::new().into();
     }
     // `setg QUIET on/true/1/yes` 时静音全部通知。
-    if let TaggedOption::Some(v) = unsafe { crate::global_settings::get_global_option(&"QUIET".into()) } {
+    if let TaggedOption::Some(v) =
+        unsafe { crate::global_settings::get_global_option(&"QUIET".into()) }
+    {
         let qv = v.to_string().to_lowercase();
         if matches!(qv.as_str(), "on" | "true" | "1" | "yes") {
             return Vec::new().into();

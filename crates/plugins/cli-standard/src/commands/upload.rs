@@ -21,7 +21,11 @@ impl UploadCommand {
     }
 
     /// 递归收集目录下所有普通文件：(相对路径, 绝对路径)。
-    fn collect_files(dir: &std::path::Path, rel: &str, out: &mut Vec<(String, String)>) -> Result<()> {
+    fn collect_files(
+        dir: &std::path::Path,
+        rel: &str,
+        out: &mut Vec<(String, String)>,
+    ) -> Result<()> {
         for entry in std::fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();

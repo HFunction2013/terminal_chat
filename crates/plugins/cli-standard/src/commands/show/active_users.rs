@@ -11,8 +11,10 @@ pub struct ActiveUsersCommand;
 impl ActiveUsersCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        let resp: protos::frequency::status::ActiveUsersResponse =
-            crate::connection::rpc("active_users", &protos::frequency::status::ActiveUsersRequest { freq: String::new() })?;
+        let resp: protos::frequency::status::ActiveUsersResponse = crate::connection::rpc(
+            "active_users",
+            &protos::frequency::status::ActiveUsersRequest { freq: String::new() },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if !resp.success {
@@ -24,7 +26,11 @@ impl ActiveUsersCommand {
                 if u.is_creator { "@" } else { "" },
                 if u.is_moderator { "+" } else { "" },
                 if u.away { "away" } else { "" },
-            ].iter().filter(|s| !s.is_empty()).cloned().collect::<String>();
+            ]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .cloned()
+            .collect::<String>();
             print_content(&format!("  {:<28} {:<16} {}", u.user, u.nickname, flags).into());
         }
         print_content(&format!("{}", resp.message).into());

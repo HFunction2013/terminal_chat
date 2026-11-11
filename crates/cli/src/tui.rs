@@ -35,8 +35,7 @@ use edit_tui::vt;
 pub type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::String>;
 
 /// 读取全局选项的 FFI 符号类型（cli-core `get_global_option`）。
-pub type GetOptionFn =
-    unsafe extern "C" fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>;
+pub type GetOptionFn = unsafe extern "C" fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>;
 
 /// 切换 TUI/REPL 输出模式的 FFI 符号类型。
 pub type SetTuiModeFn = unsafe extern "C" fn(bool);
@@ -181,8 +180,14 @@ fn menu_groups() -> Vec<MenuGroup> {
             items: vec![
                 MenuItem { label: "Options", action: Action::Run(vec!["show", "options"]) },
                 MenuItem { label: "Locals", action: Action::Run(vec!["show", "locals"]) },
-                MenuItem { label: "Active freqs", action: Action::Run(vec!["show", "active_freqs"]) },
-                MenuItem { label: "Active users", action: Action::Run(vec!["show", "active_users"]) },
+                MenuItem {
+                    label: "Active freqs",
+                    action: Action::Run(vec!["show", "active_freqs"]),
+                },
+                MenuItem {
+                    label: "Active users",
+                    action: Action::Run(vec!["show", "active_users"]),
+                },
                 MenuItem { label: "Shell…", action: Action::Prefill("shell ") },
             ],
         },
@@ -242,11 +247,7 @@ impl App {
     /// 从一条推送文本中收集成员名，并更新当前会话快照。
     fn note_push(&mut self, display: &str) {
         // display 形如 `!! [join:0.5] alice joined the freq`
-        let kind = display
-            .split('[')
-            .nth(1)
-            .and_then(|s| s.split(']').next())
-            .unwrap_or("");
+        let kind = display.split('[').nth(1).and_then(|s| s.split(']').next()).unwrap_or("");
         let rest = display.split_once(']').map(|(_, r)| r.trim()).unwrap_or(display);
         let kind_name = kind.split(':').next().unwrap_or(kind);
 
@@ -400,7 +401,16 @@ pub fn run(
     let _restore = RestoreModes;
 
     let mut app = App::new();
-    let res = event_loop(&mut tui, &mut app, &mut vt_parser, &mut input_parser, run_command, take_pushes, get_option, output_drain);
+    let res = event_loop(
+        &mut tui,
+        &mut app,
+        &mut vt_parser,
+        &mut input_parser,
+        run_command,
+        take_pushes,
+        get_option,
+        output_drain,
+    );
 
     res
 }
@@ -435,7 +445,8 @@ fn event_loop(
         // 读取一批输入（超时较短，便于定时拉取推送）。
         {
             let scratch = scratch_arena(None);
-            let read_timeout = vt_parser.read_timeout().min(tui.read_timeout()).min(Duration::from_millis(100));
+            let read_timeout =
+                vt_parser.read_timeout().min(tui.read_timeout()).min(Duration::from_millis(100));
             let read = sys::read_stdin(&scratch, read_timeout);
 
             if let Some((resize, input)) = read {
@@ -491,7 +502,13 @@ fn draw(
     }
 }
 
-fn draw_menubar(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn, groups: &[MenuGroup]) {
+fn draw_menubar(
+    ctx: &mut Context,
+    app: &mut App,
+    run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
+    groups: &[MenuGroup],
+) {
     ctx.menubar_begin();
     for group in groups {
         if ctx.menubar_menu_begin(group.name, group.accel) {
@@ -552,7 +569,12 @@ fn draw_body(ctx: &mut Context, app: &App) {
     ctx.table_end();
 }
 
-fn draw_input(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
+fn draw_input(
+    ctx: &mut Context,
+    app: &mut App,
+    run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
+) {
     ctx.table_begin("input-bar");
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
     ctx.table_next_row();
@@ -600,7 +622,12 @@ fn draw_status(ctx: &mut Context, app: &App) {
 }
 
 /// 执行菜单动作。
-fn run_action(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn, action: &Action) {
+fn run_action(
+    app: &mut App,
+    run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
+    action: &Action,
+) {
     match action {
         Action::Run(argv) => {
             let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
@@ -632,15 +659,17 @@ fn submit(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainF
 }
 
 /// 在 TUI 内同步执行命令，输出回显到聊天记录（不退出全屏）。
-fn run_argv(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn, argv: &[String]) {
+fn run_argv(
+    app: &mut App,
+    run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
+    argv: &[String],
+) {
     let display = argv.join(" ");
     app.push_line(format!("tc> {display}"), LineKind::Cmd);
 
-    let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> = argv
-        .iter()
-        .map(|s| s.as_str().into())
-        .collect::<Vec<_>>()
-        .into();
+    let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
+        argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
     let result = run_command(&args_ffi);
     let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
 

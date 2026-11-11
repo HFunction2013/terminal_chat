@@ -11,8 +11,10 @@ pub struct ModeratorsCommand;
 impl ModeratorsCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
-        let resp: protos::frequency::status::ModeratorsResponse =
-            crate::connection::rpc("moderators", &protos::frequency::status::ModeratorsRequest { freq: String::new() })?;
+        let resp: protos::frequency::status::ModeratorsResponse = crate::connection::rpc(
+            "moderators",
+            &protos::frequency::status::ModeratorsRequest { freq: String::new() },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if !resp.success {

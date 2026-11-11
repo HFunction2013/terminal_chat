@@ -19,20 +19,19 @@ use libloading::{Library, Symbol};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
 use rand::Rng;
 use rustyline::{
-    Context, Editor, Helper,
+    Context, Editor, ExternalPrinter, Helper,
     completion::{Completer, Pair},
     error::ReadlineError,
     highlight::Highlighter,
     hint::Hinter,
     validate::Validator,
-    ExternalPrinter,
 };
 use safer_ffi::prelude::*;
 use sha2::{Digest, Sha256};
 use shell_words::split;
 use std::{
     ffi::OsString,
-    io::{self, stdout, IsTerminal},
+    io::{self, IsTerminal, stdout},
     path::Path,
     sync::{
         Arc, Mutex, OnceLock,
@@ -355,7 +354,7 @@ fn print_completions(cli: &Command, shell_name: &str) -> Result<(), String> {
         other => {
             return Err(format!(
                 "unsupported shell `{other}` (use bash/zsh/fish/powershell/elvish)"
-            ))
+            ));
         }
     };
     let mut cmd = cli.clone();
@@ -418,9 +417,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let core_lib = get_cli_core();
         let take_pushes: Symbol<PushDrainFn> = unsafe { core_lib.get(b"tc_cli_push_drain") }
             .map_err(|e| format!("Failed to find symbol 'tc_cli_push_drain': {e}"))?;
-        let get_option: Symbol<tui::GetOptionFn> =
-            unsafe { core_lib.get(b"get_global_option") }
-                .map_err(|e| format!("Failed to find symbol 'get_global_option': {e}"))?;
+        let get_option: Symbol<tui::GetOptionFn> = unsafe { core_lib.get(b"get_global_option") }
+            .map_err(|e| format!("Failed to find symbol 'get_global_option': {e}"))?;
         let set_tui_mode: Symbol<tui::SetTuiModeFn> =
             unsafe { core_lib.get(b"tc_cli_set_tui_mode") }
                 .map_err(|e| format!("Failed to find symbol 'tc_cli_set_tui_mode': {e}"))?;
@@ -448,19 +446,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to find symbol 'tc_cli_push_drain': {e}"))?;
     if io::stdout().is_terminal() {
         let mut printer = rl.create_external_printer()?;
-        thread::spawn(move || loop {
-            thread::sleep(Duration::from_millis(150));
-            let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
-            for t in texts {
-                let _ = printer.print(t.to_string());
+        thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_millis(150));
+                let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
+                for t in texts {
+                    let _ = printer.print(t.to_string());
+                }
             }
         });
     } else {
-        thread::spawn(move || loop {
-            thread::sleep(Duration::from_millis(150));
-            let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
-            for t in texts {
-                println!("{t}");
+        thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_millis(150));
+                let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
+                for t in texts {
+                    println!("{t}");
+                }
             }
         });
     }

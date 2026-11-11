@@ -22,8 +22,7 @@ impl LsCommand {
         }
         print_content(&format!("{}:", resp.directory).into());
         for e in resp.entries {
-            print_content(&format!("  {}{}",
-                if e.is_dir { "d" } else { "f" }, e.name).into());
+            print_content(&format!("  {}{}", if e.is_dir { "d" } else { "f" }, e.name).into());
         }
         Ok(())
     }

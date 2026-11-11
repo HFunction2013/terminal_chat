@@ -19,7 +19,9 @@ impl ScheduleMsgCommand {
             return Err(anyhow!("empty message; use `schedule_msg <time> -m <message>`"));
         }
         let at = crate::local::parse_time(&time).ok_or_else(|| {
-            anyhow!("cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds")
+            anyhow!(
+                "cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds"
+            )
         })?;
         let tasks = crate::local::read_tasks();
         let id = crate::local::next_task_id(&tasks);
@@ -55,10 +57,7 @@ impl CommandExecutor for ScheduleMsgCommand {
             .get_one::<String>("time")
             .ok_or_else(|| anyhow!("Missing required argument: time"))?
             .clone();
-        let message = matches
-            .get_one::<String>("message")
-            .cloned()
-            .unwrap_or_default();
+        let message = matches.get_one::<String>("message").cloned().unwrap_or_default();
         let users =
             matches.get_many::<String>("users").unwrap_or_default().cloned().collect::<Vec<_>>();
         self.execute(time, message, users)

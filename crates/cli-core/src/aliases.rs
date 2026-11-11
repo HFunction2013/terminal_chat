@@ -26,11 +26,7 @@ fn state_dir() -> PathBuf {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "default".to_string());
-    if cur == "default" {
-        base
-    } else {
-        base.join("workspaces").join(cur)
-    }
+    if cur == "default" { base } else { base.join("workspaces").join(cur) }
 }
 
 fn alias_file() -> PathBuf {
@@ -59,10 +55,8 @@ fn load_into(map: &mut HashMap<String, String>) {
 fn save(map: &HashMap<String, String>) {
     let mut content = String::new();
     for (k, v) in map {
-        content.push_str(&format!(
-            "{k}\t{}\n",
-            base64::engine::general_purpose::STANDARD.encode(v)
-        ));
+        content
+            .push_str(&format!("{k}\t{}\n", base64::engine::general_purpose::STANDARD.encode(v)));
     }
     let _ = std::fs::write(alias_file(), content);
 }

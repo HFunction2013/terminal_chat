@@ -16,17 +16,33 @@ impl FreqInfoCommand {
         } else {
             frequency.clone()
         };
-        let resp: protos::frequency::basic::FreqInfoResponse =
-            crate::connection::rpc("freq_info", &protos::frequency::basic::FreqInfoRequest { freq })?;
+        let resp: protos::frequency::basic::FreqInfoResponse = crate::connection::rpc(
+            "freq_info",
+            &protos::frequency::basic::FreqInfoRequest { freq },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         match resp.info {
             Some(info) => {
                 print_content(&format!("Freq:    {}", info.freq).into());
-                print_content(&format!("Creator: {} ({})", info.creator_nickname, info.creator_ip).into());
-                print_content(&format!("Members: {}/{}", info.current_members,
-                    if info.max_members == 0 { "inf".to_string() } else { info.max_members.to_string() }).into());
-                print_content(&format!("Password: {}", if info.has_password { "yes" } else { "no" }).into());
+                print_content(
+                    &format!("Creator: {} ({})", info.creator_nickname, info.creator_ip).into(),
+                );
+                print_content(
+                    &format!(
+                        "Members: {}/{}",
+                        info.current_members,
+                        if info.max_members == 0 {
+                            "inf".to_string()
+                        } else {
+                            info.max_members.to_string()
+                        }
+                    )
+                    .into(),
+                );
+                print_content(
+                    &format!("Password: {}", if info.has_password { "yes" } else { "no" }).into(),
+                );
                 for m in info.members {
                     print_content(&format!("  - {} ({})", m.nickname, m.ip_address).into());
                 }

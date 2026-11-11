@@ -22,10 +22,17 @@ impl DownloadedCommand {
                 return Ok(());
             }
         };
-        let mut names: Vec<String> = rd.flatten().filter_map(|e| {
-            let n = e.file_name().to_string_lossy().to_string();
-            if n.ends_with(".so") || n.ends_with(".dll") || n.ends_with(".dylib") { Some(n) } else { None }
-        }).collect();
+        let mut names: Vec<String> = rd
+            .flatten()
+            .filter_map(|e| {
+                let n = e.file_name().to_string_lossy().to_string();
+                if n.ends_with(".so") || n.ends_with(".dll") || n.ends_with(".dylib") {
+                    Some(n)
+                } else {
+                    None
+                }
+            })
+            .collect();
         names.sort();
         if names.is_empty() {
             print_content(&"no plugins downloaded.".into());

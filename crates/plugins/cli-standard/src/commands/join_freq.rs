@@ -10,8 +10,10 @@ pub struct JoinFreqCommand;
 impl JoinFreqCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, freq: String) -> Result<()> {
-        let resp: protos::frequency::basic::JoinFreqResponse =
-            crate::connection::rpc("join_freq", &protos::frequency::basic::JoinFreqRequest { freq: freq.clone(), password: None })?;
+        let resp: protos::frequency::basic::JoinFreqResponse = crate::connection::rpc(
+            "join_freq",
+            &protos::frequency::basic::JoinFreqRequest { freq: freq.clone(), password: None },
+        )?;
         // 加入成功（FreqIdle）即成为当前会话：一个 freq 是一个会话。
         if resp.status == protos::frequency::basic::FreqStatus::FreqIdle as i32 {
             crate::session::set_current(&freq);

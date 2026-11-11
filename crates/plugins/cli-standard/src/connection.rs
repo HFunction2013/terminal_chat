@@ -11,12 +11,11 @@ use safer_ffi::option::TaggedOption;
 use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::thread;
 use std::sync::{LazyLock, Mutex};
+use std::thread;
 
 /// 当前活动连接（`None` = 未连接）。
-pub static CONNECTION: LazyLock<Mutex<Option<TcpStream>>> =
-    LazyLock::new(|| Mutex::new(None));
+pub static CONNECTION: LazyLock<Mutex<Option<TcpStream>>> = LazyLock::new(|| Mutex::new(None));
 
 /// 响应帧队列：后台读线程把非推送的 PACKET 帧入队，`send_request` 取出匹配。
 pub static RESP_QUEUE: LazyLock<Mutex<VecDeque<protos::models::packet::Packet>>> =
@@ -126,33 +125,33 @@ pub fn connect_now() -> Result<()> {
         100 => "error",
         _ => "unknown",
     };
-    print_content(
-        &format!("Connect: {status_str} {}.", resp.message.unwrap_or_default()).into(),
-    );
+    print_content(&format!("Connect: {status_str} {}.", resp.message.unwrap_or_default()).into());
     if resp.status != 1 {
         return Err(anyhow!("server rejected the connection"));
     }
 
     // 常驻后台读线程：持续读帧，推送帧旁路收集，其余响应入队供 send_request 取用。
     let mut reader_stream = stream.try_clone().context("Failed to clone stream for reader")?;
-    thread::spawn(move || loop {
-        match read_frame(&mut reader_stream) {
-            Ok((ft, buf)) => {
-                if ft != frame_type::PACKET {
-                    // 非 PACKET 帧（如 DisconnectResponse）由主流程处理/忽略。
-                    continue;
-                }
-                if let Ok(p) = protos::models::packet::Packet::decode(&buf[..]) {
-                    if p.channel == "notification_push" {
-                        collect_push(&p);
-                    } else {
-                        RESP_QUEUE.lock().unwrap().push_back(p);
+    thread::spawn(move || {
+        loop {
+            match read_frame(&mut reader_stream) {
+                Ok((ft, buf)) => {
+                    if ft != frame_type::PACKET {
+                        // 非 PACKET 帧（如 DisconnectResponse）由主流程处理/忽略。
+                        continue;
+                    }
+                    if let Ok(p) = protos::models::packet::Packet::decode(&buf[..]) {
+                        if p.channel == "notification_push" {
+                            collect_push(&p);
+                        } else {
+                            RESP_QUEUE.lock().unwrap().push_back(p);
+                        }
                     }
                 }
-            }
-            Err(e) => {
-                eprintln!("[cli-standard] reader error: {e}");
-                break;
+                Err(e) => {
+                    eprintln!("[cli-standard] reader error: {e}");
+                    break;
+                }
             }
         }
     });
@@ -201,9 +200,7 @@ fn require_username() -> Result<String> {
                 Ok(name)
             }
         }
-        TaggedOption::None => {
-            Err(anyhow!("USERNAME not set; use `setg USERNAME <name>` first"))
-        }
+        TaggedOption::None => Err(anyhow!("USERNAME not set; use `setg USERNAME <name>` first")),
     }
 }
 
@@ -261,21 +258,16 @@ pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
 
 /// 解析并暂存一条服务端推送帧（notification_push 信封 → NotificationMessage）。
 fn collect_push(frame: &protos::models::packet::Packet) {
-    let Ok(bytes) = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &frame.payload,
-    ) else {
+    let Ok(bytes) =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &frame.payload)
+    else {
         return;
     };
     let Ok(msg) = protos::frequency::notification::NotificationMessage::decode(&bytes[..]) else {
         return;
     };
     // 服务端通知格式为 `[kind:freq] ...`，这里保留 kind、去掉 `0.5] ` 前缀。
-    let text = msg
-        .text
-        .split_once(']')
-        .map(|(_, rest)| rest.trim())
-        .unwrap_or(msg.text.as_str());
+    let text = msg.text.split_once(']').map(|(_, rest)| rest.trim()).unwrap_or(msg.text.as_str());
     let display = format!("!! [{}] {}", msg.kind, text);
     // QUIET on/true/1/yes 时静音：推送到达即判定，不入队不显示。
     if let Some(lib) = LIB.get() {
@@ -329,4 +321,3 @@ pub fn rpc<T: prost::Message + Default, R: prost::Message + Default>(
     }
     R::decode(&bytes[..]).context(format!("Failed to decode response for `{channel}`"))
 }
-

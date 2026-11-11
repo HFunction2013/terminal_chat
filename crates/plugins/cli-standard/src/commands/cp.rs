@@ -10,10 +10,8 @@ pub struct CpCommand;
 impl CpCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, from: String, to: String) -> Result<()> {
-        let resp: protos::remote::fs::RemoteCpResponse = crate::connection::rpc(
-            "remote_cp",
-            &protos::remote::fs::RemoteCpRequest { from, to },
-        )?;
+        let resp: protos::remote::fs::RemoteCpResponse =
+            crate::connection::rpc("remote_cp", &protos::remote::fs::RemoteCpRequest { from, to })?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());

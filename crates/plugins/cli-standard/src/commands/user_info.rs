@@ -11,8 +11,10 @@ pub struct UserInfoCommand;
 impl UserInfoCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, user: String) -> Result<()> {
-        let resp: protos::messaging::user::UserInfoResponse =
-            crate::connection::rpc("user_info", &protos::messaging::user::UserInfoRequest { user: user.clone() })?;
+        let resp: protos::messaging::user::UserInfoResponse = crate::connection::rpc(
+            "user_info",
+            &protos::messaging::user::UserInfoRequest { user: user.clone() },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         match resp.info {
@@ -20,12 +22,18 @@ impl UserInfoCommand {
                 print_content(&format!("User:   {}", info.user).into());
                 print_content(&format!("Name:   {}", info.nickname).into());
                 print_content(&format!("IP:     {}", info.ip_address).into());
-                print_content(&format!("Online: {}", if info.online { "yes" } else { "no" }).into());
+                print_content(
+                    &format!("Online: {}", if info.online { "yes" } else { "no" }).into(),
+                );
                 if !info.freq.is_empty() {
                     print_content(&format!("Freq:   {}", info.freq).into());
                 }
-                print_content(&format!("Mod:    {}", if info.is_moderator { "yes" } else { "no" }).into());
-                print_content(&format!("Owner:  {}", if info.is_creator { "yes" } else { "no" }).into());
+                print_content(
+                    &format!("Mod:    {}", if info.is_moderator { "yes" } else { "no" }).into(),
+                );
+                print_content(
+                    &format!("Owner:  {}", if info.is_creator { "yes" } else { "no" }).into(),
+                );
                 if info.ignored_you {
                     print_content(&"Note: they ignore you.".into());
                 }

@@ -11,9 +11,11 @@ pub struct UnmuteCommand;
 impl UnmuteCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, user: String) -> Result<()> {
-        let resp: protos::frequency::mod_ops::UnmuteResponse =
-            crate::connection::rpc("unmute_user", &protos::frequency::mod_ops::UnmuteRequest { user, freq: String::new() })?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let resp: protos::frequency::mod_ops::UnmuteResponse = crate::connection::rpc(
+            "unmute_user",
+            &protos::frequency::mod_ops::UnmuteRequest { user, freq: String::new() },
+        )?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
         Ok(())

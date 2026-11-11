@@ -19,9 +19,22 @@ impl PluginCommand {
         cli_core_macros::load_core_symbols!(lib, load_plugin);
         let res = load_plugin(&plugin.clone().into());
         if res.success == 1 {
-            print_content(&format!("[*] Plugin `{plugin}` loaded: {}", res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default()).into());
+            print_content(
+                &format!(
+                    "[*] Plugin `{plugin}` loaded: {}",
+                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default()
+                )
+                .into(),
+            );
         } else {
-            print_content(&format!("[!] Failed to load `{plugin}`: {} (exit {})", res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default(), res.exit_code).into());
+            print_content(
+                &format!(
+                    "[!] Failed to load `{plugin}`: {} (exit {})",
+                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default(),
+                    res.exit_code
+                )
+                .into(),
+            );
         }
         Ok(())
     }

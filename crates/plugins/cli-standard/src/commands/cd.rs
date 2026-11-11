@@ -13,7 +13,7 @@ impl CdCommand {
     pub fn execute(&self, dir: String) -> Result<()> {
         let resp: protos::remote::fs::CdResponse =
             crate::connection::rpc("remote_cd", &protos::remote::fs::CdRequest { dir })?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
         Ok(())

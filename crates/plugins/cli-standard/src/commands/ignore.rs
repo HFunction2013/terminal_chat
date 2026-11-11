@@ -11,9 +11,11 @@ pub struct IgnoreCommand;
 impl IgnoreCommand {
     #[allow(unused_variables)]
     pub fn execute(&self, user: String) -> Result<()> {
-        let resp: protos::messaging::user::IgnoreResponse =
-            crate::connection::rpc("ignore_user", &protos::messaging::user::IgnoreRequest { user })?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let resp: protos::messaging::user::IgnoreResponse = crate::connection::rpc(
+            "ignore_user",
+            &protos::messaging::user::IgnoreRequest { user },
+        )?;
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());
         Ok(())

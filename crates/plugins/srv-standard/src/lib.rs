@@ -15,11 +15,11 @@ use prost::Message;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use srv_core_types::RegisterChannelFn;
 use srv_core_types::channels::ChannelMetadata;
 use srv_core_types::packets::{Packet, PacketResult};
 use srv_core_types::plugin_fn_types::{ChannelHandlerFn, SetChannelHandlerFn};
 use srv_core_types::plugins::{SrvHostMetadata, SrvPluginMetadata, SrvPluginResult};
-use srv_core_types::RegisterChannelFn;
 use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex, OnceLock};
 
@@ -31,34 +31,34 @@ use std::sync::{LazyLock, Mutex, OnceLock};
 pub(crate) struct FreqRoom {
     name: String,
     password: Option<String>,
-    max_members: i32,                    // 0 = 无限制
-    creator: String,                     // user@ip
-    members: HashMap<String, Member>,    // user@ip -> member
-    banned: HashSet<String>,             // 被 ban 的 user（user@ip）
-    no_mod: bool,                        // -n/--no-mod：无版主，创建者也可退出
+    max_members: i32,                 // 0 = 无限制
+    creator: String,                  // user@ip
+    members: HashMap<String, Member>, // user@ip -> member
+    banned: HashSet<String>,          // 被 ban 的 user（user@ip）
+    no_mod: bool,                     // -n/--no-mod：无版主，创建者也可退出
     #[allow(dead_code)] // 元数据保留
     created_at: u64,
 }
 
 pub(crate) struct Member {
-    user: String,       // user@ip
+    user: String, // user@ip
     nickname: String,
     is_moderator: bool,
-    away: String,       // "" / "away" / "busy"
-    muted_until: u64,   // 禁言截止（Unix 秒），0 = 未禁言
+    away: String,     // "" / "away" / "busy"
+    muted_until: u64, // 禁言截止（Unix 秒），0 = 未禁言
     #[allow(dead_code)] // 元数据保留
     joined_at: u64,
 }
 
 /// 用户档案（跨频点）。
 pub(crate) struct UserProfile {
-    user: String,       // user@ip
+    user: String, // user@ip
     nickname: String,
     online: bool,
-    freq: String,       // 当前所在频点（"" = 未加入任何频点）
-    away: String,       // "" / "away" / "busy"
+    freq: String, // 当前所在频点（"" = 未加入任何频点）
+    away: String, // "" / "away" / "busy"
     connected_at: u64,
-    ignored: HashSet<String>,  // 忽略的用户（user@ip）
+    ignored: HashSet<String>, // 忽略的用户（user@ip）
 }
 
 pub(crate) struct ServerState {
@@ -89,7 +89,8 @@ pub(crate) static STATE: LazyLock<Mutex<ServerState>> = LazyLock::new(|| {
     })
 });
 
-pub(crate) static VFS: LazyLock<Mutex<HashMap<String, VfsUser>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+pub(crate) static VFS: LazyLock<Mutex<HashMap<String, VfsUser>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// 按用户（user@ip）排队的待读通知（文本），由 `notifications` RPC 拉取后清空。
 pub(crate) static NOTIFICATIONS: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
@@ -99,12 +100,7 @@ pub(crate) static NOTIFICATIONS: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
 /// 推送失败（目标离线/通道断开）时静默——通知仍留在队列，
 /// 可经 `notifications` 命令或下次心跳拉取。
 pub(crate) fn notify(target: &str, text: String) {
-    NOTIFICATIONS
-        .lock()
-        .unwrap()
-        .entry(target.to_string())
-        .or_default()
-        .push(text.clone());
+    NOTIFICATIONS.lock().unwrap().entry(target.to_string()).or_default().push(text.clone());
     push_notification(target, &text);
 }
 
@@ -176,11 +172,7 @@ pub(crate) fn display_user(state: &ServerState, freq: &str, user: &str) -> Strin
     let same_name = room
         .map(|r| r.members.values().filter(|m| user_part(&m.user) == name).count())
         .unwrap_or(0);
-    if same_name <= 1 {
-        name
-    } else {
-        user.to_string()
-    }
+    if same_name <= 1 { name } else { user.to_string() }
 }
 
 /// 把参数中的用户标识解析为完整 user@ip（#14：freq 内用户名唯一时允许省略 @IP）。
@@ -212,10 +204,7 @@ pub(crate) fn resolve_user(state: &ServerState, freq: &str, name: &str) -> Resul
     match cands.len() {
         0 => Err(format!("user `{name}` not found")),
         1 => Ok(cands[0].clone()),
-        _ => Err(format!(
-            "user `{name}` is ambiguous ({}); use full user@ip",
-            cands.join(", ")
-        )),
+        _ => Err(format!("user `{name}` is ambiguous ({}); use full user@ip", cands.join(", "))),
     }
 }
 
@@ -235,45 +224,45 @@ fn respond(resp_bytes: &[u8], msg: impl Into<String>) -> PacketResult {
 
 /// 生成一个 RPC handler：decode 请求 -> 业务函数 -> encode 响应。
 mod handlers;
-use handlers::messaging::handle_send_message;
-use handlers::messaging::handle_reply_message;
-use handlers::messaging::handle_call_user;
-use handlers::user::handle_user_info;
-use handlers::user::handle_whoami;
-use handlers::user::handle_ignore;
-use handlers::user::handle_unignore;
-use handlers::user::handle_set_presence;
-use handlers::freq::handle_create_freq;
-use handlers::freq::handle_join_freq;
-use handlers::freq::handle_leave_freq;
-use handlers::freq::handle_freq_info;
-use handlers::freq::handle_disband_freq;
 use handlers::freq::handle_active_freqs;
 use handlers::freq::handle_active_users;
+use handlers::freq::handle_create_freq;
+use handlers::freq::handle_disband_freq;
+use handlers::freq::handle_freq_info;
+use handlers::freq::handle_join_freq;
+use handlers::freq::handle_leave_freq;
 use handlers::freq::handle_moderators;
-use handlers::moderation::handle_kick;
-use handlers::moderation::handle_ban;
-use handlers::moderation::handle_unban;
-use handlers::moderation::handle_mute;
-use handlers::moderation::handle_unmute;
-use handlers::moderation::handle_op;
-use handlers::moderation::handle_deop;
-use handlers::moderation::handle_trop;
-use handlers::fs::handle_remote_pwd;
-use handlers::fs::handle_remote_ls;
-use handlers::fs::handle_remote_cd;
-use handlers::fs::handle_remote_mkdir;
-use handlers::fs::handle_file_info;
-use handlers::fs::handle_remote_checksum;
-use handlers::fs::handle_upload;
 use handlers::fs::handle_download;
-use handlers::fs::handle_remote_rm;
-use handlers::fs::handle_remote_mv;
+use handlers::fs::handle_file_info;
+use handlers::fs::handle_remote_cd;
+use handlers::fs::handle_remote_checksum;
 use handlers::fs::handle_remote_cp;
+use handlers::fs::handle_remote_ls;
+use handlers::fs::handle_remote_mkdir;
+use handlers::fs::handle_remote_mv;
+use handlers::fs::handle_remote_pwd;
+use handlers::fs::handle_remote_rm;
 use handlers::fs::handle_remote_tree;
-use handlers::session::handle_status;
-use handlers::session::handle_route;
+use handlers::fs::handle_upload;
+use handlers::messaging::handle_call_user;
+use handlers::messaging::handle_reply_message;
+use handlers::messaging::handle_send_message;
+use handlers::moderation::handle_ban;
+use handlers::moderation::handle_deop;
+use handlers::moderation::handle_kick;
+use handlers::moderation::handle_mute;
+use handlers::moderation::handle_op;
+use handlers::moderation::handle_trop;
+use handlers::moderation::handle_unban;
+use handlers::moderation::handle_unmute;
 use handlers::session::handle_notifications;
+use handlers::session::handle_route;
+use handlers::session::handle_status;
+use handlers::user::handle_ignore;
+use handlers::user::handle_set_presence;
+use handlers::user::handle_unignore;
+use handlers::user::handle_user_info;
+use handlers::user::handle_whoami;
 
 macro_rules! rpc_handler {
     ($name:ident, $req_ty:ty, $resp_ty:ty, $handler:expr) => {
@@ -281,11 +270,21 @@ macro_rules! rpc_handler {
             let p = unsafe { &*packet };
             let bytes = match request_bytes(p) {
                 Ok(b) => b,
-                Err(e) => return PacketResult::unhandled(format!("bad {} request: {e}", stringify!($name))),
+                Err(e) => {
+                    return PacketResult::unhandled(format!(
+                        "bad {} request: {e}",
+                        stringify!($name)
+                    ))
+                }
             };
             let req = match <$req_ty as prost::Message>::decode(&bytes[..]) {
                 Ok(r) => r,
-                Err(e) => return PacketResult::unhandled(format!("bad {} request: {e}", stringify!($name))),
+                Err(e) => {
+                    return PacketResult::unhandled(format!(
+                        "bad {} request: {e}",
+                        stringify!($name)
+                    ))
+                }
             };
             let resp: $resp_ty = $handler(p.sender.to_string(), req);
             respond(&resp.encode_to_vec(), format!("{} ok", stringify!($name)))
@@ -319,29 +318,13 @@ pub(crate) fn user_freq(state: &ServerState, user: &str) -> Option<String> {
 // 消息：msg / reply / call(@user)
 // ---------------------------------------------------------------------------
 
-
-
-
 // ---------------------------------------------------------------------------
 // 用户：user_info / whoami / ignore / unignore / away
 // ---------------------------------------------------------------------------
 
-
-
-
-
-
 // ---------------------------------------------------------------------------
 // 频点：create / join / leave / info / disband / active 系列
 // ---------------------------------------------------------------------------
-
-
-
-
-
-
-
-
 
 // ---------------------------------------------------------------------------
 // 频点管理：kick / ban / unban / mute / unmute / op / deop / trop
@@ -352,22 +335,11 @@ pub(crate) fn mod_auth(state: &ServerState, freq: &str, operator: &str) -> bool 
     match state.freqs.get(freq) {
         Some(r) => {
             r.creator == operator
-                || r.members
-                    .get(operator)
-                    .map(|m| m.is_moderator)
-                    .unwrap_or(false)
+                || r.members.get(operator).map(|m| m.is_moderator).unwrap_or(false)
         }
         None => false,
     }
 }
-
-
-
-
-
-
-
-
 
 // ---------------------------------------------------------------------------
 // 远程文件系统
@@ -403,64 +375,243 @@ pub(crate) fn vfs_ensure_dirs(vfs: &mut VfsUser, path: &str, now: u64) {
     }
 }
 
-
-
-
-
-
-
-
-
 // ---------------------------------------------------------------------------
 // 会话：status（ping）/ route
 // ---------------------------------------------------------------------------
-
-
-
 
 // ---------------------------------------------------------------------------
 // RPC handler 注册
 // ---------------------------------------------------------------------------
 
-rpc_handler!(on_send_message, protos::messaging::message::SendMessageRequest, protos::messaging::message::SendMessageResponse, handle_send_message);
-rpc_handler!(on_reply_message, protos::messaging::message::ReplyMessageRequest, protos::messaging::message::ReplyMessageResponse, handle_reply_message);
+rpc_handler!(
+    on_send_message,
+    protos::messaging::message::SendMessageRequest,
+    protos::messaging::message::SendMessageResponse,
+    handle_send_message
+);
+rpc_handler!(
+    on_reply_message,
+    protos::messaging::message::ReplyMessageRequest,
+    protos::messaging::message::ReplyMessageResponse,
+    handle_reply_message
+);
 rpc_handler!(on_call_user, protos::call::CallRequest, protos::call::CallResponse, handle_call_user);
-rpc_handler!(on_user_info, protos::messaging::user::UserInfoRequest, protos::messaging::user::UserInfoResponse, handle_user_info);
-rpc_handler!(on_whoami, protos::messaging::user::WhoamiRequest, protos::messaging::user::WhoamiResponse, handle_whoami);
-rpc_handler!(on_ignore, protos::messaging::user::IgnoreRequest, protos::messaging::user::IgnoreResponse, handle_ignore);
-rpc_handler!(on_unignore, protos::messaging::user::UnignoreRequest, protos::messaging::user::UnignoreResponse, handle_unignore);
-rpc_handler!(on_set_presence, protos::connection::session::SetPresenceRequest, protos::connection::session::SetPresenceResponse, handle_set_presence);
-rpc_handler!(on_create_freq, protos::frequency::basic::CreateFreqRequest, protos::frequency::basic::CreateFreqResponse, handle_create_freq);
-rpc_handler!(on_join_freq, protos::frequency::basic::JoinFreqRequest, protos::frequency::basic::JoinFreqResponse, handle_join_freq);
-rpc_handler!(on_leave_freq, protos::utils::empty::Empty, protos::frequency::basic::LeaveFreqResponse, handle_leave_freq);
-rpc_handler!(on_freq_info, protos::frequency::basic::FreqInfoRequest, protos::frequency::basic::FreqInfoResponse, handle_freq_info);
-rpc_handler!(on_disband_freq, protos::frequency::mod_ops::DisbandRequest, protos::frequency::mod_ops::DisbandResponse, handle_disband_freq);
-rpc_handler!(on_active_freqs, protos::frequency::status::ActiveFreqsRequest, protos::frequency::status::ActiveFreqsResponse, handle_active_freqs);
-rpc_handler!(on_active_users, protos::frequency::status::ActiveUsersRequest, protos::frequency::status::ActiveUsersResponse, handle_active_users);
-rpc_handler!(on_moderators, protos::frequency::status::ModeratorsRequest, protos::frequency::status::ModeratorsResponse, handle_moderators);
-rpc_handler!(on_kick, protos::frequency::mod_ops::KickRequest, protos::frequency::mod_ops::KickResponse, handle_kick);
-rpc_handler!(on_ban, protos::frequency::mod_ops::BanRequest, protos::frequency::mod_ops::BanResponse, handle_ban);
-rpc_handler!(on_unban, protos::frequency::mod_ops::UnbanRequest, protos::frequency::mod_ops::UnbanResponse, handle_unban);
-rpc_handler!(on_mute, protos::frequency::mod_ops::MuteRequest, protos::frequency::mod_ops::MuteResponse, handle_mute);
-rpc_handler!(on_unmute, protos::frequency::mod_ops::UnmuteRequest, protos::frequency::mod_ops::UnmuteResponse, handle_unmute);
-rpc_handler!(on_op, protos::frequency::mod_ops::OpRequest, protos::frequency::mod_ops::OpResponse, handle_op);
-rpc_handler!(on_deop, protos::frequency::mod_ops::DeopRequest, protos::frequency::mod_ops::DeopResponse, handle_deop);
-rpc_handler!(on_trop, protos::frequency::mod_ops::TropRequest, protos::frequency::mod_ops::TropResponse, handle_trop);
-rpc_handler!(on_remote_pwd, protos::remote::fs::PwdRequest, protos::remote::fs::PwdResponse, handle_remote_pwd);
-rpc_handler!(on_remote_ls, protos::remote::fs::LsRequest, protos::remote::fs::LsResponse, handle_remote_ls);
-rpc_handler!(on_remote_cd, protos::remote::fs::CdRequest, protos::remote::fs::CdResponse, handle_remote_cd);
-rpc_handler!(on_remote_mkdir, protos::remote::fs::MkdirRequest, protos::remote::fs::MkdirResponse, handle_remote_mkdir);
-rpc_handler!(on_file_info, protos::remote::fs::RemoteFileInfoRequest, protos::remote::fs::RemoteFileInfoResponse, handle_file_info);
-rpc_handler!(on_remote_checksum, protos::remote::fs::RemoteChecksumRequest, protos::remote::fs::RemoteChecksumResponse, handle_remote_checksum);
-rpc_handler!(on_upload, protos::remote::fs::UploadRequest, protos::remote::fs::UploadResponse, handle_upload);
-rpc_handler!(on_download, protos::remote::fs::DownloadRequest, protos::remote::fs::DownloadResponse, handle_download);
-rpc_handler!(on_remote_rm, protos::remote::fs::RemoteRmRequest, protos::remote::fs::RemoteRmResponse, handle_remote_rm);
-rpc_handler!(on_remote_mv, protos::remote::fs::RemoteMvRequest, protos::remote::fs::RemoteMvResponse, handle_remote_mv);
-rpc_handler!(on_remote_cp, protos::remote::fs::RemoteCpRequest, protos::remote::fs::RemoteCpResponse, handle_remote_cp);
-rpc_handler!(on_remote_tree, protos::remote::fs::RemoteTreeRequest, protos::remote::fs::RemoteTreeResponse, handle_remote_tree);
-rpc_handler!(on_status, protos::connection::session::StatusRequest, protos::connection::session::StatusResponse, handle_status);
-rpc_handler!(on_route, protos::connection::session::RouteRequest, protos::connection::session::RouteResponse, handle_route);
-rpc_handler!(on_notifications, protos::frequency::notification::NotificationsRequest, protos::frequency::notification::NotificationsResponse, handle_notifications);
+rpc_handler!(
+    on_user_info,
+    protos::messaging::user::UserInfoRequest,
+    protos::messaging::user::UserInfoResponse,
+    handle_user_info
+);
+rpc_handler!(
+    on_whoami,
+    protos::messaging::user::WhoamiRequest,
+    protos::messaging::user::WhoamiResponse,
+    handle_whoami
+);
+rpc_handler!(
+    on_ignore,
+    protos::messaging::user::IgnoreRequest,
+    protos::messaging::user::IgnoreResponse,
+    handle_ignore
+);
+rpc_handler!(
+    on_unignore,
+    protos::messaging::user::UnignoreRequest,
+    protos::messaging::user::UnignoreResponse,
+    handle_unignore
+);
+rpc_handler!(
+    on_set_presence,
+    protos::connection::session::SetPresenceRequest,
+    protos::connection::session::SetPresenceResponse,
+    handle_set_presence
+);
+rpc_handler!(
+    on_create_freq,
+    protos::frequency::basic::CreateFreqRequest,
+    protos::frequency::basic::CreateFreqResponse,
+    handle_create_freq
+);
+rpc_handler!(
+    on_join_freq,
+    protos::frequency::basic::JoinFreqRequest,
+    protos::frequency::basic::JoinFreqResponse,
+    handle_join_freq
+);
+rpc_handler!(
+    on_leave_freq,
+    protos::utils::empty::Empty,
+    protos::frequency::basic::LeaveFreqResponse,
+    handle_leave_freq
+);
+rpc_handler!(
+    on_freq_info,
+    protos::frequency::basic::FreqInfoRequest,
+    protos::frequency::basic::FreqInfoResponse,
+    handle_freq_info
+);
+rpc_handler!(
+    on_disband_freq,
+    protos::frequency::mod_ops::DisbandRequest,
+    protos::frequency::mod_ops::DisbandResponse,
+    handle_disband_freq
+);
+rpc_handler!(
+    on_active_freqs,
+    protos::frequency::status::ActiveFreqsRequest,
+    protos::frequency::status::ActiveFreqsResponse,
+    handle_active_freqs
+);
+rpc_handler!(
+    on_active_users,
+    protos::frequency::status::ActiveUsersRequest,
+    protos::frequency::status::ActiveUsersResponse,
+    handle_active_users
+);
+rpc_handler!(
+    on_moderators,
+    protos::frequency::status::ModeratorsRequest,
+    protos::frequency::status::ModeratorsResponse,
+    handle_moderators
+);
+rpc_handler!(
+    on_kick,
+    protos::frequency::mod_ops::KickRequest,
+    protos::frequency::mod_ops::KickResponse,
+    handle_kick
+);
+rpc_handler!(
+    on_ban,
+    protos::frequency::mod_ops::BanRequest,
+    protos::frequency::mod_ops::BanResponse,
+    handle_ban
+);
+rpc_handler!(
+    on_unban,
+    protos::frequency::mod_ops::UnbanRequest,
+    protos::frequency::mod_ops::UnbanResponse,
+    handle_unban
+);
+rpc_handler!(
+    on_mute,
+    protos::frequency::mod_ops::MuteRequest,
+    protos::frequency::mod_ops::MuteResponse,
+    handle_mute
+);
+rpc_handler!(
+    on_unmute,
+    protos::frequency::mod_ops::UnmuteRequest,
+    protos::frequency::mod_ops::UnmuteResponse,
+    handle_unmute
+);
+rpc_handler!(
+    on_op,
+    protos::frequency::mod_ops::OpRequest,
+    protos::frequency::mod_ops::OpResponse,
+    handle_op
+);
+rpc_handler!(
+    on_deop,
+    protos::frequency::mod_ops::DeopRequest,
+    protos::frequency::mod_ops::DeopResponse,
+    handle_deop
+);
+rpc_handler!(
+    on_trop,
+    protos::frequency::mod_ops::TropRequest,
+    protos::frequency::mod_ops::TropResponse,
+    handle_trop
+);
+rpc_handler!(
+    on_remote_pwd,
+    protos::remote::fs::PwdRequest,
+    protos::remote::fs::PwdResponse,
+    handle_remote_pwd
+);
+rpc_handler!(
+    on_remote_ls,
+    protos::remote::fs::LsRequest,
+    protos::remote::fs::LsResponse,
+    handle_remote_ls
+);
+rpc_handler!(
+    on_remote_cd,
+    protos::remote::fs::CdRequest,
+    protos::remote::fs::CdResponse,
+    handle_remote_cd
+);
+rpc_handler!(
+    on_remote_mkdir,
+    protos::remote::fs::MkdirRequest,
+    protos::remote::fs::MkdirResponse,
+    handle_remote_mkdir
+);
+rpc_handler!(
+    on_file_info,
+    protos::remote::fs::RemoteFileInfoRequest,
+    protos::remote::fs::RemoteFileInfoResponse,
+    handle_file_info
+);
+rpc_handler!(
+    on_remote_checksum,
+    protos::remote::fs::RemoteChecksumRequest,
+    protos::remote::fs::RemoteChecksumResponse,
+    handle_remote_checksum
+);
+rpc_handler!(
+    on_upload,
+    protos::remote::fs::UploadRequest,
+    protos::remote::fs::UploadResponse,
+    handle_upload
+);
+rpc_handler!(
+    on_download,
+    protos::remote::fs::DownloadRequest,
+    protos::remote::fs::DownloadResponse,
+    handle_download
+);
+rpc_handler!(
+    on_remote_rm,
+    protos::remote::fs::RemoteRmRequest,
+    protos::remote::fs::RemoteRmResponse,
+    handle_remote_rm
+);
+rpc_handler!(
+    on_remote_mv,
+    protos::remote::fs::RemoteMvRequest,
+    protos::remote::fs::RemoteMvResponse,
+    handle_remote_mv
+);
+rpc_handler!(
+    on_remote_cp,
+    protos::remote::fs::RemoteCpRequest,
+    protos::remote::fs::RemoteCpResponse,
+    handle_remote_cp
+);
+rpc_handler!(
+    on_remote_tree,
+    protos::remote::fs::RemoteTreeRequest,
+    protos::remote::fs::RemoteTreeResponse,
+    handle_remote_tree
+);
+rpc_handler!(
+    on_status,
+    protos::connection::session::StatusRequest,
+    protos::connection::session::StatusResponse,
+    handle_status
+);
+rpc_handler!(
+    on_route,
+    protos::connection::session::RouteRequest,
+    protos::connection::session::RouteResponse,
+    handle_route
+);
+rpc_handler!(
+    on_notifications,
+    protos::frequency::notification::NotificationsRequest,
+    protos::frequency::notification::NotificationsResponse,
+    handle_notifications
+);
 
 // ---------------------------------------------------------------------------
 // 插件生命周期
@@ -543,26 +694,20 @@ fn register_channel_with_handler(
     metadata: &ChannelMetadata,
     handler: ChannelHandlerFn,
 ) {
-    let register_channel: Symbol<RegisterChannelFn> = unsafe { lib.get(b"register_channel") }
-        .expect("Failed to find symbol 'register_channel'");
+    let register_channel: Symbol<RegisterChannelFn> =
+        unsafe { lib.get(b"register_channel") }.expect("Failed to find symbol 'register_channel'");
     let set_channel_handler: Symbol<SetChannelHandlerFn> =
         unsafe { lib.get(b"set_channel_handler") }
             .expect("Failed to find symbol 'set_channel_handler'");
 
     let registered = register_channel(metadata);
     if registered == 0 {
-        println!(
-            "[srv-standard] channel '{}' already registered, skipping.",
-            metadata.name
-        );
+        println!("[srv-standard] channel '{}' already registered, skipping.", metadata.name);
         return;
     }
     let bound = set_channel_handler(&metadata.name, handler);
     if bound == 0 {
-        println!(
-            "[srv-standard] failed to bind handler for channel '{}'.",
-            metadata.name
-        );
+        println!("[srv-standard] failed to bind handler for channel '{}'.", metadata.name);
     }
 }
 
@@ -578,10 +723,7 @@ pub fn on_init_plugin(h_meta: SrvHostMetadata) -> SrvPluginResult {
     for (name, desc, handler) in CHANNELS {
         register_channel_with_handler(lib, &channel_metadata(name, desc), *handler);
     }
-    println!(
-        "[srv-standard] registered {} channel(s).",
-        CHANNELS.len()
-    );
+    println!("[srv-standard] registered {} channel(s).", CHANNELS.len());
 
     SrvPluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }

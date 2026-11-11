@@ -15,8 +15,10 @@ impl MsgCommand {
             Some(m) if !m.trim().is_empty() => m,
             _ => crate::editor::open()?,
         };
-        let resp: protos::messaging::message::SendMessageResponse =
-            crate::connection::rpc("send_message", &protos::messaging::message::SendMessageRequest { message, users, freq: String::new() })?;
+        let resp: protos::messaging::message::SendMessageResponse = crate::connection::rpc(
+            "send_message",
+            &protos::messaging::message::SendMessageRequest { message, users, freq: String::new() },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());

@@ -31,11 +31,8 @@ pub fn on_recieve_packet(packet: &Packet) -> PacketResult {
                 PacketResult {
                     handled: 0,
                     code: 2,
-                    message: format!(
-                        "channel '{}' registered but has no handler",
-                        packet.channel
-                    )
-                    .into(),
+                    message: format!("channel '{}' registered but has no handler", packet.channel)
+                        .into(),
                     payload: "".into(),
                 }
             } else {

@@ -12,14 +12,23 @@ pub struct InstallCommand;
 
 impl InstallCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, plugin: String, registry: Option<String>, uload: bool, local: Option<String>, force: bool) -> Result<()> {
+    pub fn execute(
+        &self,
+        plugin: String,
+        registry: Option<String>,
+        uload: bool,
+        local: Option<String>,
+        force: bool,
+    ) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         let _ = (registry, force);
         let local_path = match local {
             Some(p) => p,
             None => {
-                print_content(&"[!] registry install is not enabled; use `install -l <local-path>`.".into());
+                print_content(
+                    &"[!] registry install is not enabled; use `install -l <local-path>`.".into(),
+                );
                 return Ok(());
             }
         };
@@ -28,7 +37,9 @@ impl InstallCommand {
             return Ok(());
         }
         let file_name = std::path::Path::new(&local_path)
-            .file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| plugin.clone());
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .unwrap_or_else(|| plugin.clone());
         let dest = crate::local::plugins_dir().join(&file_name);
         std::fs::copy(&local_path, &dest)?;
         let mut installed = crate::local::read_installed();
@@ -40,7 +51,14 @@ impl InstallCommand {
         if uload {
             cli_core_macros::load_core_symbols!(lib, load_plugin);
             let res = load_plugin(&file_name.into());
-            print_content(&format!("[{}] {}", if res.success == 1 { "OK" } else { "ERR" }, res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default()).into());
+            print_content(
+                &format!(
+                    "[{}] {}",
+                    if res.success == 1 { "OK" } else { "ERR" },
+                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default()
+                )
+                .into(),
+            );
         }
         Ok(())
     }

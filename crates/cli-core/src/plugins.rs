@@ -54,7 +54,9 @@ fn check_host_version(meta: &PluginMetadata) -> Option<PluginResult> {
         if cmp_version(host_ver, &v.to_string()) < 0 {
             bound = Some(format!(
                 "plugin `{}` requires host >= {} but host is {}",
-                meta.name, v.to_string(), host_ver
+                meta.name,
+                v.to_string(),
+                host_ver
             ));
         }
     }
@@ -64,14 +66,12 @@ fn check_host_version(meta: &PluginMetadata) -> Option<PluginResult> {
     {
         bound = Some(format!(
             "plugin `{}` requires host <= {} but host is {}",
-            meta.name, v.to_string(), host_ver
+            meta.name,
+            v.to_string(),
+            host_ver
         ));
     }
-    bound.map(|m| PluginResult {
-        success: 0,
-        exit_code: 103,
-        msg: TaggedOption::Some(m.into()),
-    })
+    bound.map(|m| PluginResult { success: 0, exit_code: 103, msg: TaggedOption::Some(m.into()) })
 }
 
 /// （内部）取已加载插件的库句柄（Arc 克隆，生命周期不依赖锁）。
@@ -149,9 +149,8 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                         };
                     }
                 };
-                let core_path_str = core_path
-                    .to_str()
-                    .expect("Failed to convert `PathBuf` to `&str`");
+                let core_path_str =
+                    core_path.to_str().expect("Failed to convert `PathBuf` to `&str`");
                 let res = on_init_plugin(HostMetadata {
                     version: env!("CARGO_PKG_VERSION").into(),
                     cli_core_path: core_path_str.into(),

@@ -8,7 +8,8 @@
 pub type GetPluginMetadataFn = extern "C" fn() -> crate::plugins::SrvPluginMetadata;
 
 /// 插件约定的 `on_init_plugin` 函数类型。
-pub type OnInitPluginFn = extern "C" fn(crate::plugins::SrvHostMetadata) -> crate::plugins::SrvPluginResult;
+pub type OnInitPluginFn =
+    extern "C" fn(crate::plugins::SrvHostMetadata) -> crate::plugins::SrvPluginResult;
 
 /// 插件约定的 `on_shutdown_plugin` 函数类型。
 pub type OnShutdownPluginFn = extern "C" fn() -> crate::plugins::SrvPluginResult;

@@ -33,7 +33,9 @@ impl UnsetCommand {
 
         let key_for_display = key.clone();
         if remove_session_option(&key.into()).into_rust().is_some() {
-            print_content(&format!("Session variable '{key_for_display}' has been removed.").into());
+            print_content(
+                &format!("Session variable '{key_for_display}' has been removed.").into(),
+            );
         } else {
             print_content(&format!("Key {key_for_display} doesn't exist.").into());
         }

@@ -21,11 +21,13 @@ impl AwayCommand {
             _ => {
                 return Err(anyhow!(
                     "invalid status `{status}`; available: away, busy, off, online"
-                ))
+                ));
             }
         };
-        let resp: protos::connection::session::SetPresenceResponse =
-            crate::connection::rpc("set_presence", &protos::connection::session::SetPresenceRequest { status: p })?;
+        let resp: protos::connection::session::SetPresenceResponse = crate::connection::rpc(
+            "set_presence",
+            &protos::connection::session::SetPresenceRequest { status: p },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());

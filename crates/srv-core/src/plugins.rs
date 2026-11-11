@@ -6,20 +6,17 @@
 //! `on_init_plugin` 中把宿主（srv-core）路径交给插件，插件借此
 //! 注册频道与 packet handler。
 
+use hook_macro::register_hook;
 use libloading::Library;
 use process_path::get_dylib_path;
+use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use srv_core_types::init_fn_types::{GetPluginMetadataFn, OnInitPluginFn};
-use srv_core_types::plugins::{
-    SrvHostMetadata, SrvPluginMetadata, SrvPluginResult,
-};
+use srv_core_types::plugins::{SrvHostMetadata, SrvPluginMetadata, SrvPluginResult};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use which_dylib::{FindError, FindLibBuilder};
-use hook_macro::register_hook;
-use safer_ffi::ffi_export;
-use std::sync::atomic::{AtomicBool, Ordering};
-
 
 static PLUGIN_MAP: LazyLock<Mutex<HashMap<String, SrvPluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -64,7 +61,9 @@ fn check_host_version(meta: &SrvPluginMetadata) -> Option<SrvPluginResult> {
         if cmp_version(host_ver, &v.to_string()) < 0 {
             bound = Some(format!(
                 "plugin `{}` requires host >= {} but host is {}",
-                meta.name, v.to_string(), host_ver
+                meta.name,
+                v.to_string(),
+                host_ver
             ));
         }
     }
@@ -74,14 +73,12 @@ fn check_host_version(meta: &SrvPluginMetadata) -> Option<SrvPluginResult> {
     {
         bound = Some(format!(
             "plugin `{}` requires host <= {} but host is {}",
-            meta.name, v.to_string(), host_ver
+            meta.name,
+            v.to_string(),
+            host_ver
         ));
     }
-    bound.map(|m| SrvPluginResult {
-        success: 0,
-        exit_code: 103,
-        msg: TaggedOption::Some(m.into()),
-    })
+    bound.map(|m| SrvPluginResult { success: 0, exit_code: 103, msg: TaggedOption::Some(m.into()) })
 }
 
 /// 加载服务端插件（如 `"srv_standard"`）。
@@ -115,9 +112,7 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> SrvPluginResult {
                         return SrvPluginResult {
                             success: 0,
                             exit_code: 102,
-                            msg: TaggedOption::Some(
-                                "Failed to get `get_plugin_metadata`".into(),
-                            ),
+                            msg: TaggedOption::Some("Failed to get `get_plugin_metadata`".into()),
                         };
                     }
                 };

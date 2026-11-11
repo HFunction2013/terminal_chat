@@ -22,7 +22,9 @@ impl LoadedCommand {
             return Ok(());
         }
         for p in plugins.iter() {
-            print_content(&format!("  {} v{} ({} commands)", p.name, p.version, p.description.len()).into());
+            print_content(
+                &format!("  {} v{} ({} commands)", p.name, p.version, p.description.len()).into(),
+            );
         }
         Ok(())
     }

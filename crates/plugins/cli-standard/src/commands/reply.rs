@@ -15,8 +15,10 @@ impl ReplyCommand {
             Some(m) if !m.trim().is_empty() => m,
             _ => crate::editor::open()?,
         };
-        let resp: protos::messaging::message::ReplyMessageResponse =
-            crate::connection::rpc("reply_message", &protos::messaging::message::ReplyMessageRequest { message })?;
+        let resp: protos::messaging::message::ReplyMessageResponse = crate::connection::rpc(
+            "reply_message",
+            &protos::messaging::message::ReplyMessageRequest { message },
+        )?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.message.clone().into());

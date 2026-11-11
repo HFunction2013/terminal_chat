@@ -13,7 +13,7 @@ impl PwdCommand {
     pub fn execute(&self) -> Result<()> {
         let resp: protos::remote::fs::PwdResponse =
             crate::connection::rpc("remote_pwd", &protos::remote::fs::PwdRequest {})?;
-                let lib = crate::LIB.get().expect("`cli-core` not initialized");
+        let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         print_content(&resp.directory.clone().into());
         Ok(())

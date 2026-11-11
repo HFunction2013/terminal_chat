@@ -22,10 +22,10 @@ use srv_core_types::sessions::SessionInfo;
 use srv_core_types::{
     AddSessionFn, LoadPluginFn, OnRecievePacketFn, RemoveSessionFn, SessionCountFn,
 };
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::os::raw::c_void;
 use std::sync::mpsc;
 use std::sync::{LazyLock, Mutex, OnceLock};
@@ -42,10 +42,7 @@ static SESSION_USERS: LazyLock<Mutex<HashMap<String, String>>> =
 /// 从 peer 地址（"ip:port"）提取 ip 部分（兼容 IPv6-mapped IPv4 显示）。
 fn peer_ip(peer: &str) -> String {
     let host = peer.rsplit_once(':').map(|(h, _)| h).unwrap_or(peer);
-    host.trim_start_matches('[')
-        .trim_end_matches(']')
-        .trim_start_matches("::ffff:")
-        .to_string()
+    host.trim_start_matches('[').trim_end_matches(']').trim_start_matches("::ffff:").to_string()
 }
 
 fn get_srv_core() -> &'static Library {
@@ -128,15 +125,16 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
                         .filter(|u| !u.trim().is_empty())
                         .unwrap_or_else(|| "anonymous".to_string());
                     SESSION_USERS.lock().unwrap().insert(peer.clone(), username.clone());
-                    println!(
-                        "[srv] handshake from {peer}: user={username} vers={}",
-                        req.prog_vers
-                    );
+                    println!("[srv] handshake from {peer}: user={username} vers={}", req.prog_vers);
                     let resp = protos::connect::ConnectResponse {
                         status: protos::connect::ConnectStatus::ConnectSuccess as i32,
                         message: Some(format!("welcome, {username}@{}", peer_ip(&peer))),
                     };
-                    let _ = write_frame(&mut stream, frame_type::CONNECT_RESPONSE, &resp.encode_to_vec());
+                    let _ = write_frame(
+                        &mut stream,
+                        frame_type::CONNECT_RESPONSE,
+                        &resp.encode_to_vec(),
+                    );
                     true
                 }
                 Err(e) => {
@@ -245,7 +243,11 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
                     result: protos::connection::session::DisconnectResult::DisconnectSuccess as i32,
                     message: "bye".to_string(),
                 };
-                let _ = write_frame(&mut stream, frame_type::DISCONNECT_RESPONSE, &resp.encode_to_vec());
+                let _ = write_frame(
+                    &mut stream,
+                    frame_type::DISCONNECT_RESPONSE,
+                    &resp.encode_to_vec(),
+                );
                 println!("[srv] disconnect requested by {peer}");
                 break;
             }
@@ -301,10 +303,7 @@ fn main() -> Result<()> {
     // 默认加载 srv-standard。
     let res = load_plugin(&"srv_standard".into());
     if res.success != 1 {
-        eprintln!(
-            "Failed to load srv_standard: exit_code={} msg={:?}",
-            res.exit_code, res.msg
-        );
+        eprintln!("Failed to load srv_standard: exit_code={} msg={:?}", res.exit_code, res.msg);
         std::process::exit(1);
     }
     println!("[srv] srv-standard loaded.");
@@ -319,7 +318,14 @@ fn main() -> Result<()> {
     let listener = TcpListener::bind(&addr)?;
     println!("[srv] listening on {addr} (TCP, prost frames)");
 
-    let symbols = SrvSymbols { on_recieve_packet, add_session, remove_session, session_count, pusher_register, pusher_unregister };
+    let symbols = SrvSymbols {
+        on_recieve_packet,
+        add_session,
+        remove_session,
+        session_count,
+        pusher_register,
+        pusher_unregister,
+    };
 
     for conn in listener.incoming() {
         match conn {
