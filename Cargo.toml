@@ -17,6 +17,8 @@ members = [
     "crates/cli-core-types",
     "crates/rs-fortune",
     "crates/cli-core-macros",
+    "crates/lsh",
+    "crates/edit-tui",
 ]
 resolver = "2"
 
