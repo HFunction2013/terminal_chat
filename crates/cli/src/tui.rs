@@ -38,6 +38,12 @@ pub type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::
 pub type GetOptionFn =
     unsafe extern "C" fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>;
 
+/// 切换 TUI/REPL 输出模式的 FFI 符号类型。
+pub type SetTuiModeFn = unsafe extern "C" fn(bool);
+
+/// 取走 TUI 命令输出缓冲的 FFI 符号类型。
+pub type OutputDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::String>;
+
 #[cfg(target_pointer_width = "32")]
 const SCRATCH_ARENA_CAPACITY: usize = 128 * MEBI;
 #[cfg(target_pointer_width = "64")]
@@ -368,11 +374,16 @@ pub fn run(
     run_command: &RunCommandFn,
     take_pushes: &PushDrainFn,
     get_option: &GetOptionFn,
+    set_tui_mode: &SetTuiModeFn,
+    output_drain: &OutputDrainFn,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
         anyhow::bail!("--tui requires an interactive terminal (stdout is not a tty)");
     }
+
+    // 进入 TUI 模式：命令输出改走内存缓冲，不再直写终端。
+    unsafe { set_tui_mode(true) };
 
     let _sys_deinit = sys::init()?;
     arena::init(SCRATCH_ARENA_CAPACITY)?;
@@ -389,7 +400,7 @@ pub fn run(
     let _restore = RestoreModes;
 
     let mut app = App::new();
-    let res = event_loop(&mut tui, &mut app, &mut vt_parser, &mut input_parser, run_command, take_pushes, get_option);
+    let res = event_loop(&mut tui, &mut app, &mut vt_parser, &mut input_parser, run_command, take_pushes, get_option, output_drain);
 
     res
 }
@@ -402,6 +413,7 @@ fn event_loop(
     run_command: &RunCommandFn,
     take_pushes: &PushDrainFn,
     get_option: &GetOptionFn,
+    output_drain: &OutputDrainFn,
 ) -> Result<()> {
     let groups = menu_groups();
 
@@ -428,20 +440,20 @@ fn event_loop(
 
             if let Some((resize, input)) = read {
                 if let Some(size) = resize {
-                    draw(tui, Some(Input::Resize(size)), app, run_command, &groups);
+                    draw(tui, Some(Input::Resize(size)), app, run_command, output_drain, &groups);
                 }
 
                 let vt_iter = vt_parser.parse(&input);
                 let mut input_iter = input_parser.parse(vt_iter);
                 while let Some(input) = input_iter.next() {
-                    draw(tui, Some(input), app, run_command, &groups);
+                    draw(tui, Some(input), app, run_command, output_drain, &groups);
                 }
             }
         }
 
         // 布局稳定前持续重绘。
         while tui.needs_settling() {
-            draw(tui, None, app, run_command, &groups);
+            draw(tui, None, app, run_command, output_drain, &groups);
         }
 
         if app.exit {
@@ -461,13 +473,14 @@ fn draw(
     input: Option<Input>,
     app: &mut App,
     run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
     groups: &[MenuGroup],
 ) {
     let ctx = &mut tui.create_context(input);
 
-    draw_menubar(ctx, app, run_command, groups);
+    draw_menubar(ctx, app, run_command, output_drain, groups);
     draw_body(ctx, app);
-    draw_input(ctx, app, run_command);
+    draw_input(ctx, app, run_command, output_drain);
     draw_status(ctx, app);
 
     if let Some(key) = ctx.keyboard_input() {
@@ -478,14 +491,14 @@ fn draw(
     }
 }
 
-fn draw_menubar(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn, groups: &[MenuGroup]) {
+fn draw_menubar(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn, groups: &[MenuGroup]) {
     ctx.menubar_begin();
     for group in groups {
         if ctx.menubar_menu_begin(group.name, group.accel) {
             for item in &group.items {
                 let clicked = ctx.menubar_menu_button(item.label, '\0', vk::NULL);
                 if clicked {
-                    run_action(app, run_command, &item.action);
+                    run_action(app, run_command, output_drain, &item.action);
                 }
             }
             ctx.menubar_menu_end();
@@ -539,7 +552,7 @@ fn draw_body(ctx: &mut Context, app: &App) {
     ctx.table_end();
 }
 
-fn draw_input(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn) {
+fn draw_input(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     ctx.table_begin("input-bar");
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
     ctx.table_next_row();
@@ -556,7 +569,7 @@ fn draw_input(ctx: &mut Context, app: &mut App, run_command: &RunCommandFn) {
         } else if ctx.consume_shortcut(vk::DOWN) {
             app.history_next();
         } else if ctx.consume_shortcut(vk::RETURN) {
-            submit(app, run_command);
+            submit(app, run_command, output_drain);
         }
     }
 
@@ -587,12 +600,12 @@ fn draw_status(ctx: &mut Context, app: &App) {
 }
 
 /// 执行菜单动作。
-fn run_action(app: &mut App, run_command: &RunCommandFn, action: &Action) {
+fn run_action(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn, action: &Action) {
     match action {
         Action::Run(argv) => {
             let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
             app.note_command(&argv);
-            run_argv(app, run_command, &argv);
+            run_argv(app, run_command, output_drain, &argv);
         }
         Action::Prefill(prefix) => {
             app.input = prefix.to_string();
@@ -601,7 +614,7 @@ fn run_action(app: &mut App, run_command: &RunCommandFn, action: &Action) {
 }
 
 /// 提交输入框内容为命令。
-fn submit(app: &mut App, run_command: &RunCommandFn) {
+fn submit(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let cmd = app.input.trim().to_string();
     app.input.clear();
     if cmd.is_empty() {
@@ -615,11 +628,11 @@ fn submit(app: &mut App, run_command: &RunCommandFn) {
     }
     let argv: Vec<String> = shell_words::split(&cmd).unwrap_or_else(|_| vec![cmd.clone()]);
     app.note_command(&argv);
-    run_argv(app, run_command, &argv);
+    run_argv(app, run_command, output_drain, &argv);
 }
 
-/// 在 TUI 内同步执行命令，结果回显到聊天记录（不退出全屏）。
-fn run_argv(app: &mut App, run_command: &RunCommandFn, argv: &[String]) {
+/// 在 TUI 内同步执行命令，输出回显到聊天记录（不退出全屏）。
+fn run_argv(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn, argv: &[String]) {
     let display = argv.join(" ");
     app.push_line(format!("tc> {display}"), LineKind::Cmd);
 
@@ -630,27 +643,42 @@ fn run_argv(app: &mut App, run_command: &RunCommandFn, argv: &[String]) {
         .into();
     let result = run_command(&args_ffi);
     let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
+
+    // 取回 TUI 模式下由 `print_content` 暂存的命令同步输出。
+    let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
+    let drained: Vec<String> = drained.iter().map(|s| s.to_string()).collect();
+    let drained_text = drained.join("\n");
+
     if result.code != 0 {
-        app.push_line(result.message.to_string(), LineKind::Result);
-    } else {
         if !result.message.is_empty() {
             app.push_line(result.message.to_string(), LineKind::Result);
         }
-        // `freq_info` 返回权威成员列表，回填侧栏（当前 FFI 成功结果不带输出文本，
-        // 此处在可捕获命令输出后生效）。
-        if matches!(cmd, "freq_info") {
-            app.reconcile_members(&result.message);
+        for line in &drained {
+            app.push_line(line.clone(), LineKind::Result);
         }
-        // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
-        if matches!(cmd, "join_freq" | "create_freq") {
-            let me = app.username.clone();
-            if !me.is_empty() {
-                app.add_member(&me);
-            }
+        return;
+    }
+
+    for line in &drained {
+        app.push_line(line.clone(), LineKind::Result);
+    }
+    if !result.message.is_empty() {
+        app.push_line(result.message.to_string(), LineKind::Result);
+    }
+
+    // `freq_info` 返回权威成员列表，回填侧栏。
+    if matches!(cmd, "freq_info") {
+        app.reconcile_members(&drained_text);
+    }
+    // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
+    if matches!(cmd, "join_freq" | "create_freq") {
+        let me = app.username.clone();
+        if !me.is_empty() {
+            app.add_member(&me);
         }
-        // 离开 / 解散频点后清空成员列表。
-        if matches!(cmd, "leave_freq" | "disband") {
-            app.members.clear();
-        }
+    }
+    // 离开 / 解散频点后清空成员列表。
+    if matches!(cmd, "leave_freq" | "disband") {
+        app.members.clear();
     }
 }

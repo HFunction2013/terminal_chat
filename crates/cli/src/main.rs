@@ -421,7 +421,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let get_option: Symbol<tui::GetOptionFn> =
             unsafe { core_lib.get(b"get_global_option") }
                 .map_err(|e| format!("Failed to find symbol 'get_global_option': {e}"))?;
-        return tui::run(&run_command, &take_pushes, &get_option).map_err(|e| e.into());
+        let set_tui_mode: Symbol<tui::SetTuiModeFn> =
+            unsafe { core_lib.get(b"tc_cli_set_tui_mode") }
+                .map_err(|e| format!("Failed to find symbol 'tc_cli_set_tui_mode': {e}"))?;
+        let output_drain: Symbol<tui::OutputDrainFn> =
+            unsafe { core_lib.get(b"tc_cli_output_drain") }
+                .map_err(|e| format!("Failed to find symbol 'tc_cli_output_drain': {e}"))?;
+        return tui::run(&run_command, &take_pushes, &get_option, &set_tui_mode, &output_drain)
+            .map_err(|e| e.into());
     }
 
     #[cfg(not(debug_assertions))]
