@@ -27,8 +27,9 @@ use edit_tui::arena::{self, scratch_arena};
 use edit_tui::framebuffer::IndexedColor;
 use edit_tui::helpers::{COORD_TYPE_SAFE_MAX, CoordType, MEBI, Point, Rect, Size};
 use edit_tui::input::{self, Input, kbmod, vk};
+use edit_tui::oklab::StraightRgba;
 use edit_tui::sys;
-use edit_tui::tui::{Context, Tui};
+use edit_tui::tui::{Anchor, Context, FloatSpec, ListSelection, Tui};
 use edit_tui::vt;
 
 /// 拉取积压推送的 FFI 符号类型。
@@ -326,6 +327,10 @@ struct App {
     quiet: bool,
     /// 退出标志。
     exit: bool,
+    /// 菜单栏 / 状态栏主题背景（对齐 upstream edit 配色）。
+    menubar_bg: StraightRgba,
+    /// 菜单栏 / 状态栏主题前景。
+    menubar_fg: StraightRgba,
 }
 
 impl App {
@@ -353,6 +358,8 @@ impl App {
             port: String::new(),
             quiet: false,
             exit: false,
+            menubar_bg: StraightRgba::zero(),
+            menubar_fg: StraightRgba::zero(),
         }
     }
 
@@ -535,6 +542,16 @@ impl App {
         self.refresh_completions();
     }
 
+    /// 在候选列表中循环切换高亮下标。
+    fn cycle_completion(&mut self, delta: isize) {
+        let n = self.completions.len();
+        if n == 0 {
+            return;
+        }
+        self.comp_idx =
+            if delta > 0 { (self.comp_idx + 1) % n } else { (self.comp_idx + n - 1) % n };
+    }
+
     /// 根据刚执行的命令更新本地会话快照。
     fn note_command(&mut self, argv: &[String]) {
         let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
@@ -548,12 +565,6 @@ impl App {
             _ => {}
         }
     }
-}
-
-/// 计算候选相对当前输入末词的剩余补全片段（灰色 ghost 文本）。
-fn ghost_suffix(input: &str, cand: &str) -> String {
-    let prefix = input.split_whitespace().last().unwrap_or(input);
-    cand.strip_prefix(prefix).unwrap_or_default().to_string()
 }
 
 /// 向成员列表追加一个去重后的非空名字。
@@ -633,11 +644,30 @@ pub fn run(
     let initial_size = sys::switch_modes()?;
     tui.set_size(initial_size);
 
+    // 主题配色，对齐 upstream microsoft/edit：菜单栏背景由背景色与亮蓝按 1/2
+    // 混合，前景取对比色；浮层 / 弹窗由背景 2/3 与前景 1/3 混合。
+    let menubar_bg = tui.indexed(IndexedColor::Background).oklab_blend(tui.indexed_alpha(
+        IndexedColor::BrightBlue,
+        1,
+        2,
+    ));
+    let menubar_fg = tui.contrasted(menubar_bg);
+    let floater_bg = tui
+        .indexed_alpha(IndexedColor::Background, 2, 3)
+        .oklab_blend(tui.indexed_alpha(IndexedColor::Foreground, 1, 3));
+    let floater_fg = tui.contrasted(floater_bg);
+    tui.set_floater_default_bg(floater_bg);
+    tui.set_floater_default_fg(floater_fg);
+    tui.set_modal_default_bg(floater_bg);
+    tui.set_modal_default_fg(floater_fg);
+
     // 进 alternate screen、鼠标跟踪、括号粘贴（跳过 OSC 颜色探测，用默认主题）。
     sys::write_stdout("\x1b[?1049h\x1b[?1002;1006;2004h\x1b[?1036h");
     let _restore = RestoreModes;
 
     let mut app = App::new();
+    app.menubar_bg = menubar_bg;
+    app.menubar_fg = menubar_fg;
     let res = event_loop(
         &mut tui,
         &mut app,
@@ -726,17 +756,12 @@ fn draw(
 ) {
     let ctx = &mut tui.create_context(input);
 
-    // 统一外框：菜单栏、主体、输入框、状态栏同处一个边框内，避免侧栏孤框与
-    // 其它区域边框不一致。弹窗为独立浮层，放在外框之外。
-    ctx.block_begin("frame");
-    ctx.attr_border();
-
+    // 对齐 upstream microsoft/edit：菜单栏、主体、输入栏、状态栏作为 root 下
+    // 纵向堆叠的三段，不套外层边框；弹窗 / 浮层在其后叠加。
     draw_menubar(ctx, app, run_command, output_drain, groups);
     draw_body(ctx, app);
     draw_input(ctx, app, run_command, output_drain);
     draw_status(ctx, app);
-
-    ctx.block_end();
     draw_dialog(ctx, app, run_command, output_drain);
 
     if let Some(key) = ctx.keyboard_input() {
@@ -765,8 +790,11 @@ fn draw_menubar(
     groups: &[MenuGroup],
 ) {
     ctx.menubar_begin();
+    ctx.attr_background_rgba(app.menubar_bg);
+    ctx.attr_foreground_rgba(app.menubar_fg);
     // 菜单栏撑满整行宽度，与下方主体 / 输入框 / 状态栏左右边缘对齐。
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
+    let contains_focus = ctx.contains_focus();
     for group in groups {
         if ctx.menubar_menu_begin(group.name, group.accel) {
             for item in &group.items {
@@ -778,19 +806,22 @@ fn draw_menubar(
             ctx.menubar_menu_end();
         }
     }
+    if !contains_focus && ctx.consume_shortcut(vk::F10) {
+        ctx.steal_focus();
+    }
     ctx.menubar_end();
 }
 
 fn draw_body(ctx: &mut Context, app: &App) {
-    // 外框上下各占 1 格；内部纵向：菜单栏(1) + 主体 + 输入框(1) + 状态栏(1)。
-    let body_height = (ctx.size().height - 5).max(1);
+    // 内部纵向：菜单栏(1) + 主体 + 输入框(1) + 状态栏(1)。
+    let body_height = (ctx.size().height - 3).max(1);
 
     ctx.table_begin("body");
     ctx.table_set_columns(&[26, COORD_TYPE_SAFE_MAX]);
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
     ctx.table_next_row();
 
-    // 左侧：会话 / 成员（统一外框已闭合，侧栏不再单独画框）。
+    // 左侧：会话 / 成员。
     ctx.block_begin("sidebar");
     ctx.attr_padding(Rect::two(0, 1));
     ctx.attr_intrinsic_size(Size { width: 26, height: body_height });
@@ -851,26 +882,52 @@ fn draw_input(
     // 首帧把焦点交给输入框；之后不抢，菜单展开时焦点留在菜单。
     ctx.focus_on_first_present();
 
-    // 依据当前输入刷新补全候选，并在输入框右侧以灰色显示首个候选的剩余部分。
+    // 依据当前输入刷新补全候选。
     app.refresh_completions();
-    if let Some(cand) = app.completions.get(app.comp_idx).cloned() {
-        let suffix = ghost_suffix(&app.input, &cand);
-        if !suffix.is_empty() {
-            ctx.styled_label_begin("ghost");
-            ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::BrightBlack));
-            ctx.styled_label_add_text(&suffix);
-            ctx.styled_label_end();
+
+    // 候选非空时，在输入框正下方叠加一个浮层列表（对齐 upstream edit
+    // 的 autocomplete suggestions 浮层），当前高亮项随 `comp_idx` 标记。
+    if !app.completions.is_empty() {
+        let bg = ctx.indexed_alpha(IndexedColor::Background, 3, 4);
+        let fg = ctx.contrasted(bg);
+        ctx.list_begin("suggestions");
+        ctx.attr_float(FloatSpec {
+            anchor: Anchor::Last,
+            gravity_x: 0.0,
+            // 输入栏贴近底部状态栏，浮层向上展开：底边贴住输入框上缘。
+            gravity_y: 1.0,
+            offset_x: 0.0,
+            offset_y: 0.0,
+        });
+        ctx.attr_border();
+        ctx.attr_background_rgba(bg);
+        ctx.attr_foreground_rgba(fg);
+        let cands = app.completions.clone();
+        for (idx, cand) in cands.iter().enumerate() {
+            let sel = ctx.list_item(idx == app.comp_idx, cand);
+            if sel == ListSelection::Activated {
+                app.comp_idx = idx;
+                app.accept_completion();
+            } else if sel == ListSelection::Selected {
+                app.comp_idx = idx;
+            }
         }
-        if app.completions.len() > 1 {
-            ctx.label("ghost-count", &format!(" ({})", app.completions.len()));
-        }
+        ctx.list_end();
     }
 
     if ctx.is_focused() {
         if ctx.consume_shortcut(vk::UP) {
-            app.history_prev();
+            if !app.completions.is_empty() {
+                app.cycle_completion(-1);
+            } else {
+                app.history_prev();
+            }
         } else if ctx.consume_shortcut(vk::DOWN) {
-            app.history_next();
+            if !app.completions.is_empty() {
+                app.cycle_completion(1);
+            } else {
+                app.history_next();
+            }
         } else if ctx.consume_shortcut(vk::TAB) {
             if !app.completions.is_empty() {
                 app.accept_completion();
@@ -897,11 +954,13 @@ fn draw_status(ctx: &mut Context, app: &App) {
     let text = format!(" {who}@{host} | freq {freq} | {quiet} | {}", now_ts());
 
     ctx.table_begin("status");
+    ctx.attr_focus_well();
+    ctx.attr_background_rgba(app.menubar_bg);
+    ctx.attr_foreground_rgba(app.menubar_fg);
+    ctx.table_set_cell_gap(Size { width: 2, height: 0 });
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
-    ctx.attr_background_rgba(ctx.indexed(IndexedColor::Cyan));
-    ctx.attr_foreground_rgba(ctx.contrasted(ctx.indexed(IndexedColor::Cyan)));
+    ctx.attr_padding(Rect::two(0, 1));
     ctx.table_next_row();
-    ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
     ctx.label("status", &text);
     ctx.table_end();
 }
@@ -922,6 +981,10 @@ fn draw_dialog(
     };
 
     ctx.modal_begin("connect-dialog", title);
+    ctx.block_begin("content");
+    ctx.inherit_focus();
+    ctx.attr_padding(Rect::three(1, 2, 1));
+
     ctx.label("dlg-prompt", prompt);
 
     let advance = match app.dialog_buffer() {
@@ -932,6 +995,8 @@ fn draw_dialog(
         }
         None => false,
     };
+    ctx.block_end();
+
     if advance {
         dialog_advance(app, run_command, output_drain);
     }
@@ -1222,12 +1287,6 @@ mod tests {
         app.input = "msg al".into();
         app.refresh_completions();
         assert_eq!(app.completions, vec!["alice".to_string()]);
-    }
-
-    #[test]
-    fn ghost_suffix_strips_prefix() {
-        assert_eq!(ghost_suffix("con", "connect"), "nect");
-        assert_eq!(ghost_suffix("msg al", "alice"), "ice");
     }
 
     #[test]
