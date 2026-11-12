@@ -285,6 +285,142 @@ const SHELL_FORM: FormSpec = FormSpec {
     fields: &[FormField { label: "Command:", required: true }],
 };
 
+/// 单用户管理命令表单（unban/unignore/op/deop/trop/user_info）。
+const UNBAN_FORM: FormSpec = FormSpec {
+    title: "Unban User",
+    cmd: "unban",
+    prefill: "unban ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const UNIGNORE_FORM: FormSpec = FormSpec {
+    title: "Unignore User",
+    cmd: "unignore",
+    prefill: "unignore ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const OP_FORM: FormSpec = FormSpec {
+    title: "Grant Moderator",
+    cmd: "op",
+    prefill: "op ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const DEOP_FORM: FormSpec = FormSpec {
+    title: "Revoke Moderator",
+    cmd: "deop",
+    prefill: "deop ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const TROP_FORM: FormSpec = FormSpec {
+    title: "Transfer Creator",
+    cmd: "trop",
+    prefill: "trop ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const USER_INFO_FORM: FormSpec = FormSpec {
+    title: "User Info",
+    cmd: "user_info",
+    prefill: "user_info ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+
+/// 远端文件系统命令表单。
+const MKDIR_FORM: FormSpec = FormSpec {
+    title: "Make Remote Directory",
+    cmd: "mkdir",
+    prefill: "mkdir ",
+    fields: &[FormField { label: "Directory:", required: true }],
+};
+const CD_FORM: FormSpec = FormSpec {
+    title: "Change Remote Directory",
+    cmd: "cd",
+    prefill: "cd ",
+    fields: &[FormField { label: "Directory:", required: true }],
+};
+const CHECKSUM_FORM: FormSpec = FormSpec {
+    title: "File Checksum",
+    cmd: "checksum",
+    prefill: "checksum ",
+    fields: &[FormField { label: "File:", required: true }],
+};
+const FILE_INFO_FORM: FormSpec = FormSpec {
+    title: "File Info",
+    cmd: "file_info",
+    prefill: "file_info ",
+    fields: &[FormField { label: "File:", required: true }],
+};
+
+/// 定时消息表单：time 位置、message 走 `-m`、users 可选。
+const SCHEDULE_MSG_FORM: FormSpec = FormSpec {
+    title: "Schedule Message",
+    cmd: "schedule_msg",
+    prefill: "schedule_msg ",
+    fields: &[
+        FormField { label: "Time (+30s / HH:MM):", required: true },
+        FormField { label: "Message:", required: true },
+        FormField { label: "Users (optional):", required: false },
+    ],
+};
+const CANCEL_FORM: FormSpec = FormSpec {
+    title: "Cancel Task",
+    cmd: "cancel",
+    prefill: "cancel ",
+    fields: &[FormField { label: "Task ID:", required: true }],
+};
+
+/// 加载/卸载命名空间表单。
+const LOAD_NS_FORM: FormSpec = FormSpec {
+    title: "Load Namespace",
+    cmd: "load namespace",
+    prefill: "load namespace ",
+    fields: &[FormField { label: "Namespace:", required: true }],
+};
+const UNLOAD_NS_FORM: FormSpec = FormSpec {
+    title: "Unload Namespace",
+    cmd: "unload namespace",
+    prefill: "unload namespace ",
+    fields: &[FormField { label: "Namespace:", required: true }],
+};
+
+/// 会话/全局选项表单。
+const SET_FORM: FormSpec = FormSpec {
+    title: "Set Session Option",
+    cmd: "set",
+    prefill: "set ",
+    fields: &[
+        FormField { label: "Key:", required: true },
+        FormField { label: "Value:", required: true },
+    ],
+};
+const GET_FORM: FormSpec = FormSpec {
+    title: "Get Session Option",
+    cmd: "get",
+    prefill: "get ",
+    fields: &[FormField { label: "Key:", required: true }],
+};
+const SETG_FORM: FormSpec = FormSpec {
+    title: "Set Global Option",
+    cmd: "setg",
+    prefill: "setg ",
+    fields: &[
+        FormField { label: "Key:", required: true },
+        FormField { label: "Value (optional):", required: false },
+    ],
+};
+const GETG_FORM: FormSpec = FormSpec {
+    title: "Get Global Option",
+    cmd: "getg",
+    prefill: "getg ",
+    fields: &[FormField { label: "Key:", required: true }],
+};
+
+/// 频点信息表单：频点可选（留空取当前）。
+const FREQ_INFO_FORM: FormSpec = FormSpec {
+    title: "Frequency Info",
+    cmd: "freq_info",
+    prefill: "freq_info ",
+    fields: &[FormField { label: "Frequency (optional):", required: false }],
+};
+
 struct MenuItem {
     label: &'static str,
     action: Action,
@@ -412,7 +548,7 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Join...", action: Action::Form(&JOIN_FORM) },
                 MenuItem { label: "Create...", action: Action::Form(&CREATE_FREQ_FORM) },
                 MenuItem { label: "Leave", action: Action::Run(vec!["leave_freq"]) },
-                MenuItem { label: "Info", action: Action::Run(vec!["freq_info"]) },
+                MenuItem { label: "Info...", action: Action::Form(&FREQ_INFO_FORM) },
                 MenuItem { label: "Background", action: Action::Run(vec!["background"]) },
                 MenuItem { label: "Sessions", action: Action::Run(vec!["sessions", "list"]) },
             ],
@@ -424,6 +560,8 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Send...", action: Action::Form(&MSG_FORM) },
                 MenuItem { label: "Reply...", action: Action::Form(&REPLY_FORM) },
                 MenuItem { label: "Call...", action: Action::Form(&CALL_FORM) },
+                MenuItem { label: "Schedule...", action: Action::Form(&SCHEDULE_MSG_FORM) },
+                MenuItem { label: "Cancel Task...", action: Action::Form(&CANCEL_FORM) },
             ],
         },
         MenuGroup {
@@ -435,6 +573,13 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Ignore...", action: Action::Form(&IGNORE_FORM) },
                 MenuItem { label: "Kick...", action: Action::Form(&KICK_FORM) },
                 MenuItem { label: "Ban...", action: Action::Form(&BAN_FORM) },
+                MenuItem { label: "Unban...", action: Action::Form(&UNBAN_FORM) },
+                MenuItem { label: "Ignore...", action: Action::Form(&IGNORE_FORM) },
+                MenuItem { label: "Unignore...", action: Action::Form(&UNIGNORE_FORM) },
+                MenuItem { label: "Op...", action: Action::Form(&OP_FORM) },
+                MenuItem { label: "Deop...", action: Action::Form(&DEOP_FORM) },
+                MenuItem { label: "Trop...", action: Action::Form(&TROP_FORM) },
+                MenuItem { label: "User Info...", action: Action::Form(&USER_INFO_FORM) },
                 MenuItem { label: "Disband...", action: Action::Prefill("disband ") },
             ],
         },
@@ -449,6 +594,10 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Remove...", action: Action::Form(&RM_FORM) },
                 MenuItem { label: "Move...", action: Action::Form(&MV_FORM) },
                 MenuItem { label: "Copy...", action: Action::Form(&CP_FORM) },
+                MenuItem { label: "Mkdir...", action: Action::Form(&MKDIR_FORM) },
+                MenuItem { label: "Cd...", action: Action::Form(&CD_FORM) },
+                MenuItem { label: "Checksum...", action: Action::Form(&CHECKSUM_FORM) },
+                MenuItem { label: "File Info...", action: Action::Form(&FILE_INFO_FORM) },
             ],
         },
         MenuGroup {
@@ -458,6 +607,18 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Show", action: Action::Run(vec!["show", "plugins"]) },
                 MenuItem { label: "Load...", action: Action::Form(&LOAD_FORM) },
                 MenuItem { label: "Unload...", action: Action::Form(&UNLOAD_FORM) },
+                MenuItem { label: "Load Namespace...", action: Action::Form(&LOAD_NS_FORM) },
+                MenuItem { label: "Unload Namespace...", action: Action::Form(&UNLOAD_NS_FORM) },
+            ],
+        },
+        MenuGroup {
+            name: "Settings",
+            accel: 'S',
+            items: vec![
+                MenuItem { label: "Set...", action: Action::Form(&SET_FORM) },
+                MenuItem { label: "Get...", action: Action::Form(&GET_FORM) },
+                MenuItem { label: "Set Global...", action: Action::Form(&SETG_FORM) },
+                MenuItem { label: "Get Global...", action: Action::Form(&GETG_FORM) },
             ],
         },
         MenuGroup {
@@ -1492,7 +1653,9 @@ fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
             }
             argv
         }
-        "call" | "mute" | "unmute" | "ignore" | "kick" | "ban" | "rm" => {
+        "call" | "mute" | "unmute" | "ignore" | "kick" | "ban" | "rm" | "unban" | "unignore"
+        | "op" | "deop" | "trop" | "user_info" | "mkdir" | "cd" | "checksum" | "file_info"
+        | "cancel" | "get" | "getg" => {
             let mut argv = vec![spec.cmd.to_string()];
             if let Some(a) = opt(0) {
                 argv.push(a);
@@ -1503,6 +1666,47 @@ fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
             let mut argv = vec!["ls".into()];
             if let Some(d) = opt(0) {
                 argv.push(d);
+            }
+            argv
+        }
+        "freq_info" => {
+            let mut argv = vec!["freq_info".into()];
+            if let Some(f) = opt(0) {
+                argv.push(f);
+            }
+            argv
+        }
+        "set" => {
+            let mut argv = vec!["set".into()];
+            if let Some(k) = opt(0) {
+                argv.push(k);
+            }
+            if let Some(v) = opt(1) {
+                argv.push(v);
+            }
+            argv
+        }
+        "setg" => {
+            let mut argv = vec!["setg".into()];
+            if let Some(k) = opt(0) {
+                argv.push(k);
+            }
+            if let Some(v) = opt(1) {
+                argv.push(v);
+            }
+            argv
+        }
+        "schedule_msg" => {
+            let mut argv = vec!["schedule_msg".into()];
+            if let Some(time) = opt(0) {
+                argv.push(time);
+            }
+            if let Some(users) = opt(2) {
+                argv.extend(shell_words::split(&users).unwrap_or_else(|_| vec![users]));
+            }
+            if let Some(msg) = opt(1) {
+                argv.push("-m".into());
+                argv.push(msg);
             }
             argv
         }
@@ -1547,6 +1751,20 @@ fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
             let mut argv = vec!["unload".into(), "plugin".into()];
             if let Some(p) = opt(0) {
                 argv.push(p);
+            }
+            argv
+        }
+        "load namespace" => {
+            let mut argv = vec!["load".into(), "namespace".into()];
+            if let Some(ns) = opt(0) {
+                argv.push(ns);
+            }
+            argv
+        }
+        "unload namespace" => {
+            let mut argv = vec!["unload".into(), "namespace".into()];
+            if let Some(ns) = opt(0) {
+                argv.push(ns);
             }
             argv
         }
@@ -1839,5 +2057,35 @@ mod tests {
     fn form_argv_shell_splits_command_line() {
         let argv = form_argv(&SHELL_FORM, &["ls -la".into()]);
         assert_eq!(argv, vec!["shell", "ls", "-la"]);
+    }
+
+    #[test]
+    fn form_argv_schedule_msg_flags_message_and_users() {
+        let argv = form_argv(&SCHEDULE_MSG_FORM, &["+5m".into(), "hi".into(), "alice bob".into()]);
+        assert_eq!(argv, vec!["schedule_msg", "+5m", "alice", "bob", "-m", "hi"]);
+    }
+
+    #[test]
+    fn form_argv_namespace_load_unload() {
+        assert_eq!(form_argv(&LOAD_NS_FORM, &["net".into()]), vec!["load", "namespace", "net"]);
+        assert_eq!(form_argv(&UNLOAD_NS_FORM, &["net".into()]), vec!["unload", "namespace", "net"]);
+    }
+
+    #[test]
+    fn form_argv_settings_key_value() {
+        assert_eq!(form_argv(&SET_FORM, &["k".into(), "v".into()]), vec!["set", "k", "v"]);
+        // setg 的 value 可选：留空时只带 key。
+        assert_eq!(form_argv(&SETG_FORM, &["k".into(), "".into()]), vec!["setg", "k"]);
+        assert_eq!(form_argv(&GET_FORM, &["k".into()]), vec!["get", "k"]);
+    }
+
+    #[test]
+    fn form_argv_extra_single_arg_commands() {
+        assert_eq!(form_argv(&UNBAN_FORM, &["u@h".into()]), vec!["unban", "u@h"]);
+        assert_eq!(form_argv(&OP_FORM, &["u@h".into()]), vec!["op", "u@h"]);
+        assert_eq!(form_argv(&MKDIR_FORM, &["docs".into()]), vec!["mkdir", "docs"]);
+        assert_eq!(form_argv(&CANCEL_FORM, &["3".into()]), vec!["cancel", "3"]);
+        // 可选频点留空：只发命令本身。
+        assert_eq!(form_argv(&FREQ_INFO_FORM, &["".into()]), vec!["freq_info"]);
     }
 }
