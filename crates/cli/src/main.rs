@@ -32,6 +32,7 @@ use shell_words::split;
 use std::{
     ffi::OsString,
     io::{self, IsTerminal, stdout},
+    mem::ManuallyDrop,
     path::Path,
     sync::{
         Arc, Mutex, OnceLock,
@@ -73,8 +74,8 @@ fn install_ctrlc_handler() {
         unsafe { lib.get(b"set_interrupted") }.expect("Failed to find symbol 'set_interrupted'");
 
     ctrlc::set_handler(move || {
-        set_interrupted(true);
-        if !is_in_cmd() {
+        let _ = set_interrupted(true);
+        if is_in_cmd().code != 0 {
             #[cfg(not(debug_assertions))]
             let _ = execute!(stdout(), LeaveAlternateScreen);
             let _ = execute!(stdout(), Show);
@@ -410,7 +411,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Stub now. will make cli-core command part a module named std.
     // let cli = yaml2cmd::add_commands_from_yaml(include_str!("../../cli-core/commands.yaml"));
-    let plugins: Vec<PluginMetadata> = get_all_plugins().into();
+    let mut plugin_buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
+        ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+    let _res = get_all_plugins(Out::from(&mut plugin_buf));
+    let plugins: Vec<PluginMetadata> = ManuallyDrop::into_inner(plugin_buf).into();
     let mut cli = Command::new("tc-cli").no_binary_name(true);
     for plugin in &plugins {
         let command_yaml: &safer_ffi::String = &plugin.command_yaml;

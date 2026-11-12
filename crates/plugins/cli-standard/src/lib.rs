@@ -49,8 +49,9 @@ mod command {
     });
 }
 #[ffi_export]
-pub fn get_plugin_metadata() -> PluginMetadata {
-    METADATA.clone()
+pub fn get_plugin_metadata(out: Out<'_, PluginMetadata>) -> CmdResult {
+    out.write(METADATA.clone());
+    CmdResult::success()
 }
 
 #[ffi_export]

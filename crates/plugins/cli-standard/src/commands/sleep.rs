@@ -20,7 +20,7 @@ impl SleepCommand {
         print_content(&format!("[*] Aha... Sleep for {time}.").into());
         let start = std::time::Instant::now();
         while start.elapsed() < *duration {
-            if is_interrupted() {
+            if is_interrupted().code == 0 {
                 print_content(&"[!] All your fault! My dream was disturbed!".into());
                 return Ok(());
             }

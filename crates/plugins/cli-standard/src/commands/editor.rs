@@ -4,7 +4,9 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Context, Result};
 use clap::ArgMatches;
+use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 use std::path::PathBuf;
 use std::process::Command;
 use which::which;
@@ -70,8 +72,14 @@ impl EditorCommand {
     pub fn execute(&self, file: Option<String>, editor: Option<String>) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, get_global_option);
-        let opt_saferffi_string: Option<safer_ffi::String> =
-            get_global_option(&"EDITOR".into()).into_rust();
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = get_global_option(&"EDITOR".into(), Out::from(&mut buf));
+        let val = ManuallyDrop::into_inner(buf);
+        let opt_saferffi_string: Option<safer_ffi::String> = match val {
+            TaggedOption::Some(v) => Some(v),
+            TaggedOption::None => None,
+        };
 
         let editor_candidate: Option<String> = opt_saferffi_string.map(|s| s.to_string());
         let editor_name = editor.or(editor_candidate).or_else(Self::choose_editor);

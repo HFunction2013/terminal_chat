@@ -4,7 +4,9 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct MacroCommand;
 
@@ -14,10 +16,15 @@ impl MacroCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content, remove_macro);
 
-        if remove_macro(&macro_name.clone().into()).into_rust().is_some() {
-            print_content(&format!("Macro {macro_name} deleted.").into());
+        let name_for_display = macro_name.clone();
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = remove_macro(&macro_name.into(), Out::from(&mut buf));
+        let removed = !matches!(ManuallyDrop::into_inner(buf), TaggedOption::None);
+        if removed {
+            print_content(&format!("Macro {name_for_display} deleted.").into());
         } else {
-            print_content(&format!("Macro {macro_name} doesn't exist.").into());
+            print_content(&format!("Macro {name_for_display} doesn't exist.").into());
         }
         Ok(())
     }

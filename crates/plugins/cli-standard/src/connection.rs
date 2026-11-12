@@ -8,11 +8,26 @@ use crate::LIB;
 use anyhow::{Context, Result, anyhow};
 use prost::Message;
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
 use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
+use std::mem::ManuallyDrop;
 use std::net::TcpStream;
 use std::sync::{LazyLock, Mutex};
 use std::thread;
+
+/// 经 coreapi 读取一个全局选项；未设置或调用失败返回 `None`。
+fn read_global(key: &str) -> Option<safer_ffi::String> {
+    let lib = LIB.get().expect("`cli-core` not initialized");
+    cli_core_macros::load_core_symbols!(lib, get_global_option);
+    let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+        ManuallyDrop::new(TaggedOption::None);
+    let _res = get_global_option(&key.into(), Out::from(&mut buf));
+    match ManuallyDrop::into_inner(buf) {
+        TaggedOption::Some(v) => Some(v),
+        TaggedOption::None => None,
+    }
+}
 
 /// 当前活动连接（`None` = 未连接）。
 pub static CONNECTION: LazyLock<Mutex<Option<TcpStream>>> = LazyLock::new(|| Mutex::new(None));
@@ -63,18 +78,15 @@ pub fn write_frame(stream: &mut TcpStream, frame_type: u8, bytes: &[u8]) -> Resu
 
 /// 读取 SERVER / PORT 全局配置（PORT 缺省 50051）。
 fn server_config() -> Result<(String, String)> {
-    let lib = LIB.get().expect("`cli-core` not initialized");
-    cli_core_macros::load_core_symbols!(lib, get_global_option);
-
-    let server = match get_global_option(&"SERVER".into()) {
-        TaggedOption::Some(v) => v.to_string(),
-        TaggedOption::None => {
+    let server = match read_global("SERVER") {
+        Some(v) => v.to_string(),
+        None => {
             return Err(anyhow!("SERVER not set; use `setg SERVER <address>` first"));
         }
     };
-    let port = match get_global_option(&"PORT".into()) {
-        TaggedOption::Some(v) => v.to_string(),
-        TaggedOption::None => DEFAULT_PORT.to_string(),
+    let port = match read_global("PORT") {
+        Some(v) => v.to_string(),
+        None => DEFAULT_PORT.to_string(),
     };
     Ok((server, port))
 }
@@ -189,10 +201,8 @@ static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 /// 读取全局 `USERNAME`；未设置时返回错误（不允许加入）。
 fn require_username() -> Result<String> {
-    let lib = LIB.get().expect("`cli-core` not initialized");
-    cli_core_macros::load_core_symbols!(lib, get_global_option);
-    match get_global_option(&"USERNAME".into()) {
-        TaggedOption::Some(v) => {
+    match read_global("USERNAME") {
+        Some(v) => {
             let name = v.to_string();
             if name.trim().is_empty() {
                 Err(anyhow!("USERNAME is empty; use `setg USERNAME <name>` first"))
@@ -200,7 +210,7 @@ fn require_username() -> Result<String> {
                 Ok(name)
             }
         }
-        TaggedOption::None => Err(anyhow!("USERNAME not set; use `setg USERNAME <name>` first")),
+        None => Err(anyhow!("USERNAME not set; use `setg USERNAME <name>` first")),
     }
 }
 
@@ -270,9 +280,8 @@ fn collect_push(frame: &protos::models::packet::Packet) {
     let text = msg.text.split_once(']').map(|(_, rest)| rest.trim()).unwrap_or(msg.text.as_str());
     let display = format!("!! [{}] {}", msg.kind, text);
     // QUIET on/true/1/yes 时静音：推送到达即判定，不入队不显示。
-    if let Some(lib) = LIB.get() {
-        cli_core_macros::load_core_symbols!(lib, get_global_option);
-        if let safer_ffi::option::TaggedOption::Some(v) = get_global_option(&"QUIET".into()) {
+    if LIB.get().is_some() {
+        if let Some(v) = read_global("QUIET") {
             let q = v.to_string().to_lowercase();
             if matches!(q.as_str(), "on" | "true" | "1" | "yes") {
                 return;

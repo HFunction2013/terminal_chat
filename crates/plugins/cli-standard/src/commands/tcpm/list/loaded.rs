@@ -6,7 +6,9 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core_types::PluginMetadata;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct LoadedCommand;
 
@@ -16,7 +18,11 @@ impl LoadedCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         cli_core_macros::load_core_symbols!(lib, get_all_plugins);
-        let plugins = get_all_plugins();
+
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _res = get_all_plugins(Out::from(&mut buf));
+        let plugins = ManuallyDrop::into_inner(buf);
         if plugins.is_empty() {
             print_content(&"no plugins loaded.".into());
             return Ok(());

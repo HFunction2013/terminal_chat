@@ -30,8 +30,8 @@ impl NewCommand {
                 let home = crate::local::workspace_home(&name);
                 std::fs::create_dir_all(&home)?;
                 std::env::set_current_dir(&home).ok();
-                reload_aliases();
-                reload_macros();
+                let _ = reload_aliases();
+                let _ = reload_macros();
                 print_content(
                     &format!("[*] Switched to workspace `{name}` (home: {}).", home.display())
                         .into(),

@@ -21,6 +21,8 @@
 use anyhow::Result;
 use cli_core_types::RunCommandFn;
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 use std::time::Duration;
 
 use edit_tui::arena::{self, scratch_arena};
@@ -36,7 +38,10 @@ use edit_tui::vt;
 pub type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::String>;
 
 /// 读取全局选项的 FFI 符号类型（cli-core `get_global_option`）。
-pub type GetOptionFn = unsafe extern "C" fn(&safer_ffi::String) -> TaggedOption<safer_ffi::String>;
+pub type GetOptionFn = unsafe extern "C" fn(
+    &safer_ffi::String,
+    Out<'_, TaggedOption<safer_ffi::String>>,
+) -> cli_core_types::Result;
 
 /// 切换 TUI/REPL 输出模式的 FFI 符号类型。
 pub type SetTuiModeFn = unsafe extern "C" fn(bool);
@@ -999,7 +1004,10 @@ fn now_ts() -> u64 {
 }
 
 fn opt_get(get: &GetOptionFn, key: &str) -> String {
-    match unsafe { get(&key.into()) } {
+    let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+        ManuallyDrop::new(TaggedOption::None);
+    let _res = unsafe { get(&key.into(), Out::from(&mut buf)) };
+    match ManuallyDrop::into_inner(buf) {
         TaggedOption::Some(v) => v.to_string(),
         TaggedOption::None => String::new(),
     }

@@ -5,8 +5,10 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use cli_core_types::MacroDef;
+use safer_ffi::prelude::*;
 use std::env;
 use std::fs;
+use std::mem::ManuallyDrop;
 
 pub struct MacroCommand;
 
@@ -37,7 +39,9 @@ impl MacroCommand {
 
         let macro_def = MacroDef { name: macro_name.clone().into(), code: code.into() };
 
-        set_macro(&macro_def);
+        let mut buf: ManuallyDrop<MacroDef> = ManuallyDrop::new(macro_def.clone());
+        let _res = set_macro(&macro_def, Out::from(&mut buf));
+        let _ = ManuallyDrop::into_inner(buf);
         print_content(&format!("Macro {macro_name} created.").into());
         Ok(())
     }

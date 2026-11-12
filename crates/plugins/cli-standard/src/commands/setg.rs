@@ -5,6 +5,8 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use cli_core_types::GlobalOption;
+use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct SetgCommand;
 
@@ -25,7 +27,9 @@ impl SetgCommand {
         };
 
         let option = GlobalOption::new(&key, &value);
-        set_global_option(&option);
+        let mut echo: ManuallyDrop<GlobalOption> = ManuallyDrop::new(GlobalOption::default());
+        let _res = set_global_option(&option, Out::from(&mut echo));
+        let _echo = ManuallyDrop::into_inner(echo);
         if password {
             print_content(&format!("{key} => ******").into());
         } else {

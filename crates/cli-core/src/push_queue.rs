@@ -7,7 +7,6 @@
 //! cli 主程序加载一次、插件通过宿主句柄访问，天然单实例。
 
 use safer_ffi::ffi_export;
-use safer_ffi::option::TaggedOption;
 use std::sync::{LazyLock, Mutex};
 
 static PUSH_QUEUE: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
@@ -27,13 +26,8 @@ pub fn tc_cli_push_drain() -> safer_ffi::Vec<safer_ffi::String> {
         return Vec::new().into();
     }
     // `setg QUIET on/true/1/yes` 时静音全部通知。
-    if let TaggedOption::Some(v) =
-        unsafe { crate::global_settings::get_global_option(&"QUIET".into()) }
-    {
-        let qv = v.to_string().to_lowercase();
-        if matches!(qv.as_str(), "on" | "true" | "1" | "yes") {
-            return Vec::new().into();
-        }
+    if crate::global_settings::quiet_enabled() {
+        return Vec::new().into();
     }
     items.into_iter().map(|s| s.into()).collect::<Vec<_>>().into()
 }

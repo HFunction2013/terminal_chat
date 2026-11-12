@@ -1013,9 +1013,9 @@ dependencies = [
 
 [[package]]
 name = "hook_macro"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd49035eccc9bad60350b8af91f16b1dc3aa46c564ffe9a1f17d6e00d7b3926e"
+checksum = "4be5986a4d91a210a1d975b8798f9293444e4b7ab5bbb9c903d7d1e02930760f"
 dependencies = [
  "proc-macro2",
  "quote",

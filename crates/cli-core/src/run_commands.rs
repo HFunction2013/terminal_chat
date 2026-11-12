@@ -1,15 +1,11 @@
-use crate::aliases::get_alias;
+use crate::aliases::alias_target;
 use crate::cmd_state::{set_in_cmd, set_interrupted};
-use crate::plugins::{
-    get_plugin_by_command_name, get_plugin_library, is_plugin_command_name_registered,
-};
+use crate::plugins::{command_name_registered, get_plugin_library, plugin_by_command_name};
 use ::safer_ffi::prelude::*;
-use cli_core_types::PluginMetadata;
 use cli_core_types::Result;
 use cli_core_types::RunCommandFn;
 use hook_macro::register_hook;
 use libloading::Library;
-use safer_ffi::option::TaggedOption;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,8 +17,8 @@ const MAX_ALIAS_EXPANSION_DEPTH: usize = 10;
 struct CommandGuard;
 impl Drop for CommandGuard {
     fn drop(&mut self) {
-        set_in_cmd(false);
-        set_interrupted(false);
+        let _ = set_in_cmd(false);
+        let _ = set_interrupted(false);
     }
 }
 
@@ -33,11 +29,8 @@ impl Drop for CommandGuard {
 fn expand_aliases(args: &mut Vec<safer_ffi::String>) {
     for _ in 0..MAX_ALIAS_EXPANSION_DEPTH {
         let Some(first) = args.first().cloned() else { return };
-        // `get_alias` 是 register_hook 生成的 unsafe wrapper。
-        let target = match unsafe { get_alias(&first) } {
-            TaggedOption::Some(t) => t.to_string(),
-            TaggedOption::None => return,
-        };
+        // 内部直读别名表，不经 FFI 出参包装。
+        let Some(target) = alias_target(&first.to_string()) else { return };
         // target 可能是 `cmd` 或 `cmd arg1 arg2`，按 shell 词法拆分。
         let mut expanded: Vec<safer_ffi::String> = shell_words::split(&target)
             .unwrap_or_else(|_| vec![target])
@@ -57,17 +50,17 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
     expand_aliases(&mut args_vec);
     args = safer_ffi::Vec::from(args_vec);
 
-    if !unsafe { is_plugin_command_name_registered(args.first().unwrap()) } {
+    let first_name = args.first().unwrap().to_string();
+    if !command_name_registered(&first_name) {
         let full_args: Vec<safer_ffi::String> =
             std::iter::once("std".into()).chain(args.iter().cloned()).collect();
 
         args = safer_ffi::Vec::from(full_args);
     }
     let command_name = args.first().unwrap();
-    let res = unsafe { get_plugin_by_command_name(command_name) };
-    let boxed = match res {
-        safer_ffi::option::TaggedOption::Some(x) => x,
-        safer_ffi::option::TaggedOption::None => {
+    let metadata = match plugin_by_command_name(&command_name.to_string()) {
+        Some(m) => m,
+        None => {
             return Result {
                 code: 103,
                 message: "Failed to get plugin name from command name".to_string().into(),
@@ -75,7 +68,6 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
         }
     };
 
-    let metadata: PluginMetadata = (*boxed).clone();
     let plugin_name = metadata.name;
     let plugin_dylib_name = metadata.dylib_name;
 
@@ -134,7 +126,7 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
             }
         };
 
-    set_in_cmd(true);
+    let _ = set_in_cmd(true);
     let _guard = CommandGuard;
     lib_run_command(&args)
 }

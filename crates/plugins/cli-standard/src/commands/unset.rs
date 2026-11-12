@@ -6,7 +6,9 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct UnsetCommand;
 
@@ -24,7 +26,7 @@ impl UnsetCommand {
         );
 
         if all {
-            clear_all_session_options();
+            let _res = clear_all_session_options();
             print_content(&"All session variables have been cleared.".into());
             return Ok(());
         }
@@ -32,7 +34,11 @@ impl UnsetCommand {
         let key = key.ok_or_else(|| anyhow!("Missing required argument: key"))?;
 
         let key_for_display = key.clone();
-        if remove_session_option(&key.into()).into_rust().is_some() {
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = remove_session_option(&key.into(), Out::from(&mut buf));
+        let val = ManuallyDrop::into_inner(buf);
+        if let TaggedOption::Some(_) = val {
             print_content(
                 &format!("Session variable '{key_for_display}' has been removed.").into(),
             );

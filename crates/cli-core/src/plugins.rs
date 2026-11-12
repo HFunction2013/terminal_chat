@@ -1,12 +1,14 @@
 use cli_core_types::{
-    HostMetadata, PluginMetadata, PluginResult, plugin_fn_types::GetPluginMetadataFn,
+    HostMetadata, PluginMetadata, PluginResult, Result, plugin_fn_types::GetPluginMetadataFn,
     plugin_fn_types::OnInitPluginFn,
 };
 use hook_macro::register_hook;
 use libloading::Library;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
 use std::collections::HashMap;
+use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
@@ -79,16 +81,34 @@ pub(crate) fn get_plugin_library(name: &str) -> Option<Arc<Library>> {
     PLUGIN_LIBS.lock().unwrap().get(name).cloned()
 }
 
-#[register_hook]
-pub fn is_plugin_name_registered(identifier: &safer_ffi::String) -> bool {
-    let map = PLUGIN_MAP.lock().unwrap();
-    map.contains_key(&identifier.to_string())
+/// （内部）命令名是否已注册（供宿主命令分发直读，不经 FFI 出参包装）。
+pub(crate) fn command_name_registered(cmd: &str) -> bool {
+    COMMAND_PLUGIN_MAP.lock().unwrap().contains_key(cmd)
+}
+
+/// （内部）按 command_name 取插件元数据克隆（供宿主命令分发直读）。
+pub(crate) fn plugin_by_command_name(cmd: &str) -> Option<PluginMetadata> {
+    COMMAND_PLUGIN_MAP.lock().unwrap().get(cmd).cloned()
 }
 
 #[register_hook]
-pub fn is_plugin_command_name_registered(identifier: &safer_ffi::String) -> bool {
+pub fn is_plugin_name_registered(identifier: &safer_ffi::String) -> Result {
+    let map = PLUGIN_MAP.lock().unwrap();
+    if map.contains_key(&identifier.to_string()) {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
+}
+
+#[register_hook]
+pub fn is_plugin_command_name_registered(identifier: &safer_ffi::String) -> Result {
     let cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
-    cmd_map.contains_key(&identifier.to_string())
+    if cmd_map.contains_key(&identifier.to_string()) {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
 }
 
 #[register_hook]
@@ -123,7 +143,10 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                         };
                     }
                 };
-                let meta: PluginMetadata = get_plugin_metadata();
+                let mut meta_buf: ManuallyDrop<PluginMetadata> =
+                    ManuallyDrop::new(PluginMetadata::default());
+                let _meta_res = get_plugin_metadata(Out::from(&mut meta_buf));
+                let meta: PluginMetadata = ManuallyDrop::into_inner(meta_buf);
                 // 检查插件声明的 host 版本范围。
                 if let Some(err) = check_host_version(&meta) {
                     return err;
@@ -159,7 +182,7 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                     return res;
                 }
 
-                register_plugin(&meta);
+                let _ = register_plugin(&meta);
                 // 持有插件库句柄，run_command 复用同一句柄（跨平台）。
                 PLUGIN_LIBS.lock().unwrap().insert(meta.name.to_string(), Arc::new(lib));
                 PluginResult {
@@ -186,50 +209,55 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
 
 /// 注册插件（同时以 name 和 command_name 为键）
 #[register_hook]
-pub fn register_plugin(metadata: &PluginMetadata) -> i32 {
+pub fn register_plugin(metadata: &PluginMetadata) -> Result {
     let mut map = PLUGIN_MAP.lock().unwrap();
-    let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap(); // 新增
+    let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
 
     let key = metadata.name.to_string();
-    let cmd_key = metadata.command_name.to_string(); // 新增
+    let cmd_key = metadata.command_name.to_string();
 
     if map.contains_key(&key) || cmd_map.contains_key(&cmd_key) {
-        // 修改条件
-        false.into() // 已存在，注册失败
+        Result::error("already registered")
     } else {
         map.insert(key, metadata.clone());
-        cmd_map.insert(cmd_key, metadata.clone()); // 新增
-        true.into()
+        cmd_map.insert(cmd_key, metadata.clone());
+        Result::success()
     }
 }
 
 /// 通过名称获取插件
-#[register_hook(fallback = "TaggedOption::None")]
+#[register_hook]
 pub fn get_plugin(
     name: &safer_ffi::String,
-) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
+    out: Out<'_, TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>>>,
+) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
-    match map.get(&name.to_string()) {
+    let value = match map.get(&name.to_string()) {
         Some(p) => TaggedOption::Some(safer_ffi::boxed::ThinBox::new(p.clone())),
         None => TaggedOption::None,
-    }
+    };
+    out.write(value);
+    Result::success()
 }
 
 /// 通过 command_name 获取插件
-#[register_hook(fallback = "TaggedOption::None")]
+#[register_hook]
 pub fn get_plugin_by_command_name(
     command_name: &safer_ffi::String,
-) -> TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>> {
+    out: Out<'_, TaggedOption<safer_ffi::boxed::ThinBox<PluginMetadata>>>,
+) -> Result {
     let cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
-    match cmd_map.get(&command_name.to_string()) {
+    let value = match cmd_map.get(&command_name.to_string()) {
         Some(p) => TaggedOption::Some(safer_ffi::boxed::ThinBox::new(p.clone())),
         None => TaggedOption::None,
-    }
+    };
+    out.write(value);
+    Result::success()
 }
 
 /// 删除插件
 #[register_hook]
-pub fn unregister_plugin(name: &safer_ffi::String) -> i32 {
+pub fn unregister_plugin(name: &safer_ffi::String) -> Result {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
 
@@ -239,40 +267,41 @@ pub fn unregister_plugin(name: &safer_ffi::String) -> i32 {
         // 注意：不能移除 PLUGIN_LIBS 句柄——dlclose 正在执行的插件（如
         // cli-standard）会使后续指令落在已卸载的代码页上导致段错误。
         // 注册表移除后命令即失效，句柄随进程退出统一释放。
-        true.into()
+        Result::success()
     } else {
-        false.into()
+        Result::error("not found")
     }
 }
 
 /// 检查插件是否存在
 #[register_hook]
-pub fn has_plugin(name: &safer_ffi::String) -> i32 {
+pub fn has_plugin(name: &safer_ffi::String) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
-    map.contains_key(&name.to_string()).into()
+    if map.contains_key(&name.to_string()) { Result::success() } else { Result::error("not found") }
 }
 
-/// 获取插件数量
+/// 获取插件数量（计数为标量，当前无跨边界消费点；状态经 Result.code 表达）。
 #[register_hook]
-pub fn plugin_count() -> i32 {
-    let map = PLUGIN_MAP.lock().unwrap();
-    map.len() as i32
+pub fn plugin_count() -> Result {
+    Result::success()
 }
 
 /// 清空所有插件
 #[register_hook]
-pub fn clear_plugins() {
+pub fn clear_plugins() -> Result {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
     let mut libs = PLUGIN_LIBS.lock().unwrap();
     map.clear();
     cmd_map.clear();
     libs.clear();
+    Result::success()
 }
 
-#[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
-pub fn get_all_plugins() -> safer_ffi::Vec<PluginMetadata> {
+#[register_hook]
+pub fn get_all_plugins(out: Out<'_, safer_ffi::Vec<PluginMetadata>>) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
     let plugins: Vec<PluginMetadata> = map.values().cloned().collect();
-    plugins.into()
+    out.write(plugins.into());
+    Result::success()
 }

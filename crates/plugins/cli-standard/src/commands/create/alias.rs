@@ -7,6 +7,8 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use cli_core_types::AliasDef;
+use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct AliasCommand;
 
@@ -19,7 +21,9 @@ impl AliasCommand {
         cli_core_macros::load_core_symbols!(lib, print_content, set_alias);
 
         let alias_def = AliasDef::new(&alias, &cmd);
-        set_alias(&alias_def);
+        let mut buf: ManuallyDrop<AliasDef> = ManuallyDrop::new(alias_def.clone());
+        let _res = set_alias(&alias_def, Out::from(&mut buf));
+        let _ = ManuallyDrop::into_inner(buf);
         print_content(&format!("Alias {alias} => {cmd} created.").into());
         Ok(())
     }

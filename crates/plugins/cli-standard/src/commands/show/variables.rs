@@ -5,6 +5,9 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::Result;
 use clap::ArgMatches;
+use cli_core_types::GlobalOption;
+use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct VariablesCommand;
 
@@ -18,7 +21,10 @@ impl VariablesCommand {
             get_all_options
         );
 
-        let locals = get_all_session_options();
+        let mut local_buf: ManuallyDrop<safer_ffi::vec::Vec<GlobalOption>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _res = get_all_session_options(Out::from(&mut local_buf));
+        let locals = ManuallyDrop::into_inner(local_buf);
         print_content(&"--- local (session) variables ---".into());
         if locals.is_empty() {
             print_content(&"  (none)".into());
@@ -28,7 +34,10 @@ impl VariablesCommand {
             }
         }
 
-        let globals = get_all_options();
+        let mut global_buf: ManuallyDrop<safer_ffi::vec::Vec<GlobalOption>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _res = get_all_options(Out::from(&mut global_buf));
+        let globals = ManuallyDrop::into_inner(global_buf);
         print_content(&"--- global variables ---".into());
         if globals.is_empty() {
             print_content(&"  (none)".into());

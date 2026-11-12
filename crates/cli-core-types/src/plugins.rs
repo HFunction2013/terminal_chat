@@ -36,6 +36,25 @@ pub struct PluginResult {
     pub msg: TaggedOption<safer_ffi::String>,
 }
 
+impl Default for PluginMetadata {
+    fn default() -> Self {
+        Self {
+            command_yaml: "".into(),
+            name: "".into(),
+            dylib_name: "".into(),
+            command_name: "".into(),
+            version: "".into(),
+            author: "".into(),
+            description: "".into(),
+            homepage: "".into(),
+            license: "".into(),
+            min_host_version: TaggedOption::None,
+            max_host_version: TaggedOption::None,
+            pb_len: 0,
+        }
+    }
+}
+
 impl Default for PluginResult {
     fn default() -> Self {
         Self { success: 0, exit_code: 0, msg: None.into() }

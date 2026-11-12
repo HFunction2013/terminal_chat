@@ -6,7 +6,9 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct AliasCommand;
 
@@ -17,10 +19,15 @@ impl AliasCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content, remove_alias);
 
-        if remove_alias(&alias.clone().into()).into_rust().is_some() {
-            print_content(&format!("Alias {alias} deleted.").into());
+        let alias_for_display = alias.clone();
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = remove_alias(&alias.into(), Out::from(&mut buf));
+        let removed = !matches!(ManuallyDrop::into_inner(buf), TaggedOption::None);
+        if removed {
+            print_content(&format!("Alias {alias_for_display} deleted.").into());
         } else {
-            print_content(&format!("Alias {alias} doesn't exist.").into());
+            print_content(&format!("Alias {alias_for_display} doesn't exist.").into());
         }
         Ok(())
     }

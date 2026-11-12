@@ -8,6 +8,7 @@ use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct GetCommand;
 
@@ -18,7 +19,10 @@ impl GetCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content, get_session_option);
 
-        let val = get_session_option(&key.clone().into());
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = get_session_option(&key.clone().into(), Out::from(&mut buf));
+        let val = ManuallyDrop::into_inner(buf);
         if let TaggedOption::Some(v) = val {
             print_content(&format!("{key} => {v}").into());
         } else {

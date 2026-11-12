@@ -6,6 +6,7 @@ use ::safer_ffi::prelude::*;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use safer_ffi::option::TaggedOption;
+use std::mem::ManuallyDrop;
 pub struct RunCommand;
 
 impl RunCommand {
@@ -15,7 +16,11 @@ impl RunCommand {
         cli_core_macros::load_core_symbols!(lib, print_content, get_macro, run_command);
 
         let macro_name_display = macro_name.clone();
-        if let TaggedOption::Some(code) = get_macro(&macro_name.into()) {
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = get_macro(&macro_name.into(), Out::from(&mut buf));
+        let code_opt = ManuallyDrop::into_inner(buf);
+        if let TaggedOption::Some(code) = code_opt {
             let lines: Vec<&str> = code.split('\n').collect();
 
             for line in lines.iter() {

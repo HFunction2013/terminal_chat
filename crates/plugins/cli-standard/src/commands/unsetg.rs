@@ -4,7 +4,9 @@ use crate::LIB;
 use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct UnsetgCommand;
 
@@ -21,7 +23,7 @@ impl UnsetgCommand {
         );
 
         if all {
-            clear_all_options();
+            let _res = clear_all_options();
             print_content(&"All global variables have been cleared.".into());
             return Ok(());
         }
@@ -29,7 +31,11 @@ impl UnsetgCommand {
         let key = key.ok_or_else(|| anyhow!("Missing required argument: key"))?;
 
         let key_for_display = key.clone();
-        if remove_global_option(&key.into()).into_rust().is_some() {
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = remove_global_option(&key.into(), Out::from(&mut buf));
+        let val = ManuallyDrop::into_inner(buf);
+        if let TaggedOption::Some(_) = val {
             print_content(&format!("Global variable '{key_for_display}' has been removed.").into());
         } else {
             print_content(&format!("Key {key_for_display} doesn't exist.").into());

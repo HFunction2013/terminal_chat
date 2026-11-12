@@ -16,7 +16,7 @@ impl UninstallCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         cli_core_macros::load_core_symbols!(lib, unregister_plugin);
-        unregister_plugin(&plugin.clone().into());
+        let _ = unregister_plugin(&plugin.clone().into());
         let mut installed = crate::local::read_installed();
         installed.retain(|n| n != &plugin);
         crate::local::write_installed(&installed)?;

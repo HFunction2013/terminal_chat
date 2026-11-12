@@ -10,7 +10,7 @@
 use ::safer_ffi::option::TaggedOption;
 use ::safer_ffi::prelude::*;
 use base64::Engine as _;
-use cli_core_types::AliasDef;
+use cli_core_types::{AliasDef, Result};
 use hook_macro::register_hook;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -67,57 +67,71 @@ static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| {
     Mutex::new(m)
 });
 
+/// 内部直读：别名目标命令（供宿主命令展开，不经 FFI 出参包装）。
+pub(crate) fn alias_target(name: &str) -> Option<String> {
+    MAP.lock().unwrap().get(name).cloned()
+}
+
 /// 设置一个别名（alias 名 → 目标命令）。
 #[register_hook]
-fn set_alias(alias: &AliasDef) -> AliasDef {
+fn set_alias(alias: &AliasDef, out: Out<'_, AliasDef>) -> Result {
     let mut map = MAP.lock().unwrap();
     map.insert(alias.name.to_string(), alias.target.to_string());
     save(&map);
-    alias.clone()
+    out.write(alias.clone());
+    Result::success()
 }
 
 /// 别名是否存在。
 #[register_hook]
-fn exists_alias(name: &safer_ffi::String) -> bool {
+fn exists_alias(name: &safer_ffi::String) -> Result {
     let map = MAP.lock().unwrap();
-    map.contains_key(&**name)
+    if map.contains_key(&**name) { Result::success() } else { Result::error("not found") }
 }
 
 /// 取别名的目标命令。
-#[register_hook(fallback = "TaggedOption::None")]
-fn get_alias(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
+#[register_hook]
+fn get_alias(name: &safer_ffi::String, out: Out<'_, TaggedOption<safer_ffi::String>>) -> Result {
     let map = MAP.lock().unwrap();
-    map.get(&**name).cloned().map(|v| v.into()).into()
+    let value = map.get(&**name).cloned().map(|v| v.into()).into();
+    out.write(value);
+    Result::success()
 }
 
 /// 删除别名。
-#[register_hook(fallback = "TaggedOption::None")]
-fn remove_alias(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
+#[register_hook]
+fn remove_alias(name: &safer_ffi::String, out: Out<'_, TaggedOption<safer_ffi::String>>) -> Result {
     let mut map = MAP.lock().unwrap();
-    let old = map.remove(&**name).map(|v| v.into());
+    let old = map.remove(&**name).map(|v| v.into()).into();
     save(&map);
-    old.into()
+    out.write(old);
+    Result::success()
 }
 
 /// 取全部别名。
-#[register_hook(fallback = "safer_ffi::vec::Vec::from(Vec::new())")]
-fn get_all_aliases() -> safer_ffi::vec::Vec<AliasDef> {
+#[register_hook]
+fn get_all_aliases(out: Out<'_, safer_ffi::vec::Vec<AliasDef>>) -> Result {
     let map = MAP.lock().unwrap();
-    map.iter().map(|(k, v)| AliasDef::new(k, v)).collect::<Vec<_>>().into()
+    let vec: safer_ffi::vec::Vec<AliasDef> =
+        map.iter().map(|(k, v)| AliasDef::new(k, v)).collect::<Vec<_>>().into();
+    out.write(vec);
+    Result::success()
 }
 
 /// 清空所有别名。
 #[register_hook]
-fn clear_all_aliases() {
+fn clear_all_aliases() -> Result {
     let mut map = MAP.lock().unwrap();
     map.clear();
     save(&map);
+    Result::success()
 }
 
 /// 重新从当前 workspace 的别名文件加载（切换 workspace 后调用）。
 #[register_hook]
-fn reload_aliases() {
+fn reload_aliases() -> Result {
     let mut map = MAP.lock().unwrap();
     map.clear();
     load_into(&mut map);
+    Result::success()
 }

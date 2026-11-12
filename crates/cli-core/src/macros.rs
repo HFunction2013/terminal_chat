@@ -6,7 +6,7 @@
 use ::safer_ffi::option::TaggedOption;
 use ::safer_ffi::prelude::*;
 use base64::Engine as _;
-use cli_core_types::MacroDef;
+use cli_core_types::{MacroDef, Result};
 use hook_macro::register_hook;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -64,50 +64,59 @@ static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| {
 });
 
 #[register_hook]
-fn set_macro(r#macro: &MacroDef) -> MacroDef {
+fn set_macro(r#macro: &MacroDef, out: Out<'_, MacroDef>) -> Result {
     let mut map = MAP.lock().unwrap();
     map.insert(r#macro.name.to_string(), r#macro.code.to_string());
     save(&map);
-    r#macro.clone()
+    out.write(r#macro.clone());
+    Result::success()
 }
 
 #[register_hook]
-fn exists_macro(name: &safer_ffi::String) -> bool {
+fn exists_macro(name: &safer_ffi::String) -> Result {
     let map = MAP.lock().unwrap();
-    map.contains_key(&**name)
+    if map.contains_key(&**name) { Result::success() } else { Result::error("not found") }
 }
 
-#[register_hook(fallback = "TaggedOption::None")]
-fn get_macro(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
+#[register_hook]
+fn get_macro(name: &safer_ffi::String, out: Out<'_, TaggedOption<safer_ffi::String>>) -> Result {
     let map = MAP.lock().unwrap();
-    map.get(&**name).cloned().map(|v| v.into()).into()
+    let value = map.get(&**name).cloned().map(|v| v.into()).into();
+    out.write(value);
+    Result::success()
 }
 
-#[register_hook(fallback = "TaggedOption::None")]
-fn remove_macro(name: &safer_ffi::String) -> TaggedOption<safer_ffi::String> {
+#[register_hook]
+fn remove_macro(name: &safer_ffi::String, out: Out<'_, TaggedOption<safer_ffi::String>>) -> Result {
     let mut map = MAP.lock().unwrap();
-    let old = map.remove(&**name).map(|v| v.into());
+    let old = map.remove(&**name).map(|v| v.into()).into();
     save(&map);
-    old.into()
-}
-
-#[register_hook(fallback = "safer_ffi::vec::Vec::from(Vec::new())")]
-fn get_all_macros() -> safer_ffi::vec::Vec<MacroDef> {
-    let map = MAP.lock().unwrap();
-    map.iter().map(|(k, v)| MacroDef::new(k, v)).collect::<Vec<_>>().into()
+    out.write(old);
+    Result::success()
 }
 
 #[register_hook]
-fn clear_all_macros() {
+fn get_all_macros(out: Out<'_, safer_ffi::vec::Vec<MacroDef>>) -> Result {
+    let map = MAP.lock().unwrap();
+    let vec: safer_ffi::vec::Vec<MacroDef> =
+        map.iter().map(|(k, v)| MacroDef::new(k, v)).collect::<Vec<_>>().into();
+    out.write(vec);
+    Result::success()
+}
+
+#[register_hook]
+fn clear_all_macros() -> Result {
     let mut map = MAP.lock().unwrap();
     map.clear();
     save(&map);
+    Result::success()
 }
 
 /// 重新从当前 workspace 的宏文件加载（切换 workspace 后调用）。
 #[register_hook]
-fn reload_macros() {
+fn reload_macros() -> Result {
     let mut map = MAP.lock().unwrap();
     map.clear();
     load_into(&mut map);
+    Result::success()
 }

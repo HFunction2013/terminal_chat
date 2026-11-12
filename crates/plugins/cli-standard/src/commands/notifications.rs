@@ -5,6 +5,8 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct NotificationsCommand;
 
@@ -26,7 +28,11 @@ impl NotificationsCommand {
         // `setg QUIET on` 时静音全部通知。
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content, get_global_option);
-        if let TaggedOption::Some(v) = get_global_option(&"QUIET".into()) {
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = get_global_option(&"QUIET".into(), Out::from(&mut buf));
+        let val = ManuallyDrop::into_inner(buf);
+        if let TaggedOption::Some(v) = val {
             let q = v.to_string().to_lowercase();
             if matches!(q.as_str(), "on" | "true" | "1" | "yes") {
                 return Ok(());

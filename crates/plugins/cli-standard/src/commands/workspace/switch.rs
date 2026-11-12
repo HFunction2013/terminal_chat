@@ -31,8 +31,8 @@ impl SwitchCommand {
         std::fs::create_dir_all(&home)?;
         std::env::set_current_dir(&home)
             .map_err(|e| anyhow!("cannot switch into `{}`: {e}", home.display()))?;
-        reload_aliases();
-        reload_macros();
+        let _ = reload_aliases();
+        let _ = reload_macros();
         print_content(
             &format!("[*] Switched to workspace `{workspace_name}` (home: {}).", home.display())
                 .into(),

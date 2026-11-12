@@ -7,6 +7,8 @@ use crate::commands::CommandExecutor;
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
 use cli_core_types::GlobalOption;
+use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct SetCommand;
 
@@ -19,7 +21,9 @@ impl SetCommand {
         cli_core_macros::load_core_symbols!(lib, print_content, set_session_option);
 
         let option = GlobalOption::new(&key, &value);
-        set_session_option(&option);
+        let mut echo: ManuallyDrop<GlobalOption> = ManuallyDrop::new(GlobalOption::default());
+        let _res = set_session_option(&option, Out::from(&mut echo));
+        let _echo = ManuallyDrop::into_inner(echo);
         print_content(&format!("{key} => {value}").into());
         Ok(())
     }

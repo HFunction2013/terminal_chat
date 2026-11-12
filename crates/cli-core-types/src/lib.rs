@@ -1,4 +1,5 @@
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::Out;
 pub mod aliases;
 pub use aliases::*;
 pub mod global_settings;

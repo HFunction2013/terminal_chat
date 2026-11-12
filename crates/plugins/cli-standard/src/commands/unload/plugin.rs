@@ -16,7 +16,7 @@ impl PluginCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         cli_core_macros::load_core_symbols!(lib, unregister_plugin);
-        unregister_plugin(&plugin_name.clone().into());
+        let _ = unregister_plugin(&plugin_name.clone().into());
         print_content(&format!("[*] Plugin `{plugin_name}` unloaded.").into());
         Ok(())
     }

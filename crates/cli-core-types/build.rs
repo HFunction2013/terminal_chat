@@ -3,10 +3,40 @@ use std::fs;
 use std::path::Path;
 use syn::{FnArg, GenericArgument, Item, PathArguments, ReturnType, Type, parse_file};
 
+/// 一个被导出函数的参数：类型串 + 是否为 `Out<'_, T>` 出参。
+struct Param {
+    ty: String,
+    is_out: bool,
+}
+
+/// 判断类型是否为 `Out<'_, T>` 出参（末段标识为 `Out`，兼容全路径）。
+fn is_out_type(ty: &Type) -> bool {
+    if let Type::Path(type_path) = ty {
+        type_path.path.segments.last().map(|seg| seg.ident == "Out").unwrap_or(false)
+    } else {
+        false
+    }
+}
+
+/// 剥掉引用外层（`&` / `mut` / 生命周期），取业务参数的内部类型，供 Hook 指针使用。
+fn inner_of(ty: &str) -> String {
+    let t = ty.trim_start();
+    let t = t.strip_prefix("&").unwrap_or(t);
+    let t = t.trim_start();
+    let t = t.strip_prefix("mut ").unwrap_or(t);
+    let t = t.trim_start();
+    // 去掉前导生命周期 `'_ ` / `'a `。
+    let t = t
+        .strip_prefix('\'')
+        .map(|rest| rest.split_once(' ').map(|(_, r)| r).unwrap_or(rest))
+        .unwrap_or(t);
+    t.trim().to_string()
+}
+
 #[allow(clippy::type_complexity)]
 fn find_register_hook_functions<P: AsRef<Path>>(
     path: P,
-) -> Result<Vec<(String, Option<String>, String)>, Box<dyn std::error::Error>> {
+) -> Result<Vec<(String, Vec<Param>, String)>, Box<dyn std::error::Error>> {
     let content = fs::read_to_string(&path)?;
     let syntax_tree = parse_file(&content)?;
 
@@ -20,27 +50,25 @@ fn find_register_hook_functions<P: AsRef<Path>>(
                 continue;
             }
 
-            let param_count = func.sig.inputs.len();
-            if param_count > 1 {
-                continue;
-            }
-
-            let param_type = if param_count == 1 {
-                if let Some(FnArg::Typed(pat_type)) = func.sig.inputs.first() {
-                    Some(type_to_string(&pat_type.ty))
-                } else {
-                    Some("self".to_string())
-                }
-            } else {
-                None
-            };
+            let params: Vec<Param> = func
+                .sig
+                .inputs
+                .iter()
+                .filter_map(|arg| match arg {
+                    FnArg::Typed(pat_type) => Some(Param {
+                        ty: type_to_string(&pat_type.ty),
+                        is_out: is_out_type(&pat_type.ty),
+                    }),
+                    FnArg::Receiver(_) => None,
+                })
+                .collect();
 
             let return_type = match &func.sig.output {
                 ReturnType::Default => "()".to_string(),
                 ReturnType::Type(_, ty) => type_to_string(ty),
             };
 
-            result.push((func.sig.ident.to_string(), param_type, return_type));
+            result.push((func.sig.ident.to_string(), params, return_type));
         }
     }
 
@@ -88,7 +116,7 @@ fn path_args_to_string(args: &PathArguments) -> String {
                 .iter()
                 .map(|arg| match arg {
                     GenericArgument::Type(ty) => type_to_string(&ty.clone()),
-                    GenericArgument::Lifetime(lt) => lt.ident.to_string(),
+                    GenericArgument::Lifetime(lt) => format!("'{}", lt.ident.to_string()),
                     GenericArgument::Const(expr) => {
                         format!("{}", quote::ToTokens::to_token_stream(expr))
                     }
@@ -170,46 +198,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if !functions.is_empty() {
                     output.push_str(&format!("// File: {}\n", file_path.display()));
 
-                    for (name, param_type, return_type) in &functions {
+                    for (name, params, return_type) in &functions {
                         let camel_name = to_camel_case(name);
 
-                        // 1. 函数指针类型
+                        let all_tys: Vec<String> = params.iter().map(|p| p.ty.clone()).collect();
+                        let biz: Vec<String> =
+                            params.iter().filter(|p| !p.is_out).map(|p| inner_of(&p.ty)).collect();
+
+                        // 1. 函数指针类型：保留全部参数（含 Out 出参）与返回类型。
                         let fn_ptr_type_name = format!("{}Fn", camel_name);
-                        let fn_ptr = match param_type {
-                            Some(pt) => {
-                                if return_type == "()" {
-                                    format!("extern \"C\" fn({})", pt)
-                                } else {
-                                    format!("extern \"C\" fn({}) -> {}", pt, return_type)
-                                }
-                            }
-                            None => {
-                                if return_type == "()" {
-                                    "extern \"C\" fn()".to_string()
-                                } else {
-                                    format!("extern \"C\" fn() -> {}", return_type)
-                                }
-                            }
+                        let fn_ptr = if return_type == "()" {
+                            format!("extern \"C\" fn({})", all_tys.join(", "))
+                        } else {
+                            format!("extern \"C\" fn({}) -> {}", all_tys.join(", "), return_type)
                         };
                         output.push_str(&format!("pub type {} = {};\n", fn_ptr_type_name, fn_ptr));
 
-                        // 2. Hook 类型
-                        if let Some(pt) = param_type {
-                            let inner = pt.trim_start_matches('&').trim_start_matches("mut ");
-
-                            output.push_str(&format!(
-                                "pub type Before{}FnHook = extern \"C\" fn(*mut {}) -> bool;\n",
-                                camel_name, inner
-                            ));
-                            output.push_str(&format!(
-                                "pub type On{}FnHook = extern \"C\" fn(*const {}) -> bool;\n",
-                                camel_name, inner
-                            ));
-                            output.push_str(&format!(
-                                "pub type After{}FnHook = extern \"C\" fn(*const {}) -> bool;\n",
-                                camel_name, inner
-                            ));
-                        } else {
+                        // 2. Hook 类型：只挂业务参数，Out 出参不进 hook 链。
+                        if biz.is_empty() {
                             output.push_str(&format!(
                                 "pub type Before{}FnHook = extern \"C\" fn() -> bool;\n",
                                 camel_name
@@ -221,6 +227,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             output.push_str(&format!(
                                 "pub type After{}FnHook = extern \"C\" fn() -> bool;\n",
                                 camel_name
+                            ));
+                        } else {
+                            let before_args = biz
+                                .iter()
+                                .map(|b| format!("*mut {}", b))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let const_args = biz
+                                .iter()
+                                .map(|b| format!("*const {}", b))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            output.push_str(&format!(
+                                "pub type Before{}FnHook = extern \"C\" fn({}) -> bool;\n",
+                                camel_name, before_args
+                            ));
+                            output.push_str(&format!(
+                                "pub type On{}FnHook = extern \"C\" fn({}) -> bool;\n",
+                                camel_name, const_args
+                            ));
+                            output.push_str(&format!(
+                                "pub type After{}FnHook = extern \"C\" fn({}) -> bool;\n",
+                                camel_name, const_args
                             ));
                         }
 

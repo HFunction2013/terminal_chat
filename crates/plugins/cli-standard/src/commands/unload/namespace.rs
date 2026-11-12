@@ -6,7 +6,9 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core_types::PluginMetadata;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct NamespaceCommand;
 
@@ -31,10 +33,14 @@ impl NamespaceCommand {
                 }
             }
         }
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _res = get_all_plugins(Out::from(&mut buf));
+        let plugins = ManuallyDrop::into_inner(buf);
         let mut unloaded = 0usize;
-        for p in get_all_plugins().iter() {
+        for p in plugins.iter() {
             if names.iter().any(|n| n == &p.name.to_string()) {
-                unregister_plugin(&p.name);
+                let _ = unregister_plugin(&p.name);
                 unloaded += 1;
             }
         }
