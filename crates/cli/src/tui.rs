@@ -38,7 +38,8 @@ use edit_tui::vt;
 /// 拉取积压推送的 FFI 符号类型。
 pub type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::String>;
 
-/// 读取全局选项的 FFI 符号类型（cli-core `get_global_option`）。
+/// 读取会话/全局选项的 FFI 符号类型（cli-core `get_session_option` /
+/// `get_global_option`，两者签名一致）。
 pub type GetOptionFn = unsafe extern "C" fn(
     &safer_ffi::String,
     Out<'_, TaggedOption<safer_ffi::String>>,
@@ -1387,6 +1388,23 @@ fn opt_get(get: &GetOptionFn, key: &str) -> String {
     }
 }
 
+/// 读取有效选项值：会话（session）设置优先，未设置再回退全局（global）。
+fn opt_get_effective(
+    get_session: Option<&GetOptionFn>,
+    get_global: &GetOptionFn,
+    key: &str,
+) -> String {
+    if let Some(session) = get_session {
+        let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+            ManuallyDrop::new(TaggedOption::None);
+        let _res = unsafe { session(&key.into(), Out::from(&mut buf)) };
+        if let TaggedOption::Some(v) = ManuallyDrop::into_inner(buf) {
+            return v.to_string();
+        }
+    }
+    opt_get(get_global, key)
+}
+
 /// 全局选项真值判定：`on/true/1/yes`（大小写不敏感）。
 fn is_truthy(v: &str) -> bool {
     matches!(v.to_lowercase().as_str(), "on" | "true" | "1" | "yes")
@@ -1410,6 +1428,7 @@ pub fn run(
     run_command: &RunCommandFn,
     take_pushes: &PushDrainFn,
     get_option: &GetOptionFn,
+    get_session: Option<&GetOptionFn>,
     set_tui_mode: &SetTuiModeFn,
     output_drain: &OutputDrainFn,
     remote_list_dir: Option<&ListRemoteDirFn>,
@@ -1467,6 +1486,7 @@ pub fn run(
         run_command,
         take_pushes,
         get_option,
+        get_session,
         output_drain,
     );
 
@@ -1481,17 +1501,19 @@ fn event_loop(
     run_command: &RunCommandFn,
     take_pushes: &PushDrainFn,
     get_option: &GetOptionFn,
+    get_session: Option<&GetOptionFn>,
     output_drain: &OutputDrainFn,
 ) -> Result<()> {
     let groups = menu_groups();
 
     loop {
-        // 刷新状态栏快照（全局选项）。
-        app.username = opt_get(get_option, "USERNAME");
-        app.server = opt_get(get_option, "SERVER");
-        app.port = opt_get(get_option, "PORT");
-        app.quiet = is_quiet(&opt_get(get_option, "QUIET"));
-        app.prefer_cli = is_truthy(&opt_get(get_option, "PREFER_COMMAND_LINE"));
+        // 刷新状态栏快照：会话设置优先，未设置回退全局。
+        app.username = opt_get_effective(get_session, get_option, "USERNAME");
+        app.server = opt_get_effective(get_session, get_option, "SERVER");
+        app.port = opt_get_effective(get_session, get_option, "PORT");
+        app.quiet = is_quiet(&opt_get_effective(get_session, get_option, "QUIET"));
+        app.prefer_cli =
+            is_truthy(&opt_get_effective(get_session, get_option, "PREFER_COMMAND_LINE"));
 
         // 取积压推送。
         let pushes: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
@@ -2359,6 +2381,35 @@ mod tests {
     const STUB_DRAIN: OutputDrainFn = stub_drain;
     const STUB_CONNECTED: IsConnectedFn = stub_connected;
 
+    static SESSION_OPT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+    static GLOBAL_OPT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+    extern "C" fn stub_session_option(
+        _: &safer_ffi::String,
+        out: Out<'_, TaggedOption<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let val = SESSION_OPT.lock().unwrap().clone();
+        out.write(val.map(|v| v.into()).into());
+        cli_core_types::Result::success()
+    }
+    extern "C" fn stub_global_option(
+        _: &safer_ffi::String,
+        out: Out<'_, TaggedOption<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let val = GLOBAL_OPT.lock().unwrap().clone();
+        out.write(val.map(|v| v.into()).into());
+        cli_core_types::Result::success()
+    }
+    const STUB_SESSION: GetOptionFn = stub_session_option;
+    const STUB_GLOBAL: GetOptionFn = stub_global_option;
+
+    fn set_session(v: Option<&str>) {
+        *SESSION_OPT.lock().unwrap() = v.map(|s| s.to_string());
+    }
+    fn set_global(v: Option<&str>) {
+        *GLOBAL_OPT.lock().unwrap() = v.map(|s| s.to_string());
+    }
+
     #[test]
     fn reconcile_parses_freq_info_members() {
         let mut app = App::new();
@@ -2796,5 +2847,45 @@ mod tests {
         };
         assert_eq!(argv, &vec!["disband".to_string()]);
         assert!(!has_cmd_line(&app, "disband"));
+    }
+
+    #[test]
+    fn effective_option_session_overrides_global() {
+        set_session(Some("on"));
+        set_global(Some("off"));
+        assert_eq!(
+            opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "PREFER_COMMAND_LINE"),
+            "on"
+        );
+        set_session(None);
+        set_global(None);
+    }
+
+    #[test]
+    fn effective_option_falls_back_to_global() {
+        set_session(None);
+        set_global(Some("yes"));
+        assert_eq!(opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "QUIET"), "yes");
+        set_global(None);
+    }
+
+    #[test]
+    fn effective_option_empty_when_unset() {
+        set_session(None);
+        set_global(None);
+        assert_eq!(opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "X"), "");
+        // 无 session 回调时直接读全局。
+        set_global(Some("1"));
+        assert_eq!(opt_get_effective(None, &STUB_GLOBAL, "X"), "1");
+        set_global(None);
+    }
+
+    #[test]
+    fn prefer_cli_truthy_from_effective_value() {
+        set_session(Some("true"));
+        set_global(None);
+        let value = opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "PREFER_COMMAND_LINE");
+        assert!(is_truthy(&value));
+        set_session(None);
     }
 }

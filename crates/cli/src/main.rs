@@ -445,6 +445,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| format!("Failed to find symbol 'tc_cli_push_drain': {e}"))?;
         let get_option: Symbol<tui::GetOptionFn> = unsafe { core_lib.get(b"get_global_option") }
             .map_err(|e| format!("Failed to find symbol 'get_global_option': {e}"))?;
+        // 会话选项为可选符号：缺失时偏好读取仅回退全局。
+        let get_session: Option<Symbol<tui::GetOptionFn>> =
+            unsafe { core_lib.get(b"get_session_option") }.ok();
+        let get_session_ref: Option<&tui::GetOptionFn> = get_session.as_deref();
         let set_tui_mode: Symbol<tui::SetTuiModeFn> =
             unsafe { core_lib.get(b"tc_cli_set_tui_mode") }
                 .map_err(|e| format!("Failed to find symbol 'tc_cli_set_tui_mode': {e}"))?;
@@ -463,6 +467,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &run_command,
             &take_pushes,
             &get_option,
+            get_session_ref,
             &set_tui_mode,
             &output_drain,
             remote_list_dir_ref,
