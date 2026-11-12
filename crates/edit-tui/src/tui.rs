@@ -1113,7 +1113,7 @@ impl Tui {
             let mut modified = BString::empty();
             modified.reserve(&*scratch, text.len() + 3);
             modified.push_str(&*scratch, &text[..skipped.start]);
-            modified.push(&*scratch, '…');
+            modified.push_str(&*scratch, "...");
             modified.push_str(&*scratch, &text[skipped.end..]);
 
             self.framebuffer.replace_text(target.top, target.left, target.right, &modified);
