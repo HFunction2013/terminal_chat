@@ -12,11 +12,21 @@ impl CreateFreqCommand {
     pub fn execute(
         &self,
         freq: String,
+        password: Option<String>,
         p: bool,
         max_people: Option<String>,
         no_mod: bool,
     ) -> Result<()> {
-        let password = if p { Some(rpassword::prompt_password("Freq password: ")?) } else { None };
+        let password = match password {
+            Some(v) if !v.is_empty() => Some(v),
+            _ => {
+                if p {
+                    Some(rpassword::prompt_password("Freq password: ")?)
+                } else {
+                    None
+                }
+            }
+        };
         let max_people = match max_people {
             Some(s) => Some(s.parse::<i32>().map_err(|_| anyhow!("invalid max-people `{s}`"))?),
             None => None,
@@ -53,9 +63,10 @@ impl CommandExecutor for CreateFreqCommand {
             .get_one::<String>("freq")
             .ok_or_else(|| anyhow!("Missing required argument: freq"))?
             .clone();
+        let password = matches.get_one::<String>("password").cloned();
         let p = matches.get_flag("p");
         let max_people = matches.get_one::<String>("max_people").cloned();
         let no_mod = matches.get_flag("no_mod");
-        self.execute(freq, p, max_people, no_mod)
+        self.execute(freq, password, p, max_people, no_mod)
     }
 }

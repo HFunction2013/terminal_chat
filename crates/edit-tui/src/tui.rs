@@ -182,6 +182,7 @@ struct CachedTextBuffer {
 /// do almost the same thing, this abstracts over the two.
 enum TextBufferPayload<'a> {
     Editline(&'a mut dyn WriteableDocument),
+    EditlinePassword(&'a mut dyn WriteableDocument),
     Textarea(RcTextBuffer),
 }
 
@@ -2117,6 +2118,16 @@ impl<'a> Context<'a, '_> {
         self.textarea_internal(classname, TextBufferPayload::Editline(text))
     }
 
+    /// Like [`Context::editline`], but renders every visible character as `*`
+    /// (password masking). The underlying document keeps plaintext.
+    pub fn editline_password(
+        &mut self,
+        classname: &'static str,
+        text: &mut dyn WriteableDocument,
+    ) -> bool {
+        self.textarea_internal(classname, TextBufferPayload::EditlinePassword(text))
+    }
+
     /// Creates a text area.
     pub fn textarea(&mut self, classname: &'static str, tb: RcTextBuffer) {
         self.textarea_internal(classname, TextBufferPayload::Textarea(tb));
@@ -2129,7 +2140,7 @@ impl<'a> Context<'a, '_> {
         let mut node = self.tree.last_node.borrow_mut();
         let node = &mut *node;
         let single_line = match &payload {
-            TextBufferPayload::Editline(_) => true,
+            TextBufferPayload::Editline(_) | TextBufferPayload::EditlinePassword(_) => true,
             TextBufferPayload::Textarea(_) => false,
         };
 
@@ -2149,7 +2160,10 @@ impl<'a> Context<'a, '_> {
                     buffers.push(CachedTextBuffer {
                         node_id: node.id,
                         editor: match &payload {
-                            TextBufferPayload::Editline(_) => TextBuffer::new_rc(true).unwrap(),
+                            TextBufferPayload::Editline(_)
+                            | TextBufferPayload::EditlinePassword(_) => {
+                                TextBuffer::new_rc(true).unwrap()
+                            }
                             TextBufferPayload::Textarea(tb) => tb.clone(),
                         },
                         seen: true,
@@ -2180,8 +2194,13 @@ impl<'a> Context<'a, '_> {
             _ => unreachable!(),
         };
 
-        if let TextBufferPayload::Editline(text) = &payload {
-            content.buffer.borrow_mut().copy_from_str(*text);
+        let is_password = matches!(payload, TextBufferPayload::EditlinePassword(_));
+        if let TextBufferPayload::Editline(text) | TextBufferPayload::EditlinePassword(text) =
+            &payload
+        {
+            let mut tb = content.buffer.borrow_mut();
+            tb.copy_from_str(*text);
+            tb.set_mask_password(is_password);
         }
 
         if let Some(node_prev) = self.tui.prev_node_map.get(node.id) {
@@ -2220,7 +2239,10 @@ impl<'a> Context<'a, '_> {
         {
             let mut tb = content.buffer.borrow_mut();
             dirty = tb.is_dirty();
-            if dirty && let TextBufferPayload::Editline(text) = payload {
+            if dirty
+                && let TextBufferPayload::Editline(text) | TextBufferPayload::EditlinePassword(text) =
+                    payload
+            {
                 tb.save_as_string(text);
             }
         }

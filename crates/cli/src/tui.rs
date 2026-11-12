@@ -99,6 +99,8 @@ struct FormField {
     label: &'static str,
     /// 必填：为空时不允许进入下一阶段。
     required: bool,
+    /// 密码字段：界面以 `*` 掩码回显，缓冲内仍为明文。
+    secret: bool,
 }
 
 /// 一个待提交命令的表单规格（静态）。
@@ -118,8 +120,8 @@ const JOIN_FORM: FormSpec = FormSpec {
     cmd: "join_freq",
     prefill: "join_freq ",
     fields: &[
-        FormField { label: "Frequency ID:", required: true },
-        FormField { label: "Password (optional):", required: false },
+        FormField { label: "Frequency ID:", required: true, secret: false },
+        FormField { label: "Password (optional):", required: false, secret: true },
     ],
 };
 
@@ -128,7 +130,7 @@ const SWITCH_WS_FORM: FormSpec = FormSpec {
     title: "Switch Workspace",
     cmd: "workspace switch",
     prefill: "workspace switch ",
-    fields: &[FormField { label: "Workspace name:", required: true }],
+    fields: &[FormField { label: "Workspace name:", required: true, secret: false }],
 };
 
 /// `workspace new` 表单：名称可选（服务端默认 `Workspace-xxx`）。
@@ -136,15 +138,18 @@ const NEW_WS_FORM: FormSpec = FormSpec {
     title: "New Workspace",
     cmd: "workspace new",
     prefill: "workspace new ",
-    fields: &[FormField { label: "Workspace name (optional):", required: false }],
+    fields: &[FormField { label: "Workspace name (optional):", required: false, secret: false }],
 };
 
-/// `create_freq` 表单：频点名必填；密码/成员数等仍走命令行。
+/// `create_freq` 表单：频点名必填，密码可选（掩码回显）；成员数等其余参数仍走命令行。
 const CREATE_FREQ_FORM: FormSpec = FormSpec {
     title: "Create Frequency",
     cmd: "create_freq",
     prefill: "create_freq ",
-    fields: &[FormField { label: "Frequency ID:", required: true }],
+    fields: &[
+        FormField { label: "Frequency ID:", required: true, secret: false },
+        FormField { label: "Password (optional):", required: false, secret: true },
+    ],
 };
 
 /// `msg` 表单：收件人可选（默认全员），消息必填。
@@ -153,8 +158,8 @@ const MSG_FORM: FormSpec = FormSpec {
     cmd: "msg",
     prefill: "msg -m ",
     fields: &[
-        FormField { label: "Users (optional):", required: false },
-        FormField { label: "Message:", required: true },
+        FormField { label: "Users (optional):", required: false, secret: false },
+        FormField { label: "Message:", required: true, secret: false },
     ],
 };
 
@@ -163,7 +168,7 @@ const REPLY_FORM: FormSpec = FormSpec {
     title: "Reply",
     cmd: "reply",
     prefill: "reply ",
-    fields: &[FormField { label: "Message:", required: true }],
+    fields: &[FormField { label: "Message:", required: true, secret: false }],
 };
 
 /// `call` 表单。
@@ -171,7 +176,7 @@ const CALL_FORM: FormSpec = FormSpec {
     title: "Call User",
     cmd: "call",
     prefill: "call ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 
 /// 单用户管理命令表单（mute/unmute/ignore/kick/ban）。
@@ -179,31 +184,31 @@ const MUTE_FORM: FormSpec = FormSpec {
     title: "Mute User",
     cmd: "mute",
     prefill: "mute ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const UNMUTE_FORM: FormSpec = FormSpec {
     title: "Unmute User",
     cmd: "unmute",
     prefill: "unmute ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const IGNORE_FORM: FormSpec = FormSpec {
     title: "Ignore User",
     cmd: "ignore",
     prefill: "ignore ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const KICK_FORM: FormSpec = FormSpec {
     title: "Kick User",
     cmd: "kick",
     prefill: "kick ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const BAN_FORM: FormSpec = FormSpec {
     title: "Ban User",
     cmd: "ban",
     prefill: "ban ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 
 /// 文件列表表单：目录可选。
@@ -211,7 +216,7 @@ const LS_FORM: FormSpec = FormSpec {
     title: "List Remote Files",
     cmd: "ls",
     prefill: "ls ",
-    fields: &[FormField { label: "Directory (optional):", required: false }],
+    fields: &[FormField { label: "Directory (optional):", required: false, secret: false }],
 };
 
 /// 上传表单：本地路径必填，远端路径可选。
@@ -220,8 +225,8 @@ const UPLOAD_FORM: FormSpec = FormSpec {
     cmd: "upload",
     prefill: "upload ",
     fields: &[
-        FormField { label: "Local path:", required: true },
-        FormField { label: "Remote path (optional):", required: false },
+        FormField { label: "Local path:", required: true, secret: false },
+        FormField { label: "Remote path (optional):", required: false, secret: false },
     ],
 };
 
@@ -231,8 +236,8 @@ const DOWNLOAD_FORM: FormSpec = FormSpec {
     cmd: "download",
     prefill: "download ",
     fields: &[
-        FormField { label: "Remote path:", required: true },
-        FormField { label: "Local path (optional):", required: false },
+        FormField { label: "Remote path:", required: true, secret: false },
+        FormField { label: "Local path (optional):", required: false, secret: false },
     ],
 };
 
@@ -241,7 +246,7 @@ const RM_FORM: FormSpec = FormSpec {
     title: "Remove Remote File",
     cmd: "rm",
     prefill: "rm ",
-    fields: &[FormField { label: "Remote path:", required: true }],
+    fields: &[FormField { label: "Remote path:", required: true, secret: false }],
 };
 
 /// 移动/重命名远端文件表单。
@@ -250,8 +255,8 @@ const MV_FORM: FormSpec = FormSpec {
     cmd: "mv",
     prefill: "mv ",
     fields: &[
-        FormField { label: "From:", required: true },
-        FormField { label: "To:", required: true },
+        FormField { label: "From:", required: true, secret: false },
+        FormField { label: "To:", required: true, secret: false },
     ],
 };
 
@@ -261,8 +266,8 @@ const CP_FORM: FormSpec = FormSpec {
     cmd: "cp",
     prefill: "cp ",
     fields: &[
-        FormField { label: "From:", required: true },
-        FormField { label: "To:", required: true },
+        FormField { label: "From:", required: true, secret: false },
+        FormField { label: "To:", required: true, secret: false },
     ],
 };
 
@@ -271,7 +276,7 @@ const LOAD_FORM: FormSpec = FormSpec {
     title: "Load Plugin",
     cmd: "load",
     prefill: "load ",
-    fields: &[FormField { label: "Plugin:", required: true }],
+    fields: &[FormField { label: "Plugin:", required: true, secret: false }],
 };
 
 /// 卸载插件表单。
@@ -279,7 +284,7 @@ const UNLOAD_FORM: FormSpec = FormSpec {
     title: "Unload Plugin",
     cmd: "unload",
     prefill: "unload ",
-    fields: &[FormField { label: "Plugin name:", required: true }],
+    fields: &[FormField { label: "Plugin name:", required: true, secret: false }],
 };
 
 /// 本地 shell 命令表单。
@@ -287,7 +292,7 @@ const SHELL_FORM: FormSpec = FormSpec {
     title: "Local Shell",
     cmd: "shell",
     prefill: "shell ",
-    fields: &[FormField { label: "Command:", required: true }],
+    fields: &[FormField { label: "Command:", required: true, secret: false }],
 };
 
 /// 单用户管理命令表单（unban/unignore/op/deop/trop/user_info）。
@@ -295,37 +300,37 @@ const UNBAN_FORM: FormSpec = FormSpec {
     title: "Unban User",
     cmd: "unban",
     prefill: "unban ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const UNIGNORE_FORM: FormSpec = FormSpec {
     title: "Unignore User",
     cmd: "unignore",
     prefill: "unignore ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const OP_FORM: FormSpec = FormSpec {
     title: "Grant Moderator",
     cmd: "op",
     prefill: "op ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const DEOP_FORM: FormSpec = FormSpec {
     title: "Revoke Moderator",
     cmd: "deop",
     prefill: "deop ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const TROP_FORM: FormSpec = FormSpec {
     title: "Transfer Creator",
     cmd: "trop",
     prefill: "trop ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 const USER_INFO_FORM: FormSpec = FormSpec {
     title: "User Info",
     cmd: "user_info",
     prefill: "user_info ",
-    fields: &[FormField { label: "User:", required: true }],
+    fields: &[FormField { label: "User:", required: true, secret: false }],
 };
 
 /// 远端文件系统命令表单。
@@ -333,25 +338,25 @@ const MKDIR_FORM: FormSpec = FormSpec {
     title: "Make Remote Directory",
     cmd: "mkdir",
     prefill: "mkdir ",
-    fields: &[FormField { label: "Directory:", required: true }],
+    fields: &[FormField { label: "Directory:", required: true, secret: false }],
 };
 const CD_FORM: FormSpec = FormSpec {
     title: "Change Remote Directory",
     cmd: "cd",
     prefill: "cd ",
-    fields: &[FormField { label: "Directory:", required: true }],
+    fields: &[FormField { label: "Directory:", required: true, secret: false }],
 };
 const CHECKSUM_FORM: FormSpec = FormSpec {
     title: "File Checksum",
     cmd: "checksum",
     prefill: "checksum ",
-    fields: &[FormField { label: "File:", required: true }],
+    fields: &[FormField { label: "File:", required: true, secret: false }],
 };
 const FILE_INFO_FORM: FormSpec = FormSpec {
     title: "File Info",
     cmd: "file_info",
     prefill: "file_info ",
-    fields: &[FormField { label: "File:", required: true }],
+    fields: &[FormField { label: "File:", required: true, secret: false }],
 };
 
 /// 定时消息表单：time 位置、message 走 `-m`、users 可选。
@@ -360,16 +365,16 @@ const SCHEDULE_MSG_FORM: FormSpec = FormSpec {
     cmd: "schedule_msg",
     prefill: "schedule_msg ",
     fields: &[
-        FormField { label: "Time (+30s / HH:MM):", required: true },
-        FormField { label: "Message:", required: true },
-        FormField { label: "Users (optional):", required: false },
+        FormField { label: "Time (+30s / HH:MM):", required: true, secret: false },
+        FormField { label: "Message:", required: true, secret: false },
+        FormField { label: "Users (optional):", required: false, secret: false },
     ],
 };
 const CANCEL_FORM: FormSpec = FormSpec {
     title: "Cancel Task",
     cmd: "cancel",
     prefill: "cancel ",
-    fields: &[FormField { label: "Task ID:", required: true }],
+    fields: &[FormField { label: "Task ID:", required: true, secret: false }],
 };
 
 /// 加载/卸载命名空间表单。
@@ -377,13 +382,13 @@ const LOAD_NS_FORM: FormSpec = FormSpec {
     title: "Load Namespace",
     cmd: "load namespace",
     prefill: "load namespace ",
-    fields: &[FormField { label: "Namespace:", required: true }],
+    fields: &[FormField { label: "Namespace:", required: true, secret: false }],
 };
 const UNLOAD_NS_FORM: FormSpec = FormSpec {
     title: "Unload Namespace",
     cmd: "unload namespace",
     prefill: "unload namespace ",
-    fields: &[FormField { label: "Namespace:", required: true }],
+    fields: &[FormField { label: "Namespace:", required: true, secret: false }],
 };
 
 /// 会话/全局选项表单。
@@ -392,42 +397,42 @@ const SET_FORM: FormSpec = FormSpec {
     cmd: "set",
     prefill: "set ",
     fields: &[
-        FormField { label: "Key:", required: true },
-        FormField { label: "Value:", required: true },
+        FormField { label: "Key:", required: true, secret: false },
+        FormField { label: "Value:", required: true, secret: false },
     ],
 };
 const GET_FORM: FormSpec = FormSpec {
     title: "Get Session Option",
     cmd: "get",
     prefill: "get ",
-    fields: &[FormField { label: "Key:", required: true }],
+    fields: &[FormField { label: "Key:", required: true, secret: false }],
 };
 const SETG_FORM: FormSpec = FormSpec {
     title: "Set Global Option",
     cmd: "setg",
     prefill: "setg ",
     fields: &[
-        FormField { label: "Key:", required: true },
-        FormField { label: "Value (optional):", required: false },
+        FormField { label: "Key:", required: true, secret: false },
+        FormField { label: "Value (optional):", required: false, secret: false },
     ],
 };
 const GETG_FORM: FormSpec = FormSpec {
     title: "Get Global Option",
     cmd: "getg",
     prefill: "getg ",
-    fields: &[FormField { label: "Key:", required: true }],
+    fields: &[FormField { label: "Key:", required: true, secret: false }],
 };
 const UNSET_FORM: FormSpec = FormSpec {
     title: "Unset Session Option",
     cmd: "unset",
     prefill: "unset ",
-    fields: &[FormField { label: "Key:", required: true }],
+    fields: &[FormField { label: "Key:", required: true, secret: false }],
 };
 const UNSETG_FORM: FormSpec = FormSpec {
     title: "Unset Global Option",
     cmd: "unsetg",
     prefill: "unsetg ",
-    fields: &[FormField { label: "Key:", required: true }],
+    fields: &[FormField { label: "Key:", required: true, secret: false }],
 };
 
 /// 频点信息表单：频点可选（留空取当前）。
@@ -435,7 +440,7 @@ const FREQ_INFO_FORM: FormSpec = FormSpec {
     title: "Frequency Info",
     cmd: "freq_info",
     prefill: "freq_info ",
-    fields: &[FormField { label: "Frequency (optional):", required: false }],
+    fields: &[FormField { label: "Frequency (optional):", required: false, secret: false }],
 };
 
 struct MenuItem {
@@ -1398,12 +1403,15 @@ fn draw_dialog(
     if app.dialog.is_none() {
         return;
     }
-    let (title, prompt) = match app.dialog.as_ref().unwrap() {
+    let (title, prompt, secret) = match app.dialog.as_ref().unwrap() {
         Dialog::Connect { stage, .. } => match stage {
-            DialogStage::AskServer => ("Connect", "Server [host:port]:"),
-            DialogStage::AskUser => ("Nickname", "Nickname:"),
+            DialogStage::AskServer => ("Connect", "Server [host:port]:", false),
+            DialogStage::AskUser => ("Nickname", "Nickname:", false),
         },
-        Dialog::Form(form) => (form.spec.title, form.spec.fields[form.focus].label),
+        Dialog::Form(form) => {
+            let field = &form.spec.fields[form.focus];
+            (form.spec.title, field.label, field.secret)
+        }
     };
 
     ctx.modal_begin("connect-dialog", title);
@@ -1415,7 +1423,11 @@ fn draw_dialog(
 
     let advance = match app.dialog_buffer() {
         Some(buf) => {
-            ctx.editline("dlg-input", buf);
+            if secret {
+                ctx.editline_password("dlg-input", buf);
+            } else {
+                ctx.editline("dlg-input", buf);
+            }
             ctx.focus_on_first_present();
             ctx.is_focused() && ctx.consume_shortcut(vk::RETURN)
         }
@@ -1653,6 +1665,9 @@ fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
             let mut argv = vec!["create_freq".into()];
             if let Some(v) = opt(0) {
                 argv.push(v);
+            }
+            if let Some(pw) = opt(1) {
+                argv.push(pw);
             }
             argv
         }
@@ -2000,6 +2015,15 @@ mod tests {
 
         let no_pw = form_argv(&JOIN_FORM, &["abc".into(), "".into()]);
         assert_eq!(no_pw, vec!["join_freq", "abc"]);
+    }
+
+    #[test]
+    fn form_argv_create_freq_omits_empty_password() {
+        let with_pw = form_argv(&CREATE_FREQ_FORM, &["abc".into(), "secret".into()]);
+        assert_eq!(with_pw, vec!["create_freq", "abc", "secret"]);
+
+        let no_pw = form_argv(&CREATE_FREQ_FORM, &["abc".into(), "".into()]);
+        assert_eq!(no_pw, vec!["create_freq", "abc"]);
     }
 
     #[test]

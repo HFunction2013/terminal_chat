@@ -310,6 +310,10 @@ pub struct TextBuffer {
     overtype: bool,
 
     wants_cursor_visibility: bool,
+
+    /// When true, visible characters are rendered as `*` (password field).
+    /// The underlying buffer keeps plaintext; only the rendered line is masked.
+    mask_password: bool,
 }
 
 impl TextBuffer {
@@ -361,6 +365,8 @@ impl TextBuffer {
             overtype: false,
 
             wants_cursor_visibility: false,
+
+            mask_password: false,
         })
     }
 
@@ -470,6 +476,12 @@ impl TextBuffer {
     /// Set the overtype mode.
     pub fn set_overtype(&mut self, overtype: bool) {
         self.overtype = overtype;
+    }
+
+    /// Enables or disables password masking: visible characters are rendered
+    /// as `*` while the buffer keeps plaintext internally.
+    pub fn set_mask_password(&mut self, mask: bool) {
+        self.mask_password = mask;
     }
 
     /// Gets the byte offset of the cursor.
@@ -2062,6 +2074,14 @@ impl TextBuffer {
                 }
 
                 visual_pos_x_max = visual_pos_x_max.max(cursor_end.visual_pos.x);
+            }
+
+            if self.mask_password {
+                for b in line.as_mut_slice().iter_mut() {
+                    if !matches!(*b, b' ' | b'\t') {
+                        *b = b'*';
+                    }
+                }
             }
 
             fb.replace_text(destination.top + y, destination.left, destination.right, &line);

@@ -114,10 +114,14 @@ commands:
         required: true
         value_name: FREQ_ID
         help: New frequency unique id
+      - name: password
+        required: false
+        value_name: PASSWORD
+        help: Frequency password (optional; omit to be prompted interactively)
       - name: p
         short: p
         long: password
-        help: Create frequency with password
+        help: Create frequency with password (prompt interactively)
         action: set_true
       - name: max_people
         long: max-people
