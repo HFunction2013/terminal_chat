@@ -3253,6 +3253,8 @@ impl<'a> Context<'a, '_> {
                 offset_y: 1.0,
             });
             self.attr_border();
+            // 浮层左右各 1 格对称内边距，避免文字贴边框或右侧留白偏大。
+            self.attr_padding(Rect::two(0, 1));
             self.attr_focus_well();
 
             if keyboard_focus {
@@ -3300,11 +3302,13 @@ impl<'a> Context<'a, '_> {
         let clicked =
             self.button_activated() || self.consume_shortcut(InputKey::new(accelerator as u32));
 
-        self.button_label(
-            "menu_checkbox",
-            text,
-            ButtonStyle::default().bracketed(false).checked(checked).accelerator(accelerator),
-        );
+        let mut style = ButtonStyle::default().bracketed(false).accelerator(accelerator);
+        // 仅真正勾选的复选项才加复选标记前缀；普通菜单项不带占位空格，
+        // 左右缩进统一交给浮层容器的对称 padding。
+        if checked {
+            style = style.checked(true);
+        }
+        self.button_label("menu_checkbox", text, style);
         self.menubar_shortcut(shortcut);
 
         if clicked {
@@ -3415,27 +3419,27 @@ impl<'a> Context<'a, '_> {
 
     fn menubar_shortcut(&mut self, shortcut: InputKey) {
         let shortcut_letter = shortcut.value() as u8 as char;
-        if shortcut_letter.is_ascii_uppercase() {
-            let mut shortcut_text = BString::empty();
-            if shortcut.modifiers_contains(kbmod::CTRL) {
-                shortcut_text.push_str(self.arena(), self.tui.modifier_translations.ctrl);
-                shortcut_text.push(self.arena(), '+');
-            }
-            if shortcut.modifiers_contains(kbmod::ALT) {
-                shortcut_text.push_str(self.arena(), self.tui.modifier_translations.alt);
-                shortcut_text.push(self.arena(), '+');
-            }
-            if shortcut.modifiers_contains(kbmod::SHIFT) {
-                shortcut_text.push_str(self.arena(), self.tui.modifier_translations.shift);
-                shortcut_text.push(self.arena(), '+');
-            }
-            shortcut_text.push(self.arena(), shortcut_letter);
-
-            self.label("shortcut", &shortcut_text);
-        } else {
-            self.block_begin("shortcut");
-            self.block_end();
+        // 没有可显示的快捷键时不挂空占位列：否则空块仍带左右各 2 格
+        // padding，在浮层右侧撑出一块与左侧不对称的空白。
+        if !shortcut_letter.is_ascii_uppercase() {
+            return;
         }
+        let mut shortcut_text = BString::empty();
+        if shortcut.modifiers_contains(kbmod::CTRL) {
+            shortcut_text.push_str(self.arena(), self.tui.modifier_translations.ctrl);
+            shortcut_text.push(self.arena(), '+');
+        }
+        if shortcut.modifiers_contains(kbmod::ALT) {
+            shortcut_text.push_str(self.arena(), self.tui.modifier_translations.alt);
+            shortcut_text.push(self.arena(), '+');
+        }
+        if shortcut.modifiers_contains(kbmod::SHIFT) {
+            shortcut_text.push_str(self.arena(), self.tui.modifier_translations.shift);
+            shortcut_text.push(self.arena(), '+');
+        }
+        shortcut_text.push(self.arena(), shortcut_letter);
+
+        self.label("shortcut", &shortcut_text);
         self.attr_padding(Rect { left: 2, top: 0, right: 2, bottom: 0 });
     }
 }
