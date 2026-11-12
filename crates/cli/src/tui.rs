@@ -412,6 +412,18 @@ const GETG_FORM: FormSpec = FormSpec {
     prefill: "getg ",
     fields: &[FormField { label: "Key:", required: true }],
 };
+const UNSET_FORM: FormSpec = FormSpec {
+    title: "Unset Session Option",
+    cmd: "unset",
+    prefill: "unset ",
+    fields: &[FormField { label: "Key:", required: true }],
+};
+const UNSETG_FORM: FormSpec = FormSpec {
+    title: "Unset Global Option",
+    cmd: "unsetg",
+    prefill: "unsetg ",
+    fields: &[FormField { label: "Key:", required: true }],
+};
 
 /// 频点信息表单：频点可选（留空取当前）。
 const FREQ_INFO_FORM: FormSpec = FormSpec {
@@ -619,6 +631,8 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Get...", action: Action::Form(&GET_FORM) },
                 MenuItem { label: "Set Global...", action: Action::Form(&SETG_FORM) },
                 MenuItem { label: "Get Global...", action: Action::Form(&GETG_FORM) },
+                MenuItem { label: "Unset...", action: Action::Form(&UNSET_FORM) },
+                MenuItem { label: "Unset Global...", action: Action::Form(&UNSETG_FORM) },
             ],
         },
         MenuGroup {
@@ -1655,7 +1669,7 @@ fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
         }
         "call" | "mute" | "unmute" | "ignore" | "kick" | "ban" | "rm" | "unban" | "unignore"
         | "op" | "deop" | "trop" | "user_info" | "mkdir" | "cd" | "checksum" | "file_info"
-        | "cancel" | "get" | "getg" => {
+        | "cancel" | "get" | "getg" | "unset" | "unsetg" => {
             let mut argv = vec![spec.cmd.to_string()];
             if let Some(a) = opt(0) {
                 argv.push(a);
@@ -2085,6 +2099,8 @@ mod tests {
         assert_eq!(form_argv(&OP_FORM, &["u@h".into()]), vec!["op", "u@h"]);
         assert_eq!(form_argv(&MKDIR_FORM, &["docs".into()]), vec!["mkdir", "docs"]);
         assert_eq!(form_argv(&CANCEL_FORM, &["3".into()]), vec!["cancel", "3"]);
+        assert_eq!(form_argv(&UNSET_FORM, &["k".into()]), vec!["unset", "k"]);
+        assert_eq!(form_argv(&UNSETG_FORM, &["k".into()]), vec!["unsetg", "k"]);
         // 可选频点留空：只发命令本身。
         assert_eq!(form_argv(&FREQ_INFO_FORM, &["".into()]), vec!["freq_info"]);
     }
