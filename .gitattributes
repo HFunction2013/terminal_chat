@@ -1,0 +1,6 @@
+# 源码统一用 LF 换行，避免 Windows checkout 的 autocrlf 把 .rs 转成 CRLF，
+# 导致 rustfmt（newline_style = "Unix"）在 CI 报 "Incorrect newline style"。
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
