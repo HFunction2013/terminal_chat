@@ -337,7 +337,7 @@ impl App {
     fn new() -> Self {
         let mut log = Vec::new();
         log.push(ChatLine {
-            text: "[tui] 聊天界面：F10/Alt 展开菜单，Enter 执行命令，Tab 补全，Ctrl+Q 退出。"
+            text: "[tui] Chat: F10/Alt open menu, Enter run command, Tab complete, Ctrl+Q quit."
                 .to_string(),
             kind: LineKind::System,
         });
@@ -826,14 +826,14 @@ fn draw_body(ctx: &mut Context, app: &App) {
     ctx.attr_padding(Rect::two(0, 1));
     ctx.attr_intrinsic_size(Size { width: 26, height: body_height });
 
-    ctx.label("sec-freq", "会话");
-    let freq = app.current_freq.clone().unwrap_or_else(|| "(未加入)".to_string());
+    ctx.label("sec-freq", "Session");
+    let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
     ctx.label("freq", &freq);
     ctx.label("blank", "");
 
-    ctx.label("sec-members", "成员");
+    ctx.label("sec-members", "Members");
     if app.members.is_empty() {
-        ctx.label("none", "  (暂无)");
+        ctx.label("none", "  (none)");
     } else {
         for (i, m) in app.members.iter().enumerate() {
             ctx.next_block_id_mixin(i as u64);
@@ -980,8 +980,8 @@ fn draw_dialog(
         return;
     }
     let (title, prompt) = match app.dialog.as_ref().unwrap().stage {
-        DialogStage::AskServer => ("连接服务器", "服务器地址 [host:port]:"),
-        DialogStage::AskUser => ("设置昵称", "昵称:"),
+        DialogStage::AskServer => ("Connect", "Server [host:port]:"),
+        DialogStage::AskUser => ("Nickname", "Nickname:"),
     };
 
     ctx.modal_begin("connect-dialog", title);
@@ -1103,7 +1103,9 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
         "banner" | "train" => {
             app.push_line(
-                format!("`{cmd}` 是终端动画命令，请在非 TUI 的 REPL 中运行。"),
+                format!(
+                    "`{cmd}` is an animated terminal command; run it in the REPL, not the TUI."
+                ),
                 LineKind::System,
             );
             true
@@ -1123,9 +1125,9 @@ Because everyone deserves a good cup of coffee.";
 /// 内置 / 常用命令帮助文本。
 fn builtin_help_text() -> String {
     [
-        "内置命令: exit/quit/q  退出 | clear  清空记录 | version  版本 | build_info  构建信息",
-        "          copyright  版权 | license  许可 | coffee  咖啡 | saying  一句格言 | help  本帮助",
-        "常用命令: connect  连接 | msg -m <文本>  发消息 | join_freq <频点> | create_freq <频点>",
+        "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info",
+        "          copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help",
+        "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> | create_freq <freq>",
         "          show active_users | show active_freqs | workspace list | ls | upload | download",
     ]
     .join("\n")
