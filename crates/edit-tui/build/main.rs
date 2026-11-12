@@ -123,21 +123,13 @@ fn configure_icu(target_os: TargetOs) {
 }
 
 #[cfg(windows)]
-fn configure_windows_binary(target_os: TargetOs) {
-    if target_os != TargetOs::Windows {
+fn configure_windows_binary(_target_os: TargetOs) {
+    if _target_os != TargetOs::Windows {
         return;
     }
 
-    let manifest_path = "src/bin/edit/edit.exe.manifest";
-    let icon_path = "../../assets/edit.ico";
-
-    winresource::WindowsResource::new()
-        .set_manifest_file(manifest_path)
-        .set("FileDescription", "Microsoft Edit")
-        .set("LegalCopyright", "© Microsoft Corporation. All rights reserved.")
-        .set_icon(icon_path)
-        .compile()
-        .unwrap();
-
-    println!("cargo::rerun-if-changed={manifest_path}");
+    // 本仓库将 edit-tui 作为 TUI 库使用：原 Microsoft edit.exe 桌面可执行文件
+    // 自带的图标（edit.ico）与 manifest（edit.exe.manifest）未随 vendor 拷入，
+    // 且对库功能无必要，这里跳过 Windows 可执行资源编译（winresource 仅用于给
+    // 桌面 exe 嵌入图标/manifest；强行编译会因找不到资源文件而 RC2135 失败）。
 }

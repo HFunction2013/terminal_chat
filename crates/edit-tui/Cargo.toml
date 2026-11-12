@@ -28,9 +28,6 @@ lsh = { path = "../lsh", version = "0.1", default-features = false, features = [
 # Thankfully toml-span exists. FWIW the alternative is yaml-rust (without the 2 suffix).
 toml-span = { version = "0.7", default-features = false }
 
-[target.'cfg(windows)'.build-dependencies]
-winresource = { version = "0.1", default-features = false }
-
 [target.'cfg(windows)'.dependencies.windows-sys]
 version = "0.61"
 features = [
