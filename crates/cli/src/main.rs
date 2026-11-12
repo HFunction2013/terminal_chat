@@ -162,8 +162,8 @@ fn simplify_branch(ref_name: Option<&str>) -> &str {
     ref_name.and_then(|r| r.strip_prefix("refs/heads/")).unwrap_or("no branch")
 }
 
-fn welcome(b: bool) {
-    println!(
+pub(crate) fn welcome_text(b: bool) -> String {
+    let mut s = format!(
         "{} {}({}) ({}, {}, {})",
         built_info::PKG_NAME,
         built_info::PKG_VERSION,
@@ -172,14 +172,19 @@ fn welcome(b: bool) {
         built_info::GIT_COMMIT_HASH_SHORT.unwrap_or("unknown"),
         built_info::BUILT_TIME_UTC,
     );
-    println!("[{}] on {}", built_info::RUSTC_VERSION, built_info::CFG_OS);
+    s.push_str(&format!("\n[{}] on {}", built_info::RUSTC_VERSION, built_info::CFG_OS));
     if b {
-        println!("Type \"help\", \"copyright\" or \"license\" for more information.");
+        s.push_str("\nType \"help\", \"copyright\" or \"license\" for more information.");
     }
+    s
 }
 
-fn build_info() {
-    let out = format!(
+fn welcome(b: bool) {
+    println!("{}", welcome_text(b));
+}
+
+pub(crate) fn build_info_text() -> String {
+    format!(
         r"=== built::info ===
 PKG_NAME: {}
 PKG_VERSION: {}
@@ -206,16 +211,32 @@ GIT_COMMIT_HASH: {:?}
         built_info::GIT_VERSION.unwrap_or("unknown"),
         built_info::GIT_DIRTY.unwrap_or(false),
         built_info::GIT_COMMIT_HASH.unwrap_or("unknown"),
-    );
-    println!("{out}");
+    )
+}
+
+fn build_info() {
+    println!("{}", build_info_text());
+}
+
+pub(crate) fn copyright_text() -> String {
+    "Copyright (c) 2026 HZFY. All Rights Reserved.".to_string()
 }
 
 fn print_copyright() {
-    println!("Copyright (c) 2026 HZFY. All Rights Reserved.");
+    println!("{}", copyright_text());
+}
+
+pub(crate) fn license_text() -> String {
+    include_str!("../../../LICENSE").to_string()
 }
 
 fn print_license() {
-    println!(include_str!("../../../LICENSE"));
+    println!("{}", license_text());
+}
+
+/// 随机一句 fortune；供 REPL 与 TUI 内置命令复用。
+pub(crate) fn saying_text() -> Option<String> {
+    rs_fortune::choose_fortune(FORTUNE_TEXT).map(|s| s.to_string())
 }
 
 fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
@@ -552,7 +573,7 @@ Because everyone deserves a good cup of coffee."
                 continue;
             }
             "saying" => {
-                match rs_fortune::choose_fortune(FORTUNE_TEXT) {
+                match saying_text() {
                     Some(msg) => println!("{msg}"),
                     None => eprintln!("Error choosing saying"),
                 }

@@ -116,6 +116,17 @@ const COMMAND_NAMES: &[&str] = &[
     "download",
     "editor",
     "exit",
+    "quit",
+    "q",
+    "clear",
+    "version",
+    "build_info",
+    "copyright",
+    "license",
+    "coffee",
+    "saying",
+    "banner",
+    "train",
     "feedback",
     "file_info",
     "foreground",
@@ -715,10 +726,17 @@ fn draw(
 ) {
     let ctx = &mut tui.create_context(input);
 
+    // 统一外框：菜单栏、主体、输入框、状态栏同处一个边框内，避免侧栏孤框与
+    // 其它区域边框不一致。弹窗为独立浮层，放在外框之外。
+    ctx.block_begin("frame");
+    ctx.attr_border();
+
     draw_menubar(ctx, app, run_command, output_drain, groups);
     draw_body(ctx, app);
     draw_input(ctx, app, run_command, output_drain);
     draw_status(ctx, app);
+
+    ctx.block_end();
     draw_dialog(ctx, app, run_command, output_drain);
 
     if let Some(key) = ctx.keyboard_input() {
@@ -764,18 +782,17 @@ fn draw_menubar(
 }
 
 fn draw_body(ctx: &mut Context, app: &App) {
-    // 顶层纵向：菜单栏(1) + 主体 + 输入框(1) + 状态栏(1)。主体高度显式减去其余三行。
-    let body_height = (ctx.size().height - 3).max(1);
+    // 外框上下各占 1 格；内部纵向：菜单栏(1) + 主体 + 输入框(1) + 状态栏(1)。
+    let body_height = (ctx.size().height - 5).max(1);
 
     ctx.table_begin("body");
     ctx.table_set_columns(&[26, COORD_TYPE_SAFE_MAX]);
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
     ctx.table_next_row();
 
-    // 左侧：会话 / 成员。
+    // 左侧：会话 / 成员（统一外框已闭合，侧栏不再单独画框）。
     ctx.block_begin("sidebar");
     ctx.attr_padding(Rect::two(0, 1));
-    ctx.attr_border();
     ctx.attr_intrinsic_size(Size { width: 26, height: body_height });
 
     ctx.label("sec-freq", "会话");
@@ -950,12 +967,99 @@ fn execute_or_dialog(
     output_drain: &OutputDrainFn,
     argv: &[String],
 ) {
+    // 宿主内置命令（退出 / 清屏 / 版本信息等）在本地拦截，不进插件 FFI；
+    // 否则 cli-core 会给未注册命令加 `std` 前缀，clap 匹配不到子命令而报错。
+    if try_builtin(app, argv) {
+        return;
+    }
     let wants_connect = argv.first().map(|s| s == "connect").unwrap_or(false);
     if wants_connect && (app.server.is_empty() || app.username.is_empty()) {
         app.open_connect_dialog();
         return;
     }
     run_argv(app, run_command, output_drain, argv);
+}
+
+/// REPL 同款内置命令在 TUI 内的本地分发。
+///
+/// 返回 `true` 表示已本地处理，调用方无需再走 `run_command` FFI。
+fn try_builtin(app: &mut App, argv: &[String]) -> bool {
+    let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
+    match cmd {
+        "exit" | "quit" | "q" => {
+            app.exit = true;
+            true
+        }
+        "clear" => {
+            app.log.clear();
+            true
+        }
+        "version" => {
+            app.push_line(crate::welcome_text(false), LineKind::Result);
+            app.follow_latest();
+            true
+        }
+        "build_info" => {
+            app.push_line(crate::build_info_text(), LineKind::Result);
+            app.follow_latest();
+            true
+        }
+        "copyright" => {
+            app.push_line(crate::copyright_text(), LineKind::Result);
+            true
+        }
+        "license" => {
+            app.push_line(crate::license_text(), LineKind::Result);
+            true
+        }
+        "coffee" => {
+            app.push_line(COFFEE_ART.to_string(), LineKind::Result);
+            true
+        }
+        "saying" => match crate::saying_text() {
+            Some(msg) => {
+                app.push_line(msg, LineKind::Result);
+                true
+            }
+            None => {
+                app.push_line("Error choosing saying".to_string(), LineKind::System);
+                true
+            }
+        },
+        "help" => {
+            app.push_line(builtin_help_text(), LineKind::Result);
+            app.follow_latest();
+            true
+        }
+        // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
+        "banner" | "train" => {
+            app.push_line(
+                format!("`{cmd}` 是终端动画命令，请在非 TUI 的 REPL 中运行。"),
+                LineKind::System,
+            );
+            true
+        }
+        _ => false,
+    }
+}
+
+const COFFEE_ART: &str = r"                  ( (
+                   ) )
+                 ........
+                 |      |]
+                 \      /
+                  `----'
+Because everyone deserves a good cup of coffee.";
+
+/// 内置 / 常用命令帮助文本。
+fn builtin_help_text() -> String {
+    [
+        "内置命令: exit/quit/q  退出 | clear  清空记录 | version  版本 | build_info  构建信息",
+        "          copyright  版权 | license  许可 | coffee  咖啡 | saying  一句格言 | help  本帮助",
+        "常用命令: connect  连接 | msg -m <文本>  发消息 | join_freq <频点> | create_freq <频点>",
+        "          show active_users | show active_freqs | workspace list | ls | upload | download",
+    ]
+    .join("\n")
 }
 
 /// 弹窗当前阶段确认：推进到下一阶段，或回填选项后执行 `connect`。
@@ -1006,10 +1110,6 @@ fn submit(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainF
     }
     app.history.push(cmd.clone());
     app.history_idx = None;
-    if matches!(cmd.as_str(), "exit" | "quit" | "q") {
-        app.exit = true;
-        return;
-    }
     let argv: Vec<String> = shell_words::split(&cmd).unwrap_or_else(|_| vec![cmd.clone()]);
     app.note_command(&argv);
     execute_or_dialog(app, run_command, output_drain, &argv);
@@ -1138,5 +1238,36 @@ mod tests {
         let first = app.completions[0].clone();
         app.accept_completion();
         assert_eq!(app.input, first);
+    }
+
+    #[test]
+    fn builtin_exit_sets_flag() {
+        let mut app = App::new();
+        assert!(try_builtin(&mut app, &["exit".to_string()]));
+        assert!(app.exit);
+        assert!(try_builtin(&mut app, &["q".to_string()]));
+        assert!(app.exit);
+    }
+
+    #[test]
+    fn builtin_clear_empties_log() {
+        let mut app = App::new();
+        app.push_line("x".to_string(), LineKind::System);
+        assert!(try_builtin(&mut app, &["clear".to_string()]));
+        assert!(app.log.is_empty());
+    }
+
+    #[test]
+    fn builtin_version_appends_text() {
+        let mut app = App::new();
+        let before = app.log.len();
+        assert!(try_builtin(&mut app, &["version".to_string()]));
+        assert!(app.log.len() > before);
+    }
+
+    #[test]
+    fn unknown_command_is_not_builtin() {
+        let mut app = App::new();
+        assert!(!try_builtin(&mut app, &["msg".to_string(), "hi".to_string()]));
     }
 }
