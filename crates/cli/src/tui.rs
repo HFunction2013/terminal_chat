@@ -885,6 +885,32 @@ fn draw_input(
     // 依据当前输入刷新补全候选。
     app.refresh_completions();
 
+    // 按键判断必须放在候选浮层挂载之前：浮层 list 会被表格包成第二个
+    // 兄弟行，list_end 后 last_node 停在浮层行，而焦点在含输入框的兄弟行，
+    // 此时再判断子树归属会失配导致 Enter 不触发提交。当前节点仍是包含
+    // 输入框的行容器，用 contains_focus 判断子树是否聚焦。
+    if ctx.contains_focus() {
+        if ctx.consume_shortcut(vk::UP) {
+            if !app.completions.is_empty() {
+                app.cycle_completion(-1);
+            } else {
+                app.history_prev();
+            }
+        } else if ctx.consume_shortcut(vk::DOWN) {
+            if !app.completions.is_empty() {
+                app.cycle_completion(1);
+            } else {
+                app.history_next();
+            }
+        } else if ctx.consume_shortcut(vk::TAB) {
+            if !app.completions.is_empty() {
+                app.accept_completion();
+            }
+        } else if ctx.consume_shortcut(vk::RETURN) {
+            submit(app, run_command, output_drain);
+        }
+    }
+
     // 候选非空时，在输入框正下方叠加一个浮层列表（对齐 upstream edit
     // 的 autocomplete suggestions 浮层），当前高亮项随 `comp_idx` 标记。
     if !app.completions.is_empty() {
@@ -913,28 +939,6 @@ fn draw_input(
             }
         }
         ctx.list_end();
-    }
-
-    if ctx.is_focused() {
-        if ctx.consume_shortcut(vk::UP) {
-            if !app.completions.is_empty() {
-                app.cycle_completion(-1);
-            } else {
-                app.history_prev();
-            }
-        } else if ctx.consume_shortcut(vk::DOWN) {
-            if !app.completions.is_empty() {
-                app.cycle_completion(1);
-            } else {
-                app.history_next();
-            }
-        } else if ctx.consume_shortcut(vk::TAB) {
-            if !app.completions.is_empty() {
-                app.accept_completion();
-            }
-        } else if ctx.consume_shortcut(vk::RETURN) {
-            submit(app, run_command, output_drain);
-        }
     }
 
     ctx.table_end();
