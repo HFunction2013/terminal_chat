@@ -3,7 +3,14 @@ use std::fs;
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 需要系统安装 protoc（prost-build 从 PATH 查找）。
+    // 优先使用系统 PROTOC；未设置时回退到随 crate 打包的 vendored protoc，
+    // 这样 CI 各平台（Linux/macOS/Windows）无需单独安装 protoc。
+    if std::env::var_os("PROTOC").is_none() {
+        let protoc = protoc_bin_vendored::protoc_bin_path()?;
+        // build script 单线程运行，set_var 在此处安全。
+        unsafe { std::env::set_var("PROTOC", protoc) };
+    }
+
     let mut config = prost_build::Config::new();
 
     let protos: Vec<_> = glob::glob("./proto/**/*.proto")?.filter_map(|e| e.ok()).collect();

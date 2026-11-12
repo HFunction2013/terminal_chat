@@ -14,3 +14,4 @@ prost = { workspace = true }
 [build-dependencies]
 prost-build = { workspace = true }
 glob = "0.3"
+protoc-bin-vendored = "3.3.0"
