@@ -828,7 +828,7 @@ fn draw_body(ctx: &mut Context, app: &App) {
 
     ctx.label("sec-freq", "Session");
     let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
-    ctx.label("freq", &freq);
+    ctx.label("freq", &format!("  {freq}"));
     ctx.label("blank", "");
 
     ctx.label("sec-members", "Members");
@@ -850,6 +850,9 @@ fn draw_body(ctx: &mut Context, app: &App) {
     let off = if app.follow { base } else { base + app.scroll_y };
 
     ctx.scrollarea_begin("chat", Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
+    // 与侧栏共用左右各 1 格内边距：聊天文字不贴双栏分界，左右对称
+    // （滚动条仍由框架在最右列自动预留）。
+    ctx.attr_padding(Rect::two(0, 1));
     // 必须在加入子节点之前定位滚动偏移：begin 返回时 last_node 仍是挂
     // ScrollareaContent 的外层容器；进入子节点后 last_node 会变成叶子节点，
     // 再调用 scrollarea_scroll_to 会命中框架的 debug_assert!(false)。
@@ -874,6 +877,8 @@ fn draw_input(
 ) {
     ctx.table_begin("input-bar");
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
+    // 与侧栏 / 状态栏共用左右各 1 格内边距，提示符与下方状态栏左缘对齐。
+    ctx.attr_padding(Rect::two(0, 1));
     ctx.table_next_row();
     ctx.label("prompt", ">");
 
@@ -955,7 +960,7 @@ fn draw_status(ctx: &mut Context, app: &App) {
     };
     let freq = app.current_freq.clone().unwrap_or_else(|| "-".to_string());
     let quiet = if app.quiet { "QUIET" } else { "sound" };
-    let text = format!(" {who}@{host} | freq {freq} | {quiet} | {}", now_ts());
+    let text = format!("{who}@{host} | freq {freq} | {quiet} | {}", now_ts());
 
     ctx.table_begin("status");
     ctx.attr_focus_well();
