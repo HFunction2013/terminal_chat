@@ -32,7 +32,7 @@ use edit_tui::helpers::{COORD_TYPE_SAFE_MAX, CoordType, MEBI, Point, Rect, Size}
 use edit_tui::input::{self, Input, kbmod, vk};
 use edit_tui::oklab::StraightRgba;
 use edit_tui::sys;
-use edit_tui::tui::{Anchor, Context, FloatSpec, ListSelection, Tui};
+use edit_tui::tui::{Anchor, ButtonStyle, Context, FloatSpec, ListSelection, Tui};
 use edit_tui::vt;
 
 /// 拉取积压推送的 FFI 符号类型。
@@ -88,9 +88,7 @@ struct ChatLine {
 enum Action {
     /// 直接执行 argv。
     Run(Vec<&'static str>),
-    /// 把命令前缀预填进输入框，交用户补全参数。
-    Prefill(&'static str),
-    /// 弹出参数表单收集参数；`PREFER_COMMAND_LINE` 为真时退回 `Prefill`。
+    /// 弹出参数表单收集参数；`PREFER_COMMAND_LINE` 为真时退回输入框预填。
     Form(&'static FormSpec),
 }
 
@@ -723,7 +721,7 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Info...", action: Action::Form(&FREQ_INFO_FORM) },
                 MenuItem { label: "Background", action: Action::Run(vec!["background"]) },
                 MenuItem { label: "Sessions", action: Action::Run(vec!["sessions", "list"]) },
-                MenuItem { label: "Disband...", action: Action::Prefill("disband ") },
+                MenuItem { label: "Disband...", action: Action::Run(vec!["disband"]) },
                 MenuItem {
                     label: "Active freqs",
                     action: Action::Run(vec!["show", "active_freqs"]),
@@ -823,6 +821,8 @@ enum Dialog {
     Connect { stage: DialogStage, server: String, username: String },
     /// 命令参数表单：按字段逐阶段收集。
     Form(FormDialog),
+    /// 危险操作二次确认：确认后执行 `argv`，取消则丢弃。
+    Confirm { message: String, argv: Vec<String> },
 }
 
 /// 通用命令表单弹窗状态。
@@ -1045,16 +1045,22 @@ impl App {
         }));
     }
 
+    /// 打开危险操作二次确认弹窗。
+    fn open_confirm(&mut self, message: String, argv: Vec<String>) {
+        self.dialog = Some(Dialog::Confirm { message, argv });
+    }
+
     /// 返回弹窗当前阶段正在编辑的文本缓冲。
     fn dialog_buffer(&mut self) -> Option<&mut String> {
         let d = self.dialog.as_mut()?;
-        Some(match d {
-            Dialog::Connect { stage, server, username } => match stage {
+        match d {
+            Dialog::Connect { stage, server, username } => Some(match stage {
                 DialogStage::AskServer => server,
                 DialogStage::AskUser => username,
-            },
-            Dialog::Form(form) => &mut form.values[form.focus],
-        })
+            }),
+            Dialog::Form(form) => Some(&mut form.values[form.focus]),
+            Dialog::Confirm { .. } => None,
+        }
     }
 
     /// 回到最新消息并恢复跟随。
@@ -1244,6 +1250,23 @@ fn needs_connection(cmd: &str) -> bool {
             | "route"
             | "notifications"
     )
+}
+
+/// 判定是否为需要二次确认的危险操作（解散频点、踢人、封禁、删远端文件）。
+fn is_dangerous(cmd: &str) -> bool {
+    matches!(cmd, "disband" | "kick" | "ban" | "rm")
+}
+
+/// 按命令与目标参数生成确认弹窗文案。
+fn confirm_message(cmd: &str, argv: &[String]) -> String {
+    let target = argv.get(1).cloned().unwrap_or_default();
+    match cmd {
+        "disband" => "Really disband this frequency? This cannot be undone.".to_string(),
+        "kick" => format!("Really kick {target}?"),
+        "ban" => format!("Really ban {target}?"),
+        "rm" => format!("Really remove remote file {target}?"),
+        _ => format!("Really run: {}?", argv.join(" ")),
+    }
 }
 
 /// 按命令名与参数位置判定主命令行该位置的补全类别。
@@ -1758,6 +1781,28 @@ fn draw_dialog(
     if app.dialog.is_none() {
         return;
     }
+
+    // 危险操作确认框：纯按钮，无文本输入。
+    if let Dialog::Confirm { message, .. } = app.dialog.as_ref().unwrap() {
+        ctx.modal_begin("confirm-dialog", "Confirm");
+        ctx.block_begin("content");
+        ctx.inherit_focus();
+        ctx.attr_padding(Rect::three(1, 2, 1));
+        ctx.label("confirm-msg", message);
+        ctx.label("confirm-hint", "Enter: confirm    Esc: cancel");
+        let confirmed =
+            ctx.button("confirm-ok", "Confirm", ButtonStyle::default().bracketed(false));
+        ctx.block_end();
+        if confirmed {
+            dialog_advance(app, run_command, output_drain);
+        }
+        let esc = ctx.modal_end();
+        if esc {
+            app.dialog = None;
+        }
+        return;
+    }
+
     let (title, prompt, secret) = match app.dialog.as_ref().unwrap() {
         Dialog::Connect { stage, .. } => match stage {
             DialogStage::AskServer => ("Connect", "Server [host:port]:", false),
@@ -1767,6 +1812,7 @@ fn draw_dialog(
             let field = &form.spec.fields[form.focus];
             (form.spec.title, field.label, field.secret)
         }
+        Dialog::Confirm { .. } => unreachable!("confirm dialog rendered above"),
     };
 
     ctx.modal_begin("connect-dialog", title);
@@ -1827,9 +1873,6 @@ fn run_action(
             app.note_command(&argv);
             execute_or_dialog(app, run_command, output_drain, &argv);
         }
-        Action::Prefill(prefix) => {
-            app.input = prefix.to_string();
-        }
         Action::Form(spec) => {
             if needs_connection(spec.cmd) && !app.connected() {
                 app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
@@ -1864,6 +1907,11 @@ fn execute_or_dialog(
     let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
     if needs_connection(cmd) && !app.connected() {
         app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
+        return;
+    }
+    // 危险操作：先弹二次确认框，确认后再执行。
+    if is_dangerous(cmd) {
+        app.open_confirm(confirm_message(cmd, argv), argv.to_vec());
         return;
     }
     run_argv(app, run_command, output_drain, argv);
@@ -1980,7 +2028,15 @@ fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &Outp
                 finish_form(app, run_command, output_drain);
             }
         }
+        Dialog::Confirm { .. } => finish_confirm(app, run_command, output_drain),
     }
+}
+
+/// 确认框通过：执行原待提交 argv。
+fn finish_confirm(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
+    let Some(Dialog::Confirm { argv, .. }) = app.dialog.take() else { return };
+    app.note_command(&argv);
+    run_argv(app, run_command, output_drain, &argv);
 }
 
 /// 弹窗完成：把收集到的服务器 / 昵称经 `setg` 回填全局选项，再执行 `connect`。
@@ -1988,7 +2044,7 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
     let Some(d) = app.dialog.take() else { return };
     let (server, username) = match d {
         Dialog::Connect { server, username, .. } => (server, username),
-        Dialog::Form(_) => return,
+        Dialog::Form(_) | Dialog::Confirm { .. } => return,
     };
     if !server.is_empty() {
         let (host, port) = split_host_port(&server);
@@ -2205,6 +2261,11 @@ fn finish_form(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputD
     let Some(Dialog::Form(form)) = app.dialog.take() else { return };
     let vals: Vec<String> = form.values.iter().map(|s| s.trim().to_string()).collect();
     let argv = form_argv(form.spec, &vals);
+    let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
+    if is_dangerous(cmd) {
+        app.open_confirm(confirm_message(cmd, &argv), argv);
+        return;
+    }
     app.note_command(&argv);
     run_argv(app, run_command, output_drain, &argv);
 }
@@ -2662,5 +2723,78 @@ mod tests {
         assert_eq!(local_candidates(&parent, "al"), vec![format!("{parent}alpha.txt")]);
         assert_eq!(local_candidates(&parent, "su"), vec![format!("{parent}sub/")]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn has_cmd_line(app: &App, text: &str) -> bool {
+        app.log.iter().any(|l| l.kind == LineKind::Cmd && l.text == format!("tc> {text}"))
+    }
+
+    #[test]
+    fn dangerous_classifies_destructive_commands() {
+        for cmd in ["disband", "kick", "ban", "rm"] {
+            assert!(is_dangerous(cmd), "{cmd} should be dangerous");
+        }
+        for cmd in ["msg", "unban", "unignore", "deop", "trop", "leave_freq", "join_freq", "help"] {
+            assert!(!is_dangerous(cmd), "{cmd} should not be dangerous");
+        }
+    }
+
+    #[test]
+    fn confirm_message_mentions_target() {
+        assert!(confirm_message("disband", &["disband".into()]).contains("cannot be undone"));
+        assert_eq!(confirm_message("kick", &["kick".into(), "alice".into()]), "Really kick alice?");
+        assert_eq!(confirm_message("ban", &["ban".into(), "bob".into()]), "Really ban bob?");
+        assert_eq!(
+            confirm_message("rm", &["rm".into(), "dir/file".into()]),
+            "Really remove remote file dir/file?"
+        );
+    }
+
+    #[test]
+    fn dangerous_command_opens_confirm_without_running() {
+        let mut app = App::new();
+        app.is_connected = Some(STUB_CONNECTED);
+        app.input = "kick alice".into();
+        submit(&mut app, &STUB_RUN, &STUB_DRAIN);
+        let Some(Dialog::Confirm { message, argv }) = &app.dialog else {
+            panic!("expected confirm dialog");
+        };
+        assert_eq!(argv, &vec!["kick".to_string(), "alice".to_string()]);
+        assert!(message.contains("alice"));
+        assert!(!has_cmd_line(&app, "kick alice"));
+    }
+
+    #[test]
+    fn confirm_dialog_runs_original_argv_on_advance() {
+        let mut app = App::new();
+        app.open_confirm("Really kick alice?".into(), vec!["kick".into(), "alice".into()]);
+        dialog_advance(&mut app, &STUB_RUN, &STUB_DRAIN);
+        assert!(app.dialog.is_none());
+        assert!(has_cmd_line(&app, "kick alice"));
+    }
+
+    #[test]
+    fn form_dangerous_submit_opens_confirm_not_executed() {
+        let mut app = App::new();
+        app.open_form(&KICK_FORM);
+        app.dialog_buffer().unwrap().push_str("alice");
+        dialog_advance(&mut app, &STUB_RUN, &STUB_DRAIN);
+        let Some(Dialog::Confirm { argv, .. }) = &app.dialog else {
+            panic!("expected confirm dialog after kick form");
+        };
+        assert_eq!(argv, &vec!["kick".to_string(), "alice".to_string()]);
+        assert!(!has_cmd_line(&app, "kick alice"));
+    }
+
+    #[test]
+    fn disband_menu_opens_confirm_when_connected() {
+        let mut app = App::new();
+        app.is_connected = Some(STUB_CONNECTED);
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Run(vec!["disband"]));
+        let Some(Dialog::Confirm { argv, .. }) = &app.dialog else {
+            panic!("expected confirm dialog for disband");
+        };
+        assert_eq!(argv, &vec!["disband".to_string()]);
+        assert!(!has_cmd_line(&app, "disband"));
     }
 }
