@@ -605,6 +605,9 @@ struct MenuGroup {
     items: Vec<MenuItem>,
 }
 
+/// 补全浮层最多同时可见的候选条数；超出部分靠窗口滚动跟随高亮。
+const COMPLETION_VIEW: usize = 5;
+
 /// 输入框命令名补全候选（与 cli-standard 注册命令一致的静态子集）。
 const COMMAND_NAMES: &[&str] = &[
     "away",
@@ -866,6 +869,8 @@ struct App {
     completions: Vec<String>,
     /// 候选循环下标。
     comp_idx: usize,
+    /// 补全浮层窗口首项的全局下标（视口最多 `COMPLETION_VIEW` 条）。
+    comp_scroll: usize,
     /// 激活中的配置弹窗；`None` 表示无弹窗。
     dialog: Option<Dialog>,
     /// 侧栏快照：当前会话 freq。
@@ -912,6 +917,7 @@ impl App {
             scroll_y: 0,
             completions: Vec::new(),
             comp_idx: 0,
+            comp_scroll: 0,
             dialog: None,
             current_freq: None,
             members: Vec::new(),
@@ -1157,6 +1163,7 @@ impl App {
         if self.comp_idx >= self.completions.len() {
             self.comp_idx = 0;
         }
+        self.comp_scroll = 0;
     }
 
     /// 经插件回调列举远端目录条目，按基名前缀过滤并补回父目录前缀。
@@ -1217,6 +1224,25 @@ impl App {
         }
         self.comp_idx =
             if delta > 0 { (self.comp_idx + 1) % n } else { (self.comp_idx + n - 1) % n };
+        self.clamp_completion_scroll();
+    }
+
+    /// 把补全浮层窗口对齐到高亮项：高亮不在视口内时平移窗口，并钳制到
+    /// 最后一个可见窗口。视口最多 [`COMPLETION_VIEW`] 条。
+    fn clamp_completion_scroll(&mut self) {
+        let n = self.completions.len();
+        if n == 0 {
+            self.comp_scroll = 0;
+            return;
+        }
+        let view = COMPLETION_VIEW.min(n);
+        let last = n.saturating_sub(view);
+        if self.comp_idx < self.comp_scroll {
+            self.comp_scroll = self.comp_idx;
+        } else if self.comp_idx >= self.comp_scroll + view {
+            self.comp_scroll = self.comp_idx - view + 1;
+        }
+        self.comp_scroll = self.comp_scroll.min(last);
     }
 
     /// 当前是否已建立服务器连接；回调缺失或回报 0 时视为未连接。
@@ -1832,7 +1858,12 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
     ctx.attr_background_rgba(bg);
     ctx.attr_foreground_rgba(fg);
     let cands = app.completions.clone();
-    for (idx, cand) in cands.iter().enumerate() {
+    let n = cands.len();
+    let view = COMPLETION_VIEW.min(n);
+    let start = app.comp_scroll.min(n.saturating_sub(view));
+    let end = (start + view).min(n);
+    for (local, cand) in cands[start..end].iter().enumerate() {
+        let idx = start + local;
         let sel = ctx.list_item(idx == app.comp_idx, cand);
         if sel == ListSelection::Activated {
             app.comp_idx = idx;
@@ -1841,6 +1872,7 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
             app.comp_idx = idx;
         }
     }
+    app.clamp_completion_scroll();
     ctx.list_end();
 }
 
@@ -2593,6 +2625,52 @@ mod tests {
         app.input = "set pre".into();
         app.refresh_completions();
         assert_eq!(app.completions, vec!["PREFER_COMMAND_LINE".to_string()]);
+    }
+
+    #[test]
+    fn completion_view_shows_all_when_fewer_than_view() {
+        let mut app = App::new();
+        app.completions = vec!["a".into(), "b".into(), "c".into()];
+        app.clamp_completion_scroll();
+        assert_eq!(app.comp_scroll, 0);
+    }
+
+    #[test]
+    fn completion_window_follows_highlight_down() {
+        let mut app = App::new();
+        app.completions = (0..8).map(|i| format!("c{i}")).collect();
+        // 下移到第 6 项（idx 5），窗口平移到 1。
+        for _ in 0..5 {
+            app.cycle_completion(1);
+        }
+        assert_eq!(app.comp_idx, 5);
+        assert_eq!(app.comp_scroll, 1);
+        // 到最后一项 idx 7，窗口钳到 last = 8 - 5 = 3。
+        for _ in 0..2 {
+            app.cycle_completion(1);
+        }
+        assert_eq!(app.comp_idx, 7);
+        assert_eq!(app.comp_scroll, 3);
+    }
+
+    #[test]
+    fn completion_window_follows_highlight_up() {
+        let mut app = App::new();
+        app.completions = (0..8).map(|i| format!("c{i}")).collect();
+        app.comp_idx = 7;
+        app.comp_scroll = 3;
+        // 上移到 idx 2：高亮落出窗口顶部，窗口回卷到 2。
+        for _ in 0..5 {
+            app.cycle_completion(-1);
+        }
+        assert_eq!(app.comp_idx, 2);
+        assert_eq!(app.comp_scroll, 2);
+        // 继续上移到 idx 0，窗口贴顶 0。
+        for _ in 0..2 {
+            app.cycle_completion(-1);
+        }
+        assert_eq!(app.comp_idx, 0);
+        assert_eq!(app.comp_scroll, 0);
     }
 
     #[test]
