@@ -76,19 +76,36 @@ pub fn write_frame(stream: &mut TcpStream, frame_type: u8, bytes: &[u8]) -> Resu
     Ok(())
 }
 
+/// 把 `host:port` 拆成 `(host, 可选 port)`；末段非纯数字时整串视为 host。
+pub(crate) fn split_host_port(input: &str) -> (String, Option<String>) {
+    let input = input.trim();
+    match input.rfind(':') {
+        Some(i) => {
+            let host = &input[..i];
+            let port = &input[i + 1..];
+            if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) {
+                return (host.to_string(), Some(port.to_string()));
+            }
+            (input.to_string(), None)
+        }
+        None => (input.to_string(), None),
+    }
+}
+
 /// 读取 SERVER / PORT 全局配置（PORT 缺省 50051）。
+/// SERVER 内嵌的 `:port` 优先于全局 PORT，避免 host 带端口再拼一次端口。
 fn server_config() -> Result<(String, String)> {
-    let server = match read_global("SERVER") {
+    let raw = match read_global("SERVER") {
         Some(v) => v.to_string(),
         None => {
             return Err(anyhow!("SERVER not set; use `setg SERVER <address>` first"));
         }
     };
-    let port = match read_global("PORT") {
-        Some(v) => v.to_string(),
-        None => DEFAULT_PORT.to_string(),
-    };
-    Ok((server, port))
+    let (host, embedded_port) = split_host_port(&raw);
+    let port = embedded_port
+        .or_else(|| read_global("PORT").map(|v| v.to_string()))
+        .unwrap_or_else(|| DEFAULT_PORT.to_string());
+    Ok((host, port))
 }
 
 /// 建立到服务器的连接并完成握手。
@@ -329,4 +346,28 @@ pub fn rpc<T: prost::Message + Default, R: prost::Message + Default>(
         return Err(anyhow!("server returned an empty response for `{channel}`"));
     }
     R::decode(&bytes[..]).context(format!("Failed to decode response for `{channel}`"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_host_port;
+
+    #[test]
+    fn splits_numeric_port_from_host() {
+        assert_eq!(
+            split_host_port("127.0.0.1:50051"),
+            ("127.0.0.1".to_string(), Some("50051".to_string()))
+        );
+        assert_eq!(
+            split_host_port("example.com:8080"),
+            ("example.com".to_string(), Some("8080".to_string()))
+        );
+    }
+
+    #[test]
+    fn keeps_plain_host_untouched() {
+        assert_eq!(split_host_port("127.0.0.1"), ("127.0.0.1".to_string(), None));
+        // 末段非数字：不视为端口。
+        assert_eq!(split_host_port("host:http"), ("host:http".to_string(), None));
+    }
 }

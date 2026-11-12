@@ -661,6 +661,11 @@ commands:
     aliases: 
       - conn
     about: Connect the server
+    args:
+      - name: server
+        value_name: HOST[:PORT]
+        required: false
+        help: Server address, e.g., 127.0.0.1:50051
   - name: logs
     about: open/close logging
     debug_only: true

@@ -1222,6 +1222,22 @@ fn split_path_prefix(prefix: &str) -> (&str, &str) {
     }
 }
 
+/// 把 `host:port` 拆成 `(host, 可选 port)`；末段非纯数字时整串视为 host。
+fn split_host_port(input: &str) -> (String, Option<String>) {
+    let input = input.trim();
+    match input.rfind(':') {
+        Some(i) => {
+            let host = &input[..i];
+            let port = &input[i + 1..];
+            if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) {
+                return (host.to_string(), Some(port.to_string()));
+            }
+            (input.to_string(), None)
+        }
+        None => (input.to_string(), None),
+    }
+}
+
 /// 列举本机目录条目，按基名前缀过滤；目录条目补 `/` 后缀。
 fn local_candidates(parent: &str, base: &str) -> Vec<String> {
     let base_dir = if parent.is_empty() {
@@ -1903,12 +1919,18 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
         Dialog::Form(_) => return,
     };
     if !server.is_empty() {
-        run_argv(
-            app,
-            run_command,
-            output_drain,
-            &["setg".to_string(), "SERVER".to_string(), server],
-        );
+        let (host, port) = split_host_port(&server);
+        if !host.is_empty() {
+            run_argv(
+                app,
+                run_command,
+                output_drain,
+                &["setg".to_string(), "SERVER".to_string(), host],
+            );
+        }
+        if let Some(p) = port {
+            run_argv(app, run_command, output_drain, &["setg".to_string(), "PORT".to_string(), p]);
+        }
     }
     if !username.is_empty() {
         run_argv(
@@ -2432,6 +2454,21 @@ mod tests {
         assert_eq!(split_path_prefix("docs/rep"), ("docs/", "rep"));
         assert_eq!(split_path_prefix("rep"), ("", "rep"));
         assert_eq!(split_path_prefix("/abs/p"), ("/abs/", "p"));
+    }
+
+    #[test]
+    fn split_host_port_separates_numeric_port() {
+        assert_eq!(
+            split_host_port("127.0.0.1:50051"),
+            ("127.0.0.1".to_string(), Some("50051".to_string()))
+        );
+        assert_eq!(
+            split_host_port("  example.com:8080  "),
+            ("example.com".to_string(), Some("8080".to_string()))
+        );
+        // 末段非数字：整串视为 host，不拆端口。
+        assert_eq!(split_host_port("example.com:http"), ("example.com:http".to_string(), None));
+        assert_eq!(split_host_port("127.0.0.1"), ("127.0.0.1".to_string(), None));
     }
 
     #[test]
