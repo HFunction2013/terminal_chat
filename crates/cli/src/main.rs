@@ -112,6 +112,11 @@ fn option_candidates(
     options.iter().filter(|o| o.to_uppercase().starts_with(&needle)).cloned().collect()
 }
 
+/// 构造 REPL 命令回显行，对齐 TUI 的 `tc> <cmd>` 口径。
+fn repl_echo_line(input: &str) -> String {
+    format!("tc> {input}")
+}
+
 /// rustyline Helper：桥接 `clap_complete`
 struct ClapHelper {
     cli: Command,
@@ -599,6 +604,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
         rl.add_history_entry(input)?;
+        println!("{}", repl_echo_line(input));
         match input {
             "exit" | "quit" | "q" => {
                 println!("Bye");
@@ -679,7 +685,7 @@ Because everyone deserves a good cup of coffee."
 
 #[cfg(test)]
 mod tests {
-    use super::option_candidates;
+    use super::{option_candidates, repl_echo_line};
 
     #[test]
     fn option_candidates_match_prefix_case_insensitive() {
@@ -697,5 +703,10 @@ mod tests {
         assert!(option_candidates(&opts, Some("set"), 2, "se").is_empty());
         // 无命令首词时不补全。
         assert!(option_candidates(&opts, None, 1, "se").is_empty());
+    }
+
+    #[test]
+    fn repl_echo_line_prefixes_command() {
+        assert_eq!(repl_echo_line("unload plugin cli-standard"), "tc> unload plugin cli-standard");
     }
 }
