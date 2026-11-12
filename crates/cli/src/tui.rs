@@ -118,6 +118,173 @@ const JOIN_FORM: FormSpec = FormSpec {
     ],
 };
 
+/// `workspace switch` 表单。
+const SWITCH_WS_FORM: FormSpec = FormSpec {
+    title: "Switch Workspace",
+    cmd: "workspace switch",
+    prefill: "workspace switch ",
+    fields: &[FormField { label: "Workspace name:", required: true }],
+};
+
+/// `workspace new` 表单：名称可选（服务端默认 `Workspace-xxx`）。
+const NEW_WS_FORM: FormSpec = FormSpec {
+    title: "New Workspace",
+    cmd: "workspace new",
+    prefill: "workspace new ",
+    fields: &[FormField { label: "Workspace name (optional):", required: false }],
+};
+
+/// `create_freq` 表单：频点名必填；密码/成员数等仍走命令行。
+const CREATE_FREQ_FORM: FormSpec = FormSpec {
+    title: "Create Frequency",
+    cmd: "create_freq",
+    prefill: "create_freq ",
+    fields: &[FormField { label: "Frequency ID:", required: true }],
+};
+
+/// `msg` 表单：收件人可选（默认全员），消息必填。
+const MSG_FORM: FormSpec = FormSpec {
+    title: "Send Message",
+    cmd: "msg",
+    prefill: "msg -m ",
+    fields: &[
+        FormField { label: "Users (optional):", required: false },
+        FormField { label: "Message:", required: true },
+    ],
+};
+
+/// `reply` 表单。
+const REPLY_FORM: FormSpec = FormSpec {
+    title: "Reply",
+    cmd: "reply",
+    prefill: "reply ",
+    fields: &[FormField { label: "Message:", required: true }],
+};
+
+/// `call` 表单。
+const CALL_FORM: FormSpec = FormSpec {
+    title: "Call User",
+    cmd: "call",
+    prefill: "call ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+
+/// 单用户管理命令表单（mute/unmute/ignore/kick/ban）。
+const MUTE_FORM: FormSpec = FormSpec {
+    title: "Mute User",
+    cmd: "mute",
+    prefill: "mute ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const UNMUTE_FORM: FormSpec = FormSpec {
+    title: "Unmute User",
+    cmd: "unmute",
+    prefill: "unmute ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const IGNORE_FORM: FormSpec = FormSpec {
+    title: "Ignore User",
+    cmd: "ignore",
+    prefill: "ignore ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const KICK_FORM: FormSpec = FormSpec {
+    title: "Kick User",
+    cmd: "kick",
+    prefill: "kick ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+const BAN_FORM: FormSpec = FormSpec {
+    title: "Ban User",
+    cmd: "ban",
+    prefill: "ban ",
+    fields: &[FormField { label: "User:", required: true }],
+};
+
+/// 文件列表表单：目录可选。
+const LS_FORM: FormSpec = FormSpec {
+    title: "List Remote Files",
+    cmd: "ls",
+    prefill: "ls ",
+    fields: &[FormField { label: "Directory (optional):", required: false }],
+};
+
+/// 上传表单：本地路径必填，远端路径可选。
+const UPLOAD_FORM: FormSpec = FormSpec {
+    title: "Upload",
+    cmd: "upload",
+    prefill: "upload ",
+    fields: &[
+        FormField { label: "Local path:", required: true },
+        FormField { label: "Remote path (optional):", required: false },
+    ],
+};
+
+/// 下载表单：远端路径必填，本地路径可选。
+const DOWNLOAD_FORM: FormSpec = FormSpec {
+    title: "Download",
+    cmd: "download",
+    prefill: "download ",
+    fields: &[
+        FormField { label: "Remote path:", required: true },
+        FormField { label: "Local path (optional):", required: false },
+    ],
+};
+
+/// 删除远端文件表单。
+const RM_FORM: FormSpec = FormSpec {
+    title: "Remove Remote File",
+    cmd: "rm",
+    prefill: "rm ",
+    fields: &[FormField { label: "Remote path:", required: true }],
+};
+
+/// 移动/重命名远端文件表单。
+const MV_FORM: FormSpec = FormSpec {
+    title: "Move Remote File",
+    cmd: "mv",
+    prefill: "mv ",
+    fields: &[
+        FormField { label: "From:", required: true },
+        FormField { label: "To:", required: true },
+    ],
+};
+
+/// 复制远端文件表单。
+const CP_FORM: FormSpec = FormSpec {
+    title: "Copy Remote File",
+    cmd: "cp",
+    prefill: "cp ",
+    fields: &[
+        FormField { label: "From:", required: true },
+        FormField { label: "To:", required: true },
+    ],
+};
+
+/// 加载插件表单。
+const LOAD_FORM: FormSpec = FormSpec {
+    title: "Load Plugin",
+    cmd: "load",
+    prefill: "load ",
+    fields: &[FormField { label: "Plugin:", required: true }],
+};
+
+/// 卸载插件表单。
+const UNLOAD_FORM: FormSpec = FormSpec {
+    title: "Unload Plugin",
+    cmd: "unload",
+    prefill: "unload ",
+    fields: &[FormField { label: "Plugin name:", required: true }],
+};
+
+/// 本地 shell 命令表单。
+const SHELL_FORM: FormSpec = FormSpec {
+    title: "Local Shell",
+    cmd: "shell",
+    prefill: "shell ",
+    fields: &[FormField { label: "Command:", required: true }],
+};
+
 struct MenuItem {
     label: &'static str,
     action: Action,
@@ -233,8 +400,8 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'W',
             items: vec![
                 MenuItem { label: "List", action: Action::Run(vec!["workspace", "list"]) },
-                MenuItem { label: "Switch...", action: Action::Prefill("workspace switch ") },
-                MenuItem { label: "New...", action: Action::Prefill("workspace new ") },
+                MenuItem { label: "Switch...", action: Action::Form(&SWITCH_WS_FORM) },
+                MenuItem { label: "New...", action: Action::Form(&NEW_WS_FORM) },
                 MenuItem { label: "Show", action: Action::Run(vec!["workspace", "show"]) },
             ],
         },
@@ -243,7 +410,7 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'F',
             items: vec![
                 MenuItem { label: "Join...", action: Action::Form(&JOIN_FORM) },
-                MenuItem { label: "Create...", action: Action::Prefill("create_freq ") },
+                MenuItem { label: "Create...", action: Action::Form(&CREATE_FREQ_FORM) },
                 MenuItem { label: "Leave", action: Action::Run(vec!["leave_freq"]) },
                 MenuItem { label: "Info", action: Action::Run(vec!["freq_info"]) },
                 MenuItem { label: "Background", action: Action::Run(vec!["background"]) },
@@ -254,20 +421,20 @@ fn menu_groups() -> Vec<MenuGroup> {
             name: "Message",
             accel: 'M',
             items: vec![
-                MenuItem { label: "Send...", action: Action::Prefill("msg -m ") },
-                MenuItem { label: "Reply...", action: Action::Prefill("reply ") },
-                MenuItem { label: "Call...", action: Action::Prefill("call ") },
+                MenuItem { label: "Send...", action: Action::Form(&MSG_FORM) },
+                MenuItem { label: "Reply...", action: Action::Form(&REPLY_FORM) },
+                MenuItem { label: "Call...", action: Action::Form(&CALL_FORM) },
             ],
         },
         MenuGroup {
             name: "Moderation",
             accel: 'O',
             items: vec![
-                MenuItem { label: "Mute...", action: Action::Prefill("mute ") },
-                MenuItem { label: "Unmute...", action: Action::Prefill("unmute ") },
-                MenuItem { label: "Ignore...", action: Action::Prefill("ignore ") },
-                MenuItem { label: "Kick...", action: Action::Prefill("kick ") },
-                MenuItem { label: "Ban...", action: Action::Prefill("ban ") },
+                MenuItem { label: "Mute...", action: Action::Form(&MUTE_FORM) },
+                MenuItem { label: "Unmute...", action: Action::Form(&UNMUTE_FORM) },
+                MenuItem { label: "Ignore...", action: Action::Form(&IGNORE_FORM) },
+                MenuItem { label: "Kick...", action: Action::Form(&KICK_FORM) },
+                MenuItem { label: "Ban...", action: Action::Form(&BAN_FORM) },
                 MenuItem { label: "Disband...", action: Action::Prefill("disband ") },
             ],
         },
@@ -275,13 +442,13 @@ fn menu_groups() -> Vec<MenuGroup> {
             name: "Files",
             accel: 'L',
             items: vec![
-                MenuItem { label: "List...", action: Action::Prefill("ls ") },
-                MenuItem { label: "Upload...", action: Action::Prefill("upload ") },
-                MenuItem { label: "Download...", action: Action::Prefill("download ") },
+                MenuItem { label: "List...", action: Action::Form(&LS_FORM) },
+                MenuItem { label: "Upload...", action: Action::Form(&UPLOAD_FORM) },
+                MenuItem { label: "Download...", action: Action::Form(&DOWNLOAD_FORM) },
                 MenuItem { label: "Tree", action: Action::Run(vec!["tree"]) },
-                MenuItem { label: "Remove...", action: Action::Prefill("rm ") },
-                MenuItem { label: "Move...", action: Action::Prefill("mv ") },
-                MenuItem { label: "Copy...", action: Action::Prefill("cp ") },
+                MenuItem { label: "Remove...", action: Action::Form(&RM_FORM) },
+                MenuItem { label: "Move...", action: Action::Form(&MV_FORM) },
+                MenuItem { label: "Copy...", action: Action::Form(&CP_FORM) },
             ],
         },
         MenuGroup {
@@ -289,8 +456,8 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'P',
             items: vec![
                 MenuItem { label: "Show", action: Action::Run(vec!["show", "plugins"]) },
-                MenuItem { label: "Load...", action: Action::Prefill("load ") },
-                MenuItem { label: "Unload...", action: Action::Prefill("unload ") },
+                MenuItem { label: "Load...", action: Action::Form(&LOAD_FORM) },
+                MenuItem { label: "Unload...", action: Action::Form(&UNLOAD_FORM) },
             ],
         },
         MenuGroup {
@@ -307,7 +474,7 @@ fn menu_groups() -> Vec<MenuGroup> {
                     label: "Active users",
                     action: Action::Run(vec!["show", "active_users"]),
                 },
-                MenuItem { label: "Shell...", action: Action::Prefill("shell ") },
+                MenuItem { label: "Shell...", action: Action::Form(&SHELL_FORM) },
             ],
         },
     ]
@@ -1271,16 +1438,127 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
 
 /// 按命令名把表单字段值组装成 argv（纯函数，便于单测）。
 fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
-    let mut argv = vec![spec.cmd.to_string()];
-    if spec.cmd == "join_freq" {
-        if let Some(freq) = vals.first() {
-            argv.push(freq.clone());
+    let trimmed: Vec<String> = vals.iter().map(|s| s.trim().to_string()).collect();
+    let opt = |i: usize| trimmed.get(i).filter(|s| !s.is_empty()).cloned();
+
+    match spec.cmd {
+        "join_freq" => {
+            let mut argv = vec!["join_freq".to_string()];
+            if let Some(freq) = opt(0) {
+                argv.push(freq);
+            }
+            if let Some(pw) = opt(1) {
+                argv.push(pw);
+            }
+            argv
         }
-        if let Some(pw) = vals.get(1).filter(|s| !s.is_empty()) {
-            argv.push(pw.clone());
+        "workspace switch" => {
+            let mut argv = vec!["workspace".into(), "switch".into()];
+            if let Some(v) = opt(0) {
+                argv.push(v);
+            }
+            argv
         }
+        "workspace new" => {
+            let mut argv = vec!["workspace".into(), "new".into()];
+            if let Some(v) = opt(0) {
+                argv.push(v);
+            }
+            argv
+        }
+        "create_freq" => {
+            let mut argv = vec!["create_freq".into()];
+            if let Some(v) = opt(0) {
+                argv.push(v);
+            }
+            argv
+        }
+        "msg" => {
+            let mut argv = vec!["msg".into()];
+            if let Some(users) = opt(0) {
+                argv.extend(shell_words::split(&users).unwrap_or_else(|_| vec![users]));
+            }
+            if let Some(msg) = opt(1) {
+                argv.push("-m".into());
+                argv.push(msg);
+            }
+            argv
+        }
+        "reply" => {
+            let mut argv = vec!["reply".into()];
+            if let Some(msg) = opt(0) {
+                argv.push("-m".into());
+                argv.push(msg);
+            }
+            argv
+        }
+        "call" | "mute" | "unmute" | "ignore" | "kick" | "ban" | "rm" => {
+            let mut argv = vec![spec.cmd.to_string()];
+            if let Some(a) = opt(0) {
+                argv.push(a);
+            }
+            argv
+        }
+        "ls" => {
+            let mut argv = vec!["ls".into()];
+            if let Some(d) = opt(0) {
+                argv.push(d);
+            }
+            argv
+        }
+        "upload" => {
+            let mut argv = vec!["upload".into()];
+            if let Some(local) = opt(0) {
+                argv.push(local);
+            }
+            if let Some(remote) = opt(1) {
+                argv.push(remote);
+            }
+            argv
+        }
+        "download" => {
+            let mut argv = vec!["download".into()];
+            if let Some(remote) = opt(0) {
+                argv.push(remote);
+            }
+            if let Some(local) = opt(1) {
+                argv.push(local);
+            }
+            argv
+        }
+        "mv" | "cp" => {
+            let mut argv = vec![spec.cmd.to_string()];
+            if let Some(a) = opt(0) {
+                argv.push(a);
+            }
+            if let Some(b) = opt(1) {
+                argv.push(b);
+            }
+            argv
+        }
+        "load" => {
+            let mut argv = vec!["load".into(), "plugin".into()];
+            if let Some(p) = opt(0) {
+                argv.push(p);
+            }
+            argv
+        }
+        "unload" => {
+            let mut argv = vec!["unload".into(), "plugin".into()];
+            if let Some(p) = opt(0) {
+                argv.push(p);
+            }
+            argv
+        }
+        "shell" => {
+            let mut argv = vec!["shell".into()];
+            if let Some(cmd) = opt(0) {
+                argv.extend(shell_words::split(&cmd).unwrap_or_else(|_| vec![cmd]));
+            }
+            argv
+        }
+        _ => vec![spec.cmd.to_string()],
     }
-    argv
 }
 
 /// 表单完成：按命令名把收集到的字段组装成 argv 并执行。
@@ -1530,5 +1808,36 @@ mod tests {
         run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
         assert!(app.dialog.is_some());
         assert!(app.input.is_empty());
+    }
+
+    #[test]
+    fn form_argv_msg_splits_users_and_flags_message() {
+        let argv = form_argv(&MSG_FORM, &["alice bob".into(), "hello".into()]);
+        assert_eq!(argv, vec!["msg", "alice", "bob", "-m", "hello"]);
+    }
+
+    #[test]
+    fn form_argv_msg_omits_empty_users() {
+        let argv = form_argv(&MSG_FORM, &["".into(), "hi".into()]);
+        assert_eq!(argv, vec!["msg", "-m", "hi"]);
+    }
+
+    #[test]
+    fn form_argv_two_arg_commands() {
+        assert_eq!(form_argv(&MV_FORM, &["a".into(), "b".into()]), vec!["mv", "a", "b"]);
+        assert_eq!(form_argv(&CP_FORM, &["x".into(), "y".into()]), vec!["cp", "x", "y"]);
+    }
+
+    #[test]
+    fn form_argv_workspace_switch_and_plugin_load() {
+        assert_eq!(form_argv(&SWITCH_WS_FORM, &["dev".into()]), vec!["workspace", "switch", "dev"]);
+        assert_eq!(form_argv(&LOAD_FORM, &["foo".into()]), vec!["load", "plugin", "foo"]);
+        assert_eq!(form_argv(&UNLOAD_FORM, &["foo".into()]), vec!["unload", "plugin", "foo"]);
+    }
+
+    #[test]
+    fn form_argv_shell_splits_command_line() {
+        let argv = form_argv(&SHELL_FORM, &["ls -la".into()]);
+        assert_eq!(argv, vec!["shell", "ls", "-la"]);
     }
 }
