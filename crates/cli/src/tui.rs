@@ -1419,7 +1419,7 @@ struct RestoreModes;
 
 impl Drop for RestoreModes {
     fn drop(&mut self) {
-        sys::write_stdout("\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1002;1006;2004l\x1b[?1049l");
+        sys::write_stdout("\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1000;1002;1006;2004l\x1b[?1049l");
     }
 }
 
@@ -1470,7 +1470,7 @@ pub fn run(
     tui.set_modal_default_fg(floater_fg);
 
     // 进 alternate screen、鼠标跟踪、括号粘贴（跳过 OSC 颜色探测，用默认主题）。
-    sys::write_stdout("\x1b[?1049h\x1b[?1002;1006;2004h\x1b[?1036h");
+    sys::write_stdout("\x1b[?1049h\x1b[?1000;1002;1006;2004h\x1b[?1036h");
     let _restore = RestoreModes;
 
     let mut app = App::new();
@@ -1594,6 +1594,19 @@ fn draw(
             ctx.set_input_consumed();
         }
     }
+
+    // 鼠标滚轮：上滚回看历史，下滚回到最新；与 PageUp/PageDown 复用同一套
+    // App 滚动状态，消费输入后框架不再按内部偏移二次累加。
+    if app.dialog.is_none() {
+        let wheel = ctx.scroll_delta();
+        if wheel.y < 0 {
+            app.scroll_up((-wheel.y) as usize);
+            ctx.set_input_consumed();
+        } else if wheel.y > 0 {
+            app.scroll_down(wheel.y as usize);
+            ctx.set_input_consumed();
+        }
+    }
 }
 
 fn draw_menubar(
@@ -1624,6 +1637,16 @@ fn draw_menubar(
         ctx.steal_focus();
     }
     ctx.menubar_end();
+}
+
+/// 计算聊天记录滚动起始行偏移。
+///
+/// 框架 scrollarea 以 `scroll_offset.y` 定位：`0` 为最早一行，`base`（总行数
+/// 减视口高度）为贴最新一行。回看历史时 `scroll_y` 增大，偏移从底部向顶部
+/// 回退，并在顶部钳制到 0。
+fn chat_offset(total: usize, view: usize, follow: bool, scroll_y: usize) -> usize {
+    let base = total.saturating_sub(view);
+    if follow { base } else { base.saturating_sub(scroll_y) }
 }
 
 fn draw_body(ctx: &mut Context, app: &App) {
@@ -1660,8 +1683,7 @@ fn draw_body(ctx: &mut Context, app: &App) {
     // 翻页；`follow` 时贴底，否则按回看行数上移。
     let total = app.log.len();
     let view = body_height.max(0) as usize;
-    let base = total.saturating_sub(view);
-    let off = if app.follow { base } else { base + app.scroll_y };
+    let off = chat_offset(total, view, app.follow, app.scroll_y);
 
     ctx.scrollarea_begin("chat", Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
     // 与侧栏共用左右各 1 格内边距：聊天文字不贴双栏分界，左右对称
@@ -2383,6 +2405,8 @@ mod tests {
 
     static SESSION_OPT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
     static GLOBAL_OPT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+    // 上述桩为共享静态：相关用例须串行，避免并行交错覆盖取值。
+    static OPT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     extern "C" fn stub_session_option(
         _: &safer_ffi::String,
@@ -2439,6 +2463,30 @@ mod tests {
         app.scroll_down(10);
         assert_eq!(app.scroll_y, 0);
         assert!(app.follow);
+    }
+
+    #[test]
+    fn chat_offset_follows_bottom_then_backtracks() {
+        // 20 行、视口 8：贴底偏移 = 12。
+        assert_eq!(chat_offset(20, 8, true, 0), 12);
+        // 回看 3 行：偏移从底部向顶部回退到 9。
+        assert_eq!(chat_offset(20, 8, false, 3), 9);
+        // 回看超过历史：钳制到顶部 0。
+        assert_eq!(chat_offset(20, 8, false, 20), 0);
+        // 日志不足一屏：始终在顶部。
+        assert_eq!(chat_offset(3, 8, true, 0), 0);
+        assert_eq!(chat_offset(3, 8, false, 5), 0);
+        // 空日志：不产生负偏移。
+        assert_eq!(chat_offset(0, 8, false, 5), 0);
+    }
+
+    #[test]
+    fn chat_offset_backtrack_decreases_not_increases() {
+        // 回归：回看历史必须减小偏移（向顶部回退），而不是从底部继续增大。
+        let bottom = chat_offset(20, 8, true, 0);
+        let reviewed = chat_offset(20, 8, false, 4);
+        assert!(reviewed < bottom);
+        assert_eq!(reviewed, bottom - 4);
     }
 
     #[test]
@@ -2851,6 +2899,7 @@ mod tests {
 
     #[test]
     fn effective_option_session_overrides_global() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         set_session(Some("on"));
         set_global(Some("off"));
         assert_eq!(
@@ -2863,6 +2912,7 @@ mod tests {
 
     #[test]
     fn effective_option_falls_back_to_global() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         set_session(None);
         set_global(Some("yes"));
         assert_eq!(opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "QUIET"), "yes");
@@ -2871,6 +2921,7 @@ mod tests {
 
     #[test]
     fn effective_option_empty_when_unset() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         set_session(None);
         set_global(None);
         assert_eq!(opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "X"), "");
@@ -2882,6 +2933,7 @@ mod tests {
 
     #[test]
     fn prefer_cli_truthy_from_effective_value() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         set_session(Some("true"));
         set_global(None);
         let value = opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "PREFER_COMMAND_LINE");

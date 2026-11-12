@@ -1748,6 +1748,12 @@ impl<'a> Context<'a, '_> {
         if self.input_consumed { None } else { self.input_keyboard }
     }
 
+    /// Mouse wheel delta since the last frame. A negative `y` rolls up (toward
+    /// older content), a positive `y` rolls down (toward newer content).
+    pub fn scroll_delta(&self) -> Point {
+        if self.input_consumed { Point::default() } else { self.input_scroll_delta }
+    }
+
     #[inline]
     pub fn set_input_consumed(&mut self) {
         debug_assert!(!self.input_consumed);
