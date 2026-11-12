@@ -654,7 +654,6 @@ const COMMAND_NAMES: &[&str] = &[
     "op",
     "proxy",
     "pwd",
-    "quit",
     "reconnect",
     "reply",
     "rm",
@@ -671,6 +670,7 @@ const COMMAND_NAMES: &[&str] = &[
     "sleep",
     "status",
     "tasks",
+    "tcpm",
     "tree",
     "trop",
     "unban",
@@ -700,6 +700,9 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Connect", action: Action::Run(vec!["connect"]) },
                 MenuItem { label: "Reconnect", action: Action::Run(vec!["reconnect"]) },
                 MenuItem { label: "Disconnect", action: Action::Run(vec!["disconnect"]) },
+                MenuItem { label: "Whoami", action: Action::Run(vec!["whoami"]) },
+                MenuItem { label: "Status", action: Action::Run(vec!["status"]) },
+                MenuItem { label: "Route", action: Action::Run(vec!["route"]) },
             ],
         },
         MenuGroup {
@@ -721,6 +724,9 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Leave", action: Action::Run(vec!["leave_freq"]) },
                 MenuItem { label: "Info...", action: Action::Form(&FREQ_INFO_FORM) },
                 MenuItem { label: "Background", action: Action::Run(vec!["background"]) },
+                MenuItem { label: "Foreground", action: Action::Run(vec!["foreground"]) },
+                MenuItem { label: "Away", action: Action::Run(vec!["away"]) },
+                MenuItem { label: "Notifications", action: Action::Run(vec!["notifications"]) },
                 MenuItem { label: "Sessions", action: Action::Run(vec!["sessions", "list"]) },
                 MenuItem { label: "Disband...", action: Action::Run(vec!["disband"]) },
                 MenuItem {
@@ -776,6 +782,10 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Cd...", action: Action::Form(&CD_FORM) },
                 MenuItem { label: "Checksum...", action: Action::Form(&CHECKSUM_FORM) },
                 MenuItem { label: "File Info...", action: Action::Form(&FILE_INFO_FORM) },
+                MenuItem { label: "Pwd (remote)", action: Action::Run(vec!["pwd"]) },
+                MenuItem { label: "Local Pwd", action: Action::Run(vec!["lpwd"]) },
+                MenuItem { label: "Local List", action: Action::Run(vec!["lls"]) },
+                MenuItem { label: "Local Cd...", action: Action::Run(vec!["lcd"]) },
             ],
         },
         MenuGroup {
@@ -2022,6 +2032,21 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
             );
             true
         }
+        // `editor` 拉起外部编辑器抢占终端，`sleep` 占用事件循环，均不适合在全屏 TUI 内运行。
+        "editor" => {
+            app.push_line(
+                "`editor` opens an external editor that takes over the terminal; run it in the REPL, not the TUI.".to_string(),
+                LineKind::System,
+            );
+            true
+        }
+        "sleep" => {
+            app.push_line(
+                "`sleep` blocks the TUI event loop; run it in the REPL, not the TUI.".to_string(),
+                LineKind::System,
+            );
+            true
+        }
         _ => false,
     }
 }
@@ -2548,6 +2573,15 @@ mod tests {
     }
 
     #[test]
+    fn repl_only_commands_are_intercepted_in_tui() {
+        for cmd in ["banner", "train", "editor", "sleep"] {
+            let mut app = App::new();
+            assert!(try_builtin(&mut app, &[cmd.to_string()]), "{cmd} should be intercepted");
+            assert!(app.log.iter().any(|l| l.text.contains("REPL")), "{cmd} should hint REPL");
+        }
+    }
+
+    #[test]
     fn truthy_recognizes_on_true_1_yes() {
         for v in ["on", "true", "1", "yes", "ON", "Yes", "True"] {
             assert!(is_truthy(v), "{v} should be truthy");
@@ -2737,6 +2771,11 @@ mod tests {
             "freq_info",
             "status",
             "whoami",
+            "route",
+            "foreground",
+            "away",
+            "notifications",
+            "pwd",
         ] {
             assert!(needs_connection(cmd), "{cmd} should require connection");
         }
@@ -2755,6 +2794,9 @@ mod tests {
             "get",
             "unset",
             "unsetg",
+            "lcd",
+            "lls",
+            "lpwd",
         ] {
             assert!(!needs_connection(cmd), "{cmd} should be local");
         }
@@ -2770,11 +2812,26 @@ mod tests {
         assert_eq!(labels(find("File")), vec!["Exit"]);
         assert!(!labels(find("Connection")).contains(&"Exit"));
 
+        // Connection: presence/session queries.
+        let conn = labels(find("Connection"));
+        for label in ["Whoami", "Status", "Route"] {
+            assert!(conn.contains(&label), "Connection should hold {label}");
+        }
+
         // Frequency: disband lifecycle + online queries.
         let freq = labels(find("Frequency"));
         assert!(freq.contains(&"Disband..."));
         assert!(freq.contains(&"Active freqs"));
         assert!(freq.contains(&"Active users"));
+        for label in ["Foreground", "Away", "Notifications"] {
+            assert!(freq.contains(&label), "Frequency should hold {label}");
+        }
+
+        // Files: remote pwd + local filesystem entries.
+        let files = labels(find("Files"));
+        for label in ["Pwd (remote)", "Local Pwd", "Local List", "Local Cd..."] {
+            assert!(files.contains(&label), "Files should hold {label}");
+        }
 
         // Moderation: a single Ignore, no Disband.
         let moderation = labels(find("Moderation"));
