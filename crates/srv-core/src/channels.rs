@@ -87,9 +87,11 @@ pub fn has_channel(name: &safer_ffi::String) -> Result {
     if map.contains_key(&name.to_string()) { Result::success() } else { Result::error("not found") }
 }
 
-/// 获取频道数量（计数为标量，当前无跨边界消费点；状态经 Result.code 表达）。
+/// 获取频道数量（经出参回填；状态经 Result.code 表达）。
 #[register_hook]
-pub fn channel_count() -> Result {
+pub fn channel_count(out: Out<'_, i32>) -> Result {
+    let map = CHANNEL_MAP.lock().unwrap();
+    out.write(map.len() as i32);
     Result::success()
 }
 
