@@ -1650,6 +1650,21 @@ fn draw(
 ) {
     let ctx = &mut tui.create_context(input);
 
+    // 滚轮必须在任何框架节点消费之前读取：否则聊天 scrollarea 会先把
+    // delta 累加进自身内部偏移并标记 consumed，这里后置读取拿到 0，App 的
+    // follow/scroll_y 不再增长；每帧 scroll_to 又覆盖内部偏移，表现为滚不动。
+    // 先消费 delta 转为 App 滚动状态，框架后续节点见到 consumed 便不再自行累加。
+    if app.dialog.is_none() {
+        let wheel = ctx.scroll_delta();
+        if wheel.y < 0 {
+            app.scroll_up((-wheel.y) as usize);
+            ctx.set_input_consumed();
+        } else if wheel.y > 0 {
+            app.scroll_down(wheel.y as usize);
+            ctx.set_input_consumed();
+        }
+    }
+
     // 对齐 upstream microsoft/edit：菜单栏、主体、输入栏、状态栏作为 root 下
     // 纵向堆叠的三段，不套外层边框；弹窗 / 浮层在其后叠加。
     draw_menubar(ctx, app, run_command, output_drain, groups);
@@ -1671,19 +1686,6 @@ fn draw(
             // PgDn：聊天记录向下翻一页，回到底部恢复跟随。
             let page = (ctx.size().height - 3).max(1).max(0) as usize;
             app.scroll_down(page);
-            ctx.set_input_consumed();
-        }
-    }
-
-    // 鼠标滚轮：上滚回看历史，下滚回到最新；与 PageUp/PageDown 复用同一套
-    // App 滚动状态，消费输入后框架不再按内部偏移二次累加。
-    if app.dialog.is_none() {
-        let wheel = ctx.scroll_delta();
-        if wheel.y < 0 {
-            app.scroll_up((-wheel.y) as usize);
-            ctx.set_input_consumed();
-        } else if wheel.y > 0 {
-            app.scroll_down(wheel.y as usize);
             ctx.set_input_consumed();
         }
     }
