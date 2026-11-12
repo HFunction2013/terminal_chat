@@ -99,6 +99,10 @@ commands:
         required: true
         value_name: FREQ_ID
         help: Target frequency id
+      - name: password
+        required: false
+        value_name: PASSWORD
+        help: Frequency password (optional)
     aliases:
       - jfreq
   - name: create_freq

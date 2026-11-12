@@ -9,10 +9,10 @@ pub struct JoinFreqCommand;
 
 impl JoinFreqCommand {
     #[allow(unused_variables)]
-    pub fn execute(&self, freq: String) -> Result<()> {
+    pub fn execute(&self, freq: String, password: Option<String>) -> Result<()> {
         let resp: protos::frequency::basic::JoinFreqResponse = crate::connection::rpc(
             "join_freq",
-            &protos::frequency::basic::JoinFreqRequest { freq: freq.clone(), password: None },
+            &protos::frequency::basic::JoinFreqRequest { freq: freq.clone(), password },
         )?;
         // 加入成功（FreqIdle）即成为当前会话：一个 freq 是一个会话。
         if resp.status == protos::frequency::basic::FreqStatus::FreqIdle as i32 {
@@ -36,6 +36,7 @@ impl CommandExecutor for JoinFreqCommand {
             .get_one::<String>("freq")
             .ok_or_else(|| anyhow!("Missing required argument: freq"))?
             .clone();
-        self.execute(freq)
+        let password = matches.get_one::<String>("password").cloned();
+        self.execute(freq, password)
     }
 }

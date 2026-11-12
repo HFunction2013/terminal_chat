@@ -84,7 +84,39 @@ enum Action {
     Run(Vec<&'static str>),
     /// 把命令前缀预填进输入框，交用户补全参数。
     Prefill(&'static str),
+    /// 弹出参数表单收集参数；`PREFER_COMMAND_LINE` 为真时退回 `Prefill`。
+    Form(&'static FormSpec),
 }
+
+/// 表单中的一个输入字段。
+struct FormField {
+    /// 输入提示，如 `Frequency ID:`。
+    label: &'static str,
+    /// 必填：为空时不允许进入下一阶段。
+    required: bool,
+}
+
+/// 一个待提交命令的表单规格（静态）。
+struct FormSpec {
+    /// 弹窗标题。
+    title: &'static str,
+    /// 提交后执行的命令名。
+    cmd: &'static str,
+    /// 命令行偏好下退回输入框的前缀。
+    prefill: &'static str,
+    fields: &'static [FormField],
+}
+
+/// `join_freq` 表单：freq 必填，password 可选。
+const JOIN_FORM: FormSpec = FormSpec {
+    title: "Join Frequency",
+    cmd: "join_freq",
+    prefill: "join_freq ",
+    fields: &[
+        FormField { label: "Frequency ID:", required: true },
+        FormField { label: "Password (optional):", required: false },
+    ],
+};
 
 struct MenuItem {
     label: &'static str,
@@ -210,7 +242,7 @@ fn menu_groups() -> Vec<MenuGroup> {
             name: "Frequency",
             accel: 'F',
             items: vec![
-                MenuItem { label: "Join...", action: Action::Prefill("join_freq ") },
+                MenuItem { label: "Join...", action: Action::Form(&JOIN_FORM) },
                 MenuItem { label: "Create...", action: Action::Prefill("create_freq ") },
                 MenuItem { label: "Leave", action: Action::Run(vec!["leave_freq"]) },
                 MenuItem { label: "Info", action: Action::Run(vec!["freq_info"]) },
@@ -290,11 +322,19 @@ enum DialogStage {
     AskUser,
 }
 
-/// 弹窗收集到的连接配置；两阶段都确认后回填全局选项并执行 `connect`。
-struct Dialog {
-    stage: DialogStage,
-    server: String,
-    username: String,
+/// 激活中的弹窗。
+enum Dialog {
+    /// 连接配置：先服务器后昵称，两阶段。
+    Connect { stage: DialogStage, server: String, username: String },
+    /// 命令参数表单：按字段逐阶段收集。
+    Form(FormDialog),
+}
+
+/// 通用命令表单弹窗状态。
+struct FormDialog {
+    spec: &'static FormSpec,
+    values: Vec<String>,
+    focus: usize,
 }
 
 struct App {
@@ -325,6 +365,8 @@ struct App {
     server: String,
     port: String,
     quiet: bool,
+    /// 优先命令行：`PREFER_COMMAND_LINE` 为真值时，表单动作退回输入框预填。
+    prefer_cli: bool,
     /// 退出标志。
     exit: bool,
     /// 菜单栏 / 状态栏主题背景（对齐 upstream edit 配色）。
@@ -357,6 +399,7 @@ impl App {
             server: String::new(),
             port: String::new(),
             quiet: false,
+            prefer_cli: false,
             exit: false,
             menubar_bg: StraightRgba::zero(),
             menubar_fg: StraightRgba::zero(),
@@ -485,16 +528,31 @@ impl App {
     fn open_connect_dialog(&mut self) {
         let stage =
             if self.server.is_empty() { DialogStage::AskServer } else { DialogStage::AskUser };
-        self.dialog =
-            Some(Dialog { stage, server: self.server.clone(), username: self.username.clone() });
+        self.dialog = Some(Dialog::Connect {
+            stage,
+            server: self.server.clone(),
+            username: self.username.clone(),
+        });
+    }
+
+    /// 打开命令参数表单弹窗：按字段逐阶段收集。
+    fn open_form(&mut self, spec: &'static FormSpec) {
+        self.dialog = Some(Dialog::Form(FormDialog {
+            spec,
+            values: vec![String::new(); spec.fields.len()],
+            focus: 0,
+        }));
     }
 
     /// 返回弹窗当前阶段正在编辑的文本缓冲。
     fn dialog_buffer(&mut self) -> Option<&mut String> {
         let d = self.dialog.as_mut()?;
-        Some(match d.stage {
-            DialogStage::AskServer => &mut d.server,
-            DialogStage::AskUser => &mut d.username,
+        Some(match d {
+            Dialog::Connect { stage, server, username } => match stage {
+                DialogStage::AskServer => server,
+                DialogStage::AskUser => username,
+            },
+            Dialog::Form(form) => &mut form.values[form.focus],
         })
     }
 
@@ -605,8 +663,13 @@ fn opt_get(get: &GetOptionFn, key: &str) -> String {
     }
 }
 
-fn is_quiet(v: &str) -> bool {
+/// 全局选项真值判定：`on/true/1/yes`（大小写不敏感）。
+fn is_truthy(v: &str) -> bool {
     matches!(v.to_lowercase().as_str(), "on" | "true" | "1" | "yes")
+}
+
+fn is_quiet(v: &str) -> bool {
+    is_truthy(v)
 }
 
 /// 终端模式恢复：退出时写回 alt screen / 鼠标 / 粘贴模式。
@@ -700,6 +763,7 @@ fn event_loop(
         app.server = opt_get(get_option, "SERVER");
         app.port = opt_get(get_option, "PORT");
         app.quiet = is_quiet(&opt_get(get_option, "QUIET"));
+        app.prefer_cli = is_truthy(&opt_get(get_option, "PREFER_COMMAND_LINE"));
 
         // 取积压推送。
         let pushes: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
@@ -984,9 +1048,12 @@ fn draw_dialog(
     if app.dialog.is_none() {
         return;
     }
-    let (title, prompt) = match app.dialog.as_ref().unwrap().stage {
-        DialogStage::AskServer => ("Connect", "Server [host:port]:"),
-        DialogStage::AskUser => ("Nickname", "Nickname:"),
+    let (title, prompt) = match app.dialog.as_ref().unwrap() {
+        Dialog::Connect { stage, .. } => match stage {
+            DialogStage::AskServer => ("Connect", "Server [host:port]:"),
+            DialogStage::AskUser => ("Nickname", "Nickname:"),
+        },
+        Dialog::Form(form) => (form.spec.title, form.spec.fields[form.focus].label),
     };
 
     ctx.modal_begin("connect-dialog", title);
@@ -1030,6 +1097,14 @@ fn run_action(
         }
         Action::Prefill(prefix) => {
             app.input = prefix.to_string();
+        }
+        Action::Form(spec) => {
+            if app.prefer_cli {
+                // 优先命令行：退回输入框预填前缀，交用户补全参数。
+                app.input = spec.prefill.to_string();
+            } else {
+                app.open_form(spec);
+            }
         }
     }
 }
@@ -1132,7 +1207,7 @@ fn builtin_help_text() -> String {
     [
         "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info",
         "          copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help",
-        "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> | create_freq <freq>",
+        "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> [password] | create_freq <freq>",
         "          show active_users | show active_freqs | workspace list | ls | upload | download",
     ]
     .join("\n")
@@ -1141,23 +1216,40 @@ fn builtin_help_text() -> String {
 /// 弹窗当前阶段确认：推进到下一阶段，或回填选项后执行 `connect`。
 fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let Some(d) = app.dialog.as_mut() else { return };
-    match d.stage {
-        DialogStage::AskServer => {
-            if app.username.is_empty() {
-                d.stage = DialogStage::AskUser;
+    match d {
+        Dialog::Connect { stage, username, .. } => match stage {
+            DialogStage::AskServer => {
+                if username.is_empty() {
+                    *stage = DialogStage::AskUser;
+                } else {
+                    finish_dialog(app, run_command, output_drain);
+                }
+            }
+            DialogStage::AskUser => finish_dialog(app, run_command, output_drain),
+        },
+        Dialog::Form(form) => {
+            let field = &form.spec.fields[form.focus];
+            let value = form.values[form.focus].trim();
+            // 必填字段留空时停留在当前字段，不推进。
+            if field.required && value.is_empty() {
+                return;
+            }
+            if form.focus + 1 < form.spec.fields.len() {
+                form.focus += 1;
             } else {
-                finish_dialog(app, run_command, output_drain);
+                finish_form(app, run_command, output_drain);
             }
         }
-        DialogStage::AskUser => finish_dialog(app, run_command, output_drain),
     }
 }
 
 /// 弹窗完成：把收集到的服务器 / 昵称经 `setg` 回填全局选项，再执行 `connect`。
 fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let Some(d) = app.dialog.take() else { return };
-    let server = d.server.trim().to_string();
-    let username = d.username.trim().to_string();
+    let (server, username) = match d {
+        Dialog::Connect { server, username, .. } => (server, username),
+        Dialog::Form(_) => return,
+    };
     if !server.is_empty() {
         run_argv(
             app,
@@ -1175,6 +1267,29 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
         );
     }
     run_argv(app, run_command, output_drain, &["connect".to_string()]);
+}
+
+/// 按命令名把表单字段值组装成 argv（纯函数，便于单测）。
+fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
+    let mut argv = vec![spec.cmd.to_string()];
+    if spec.cmd == "join_freq" {
+        if let Some(freq) = vals.first() {
+            argv.push(freq.clone());
+        }
+        if let Some(pw) = vals.get(1).filter(|s| !s.is_empty()) {
+            argv.push(pw.clone());
+        }
+    }
+    argv
+}
+
+/// 表单完成：按命令名把收集到的字段组装成 argv 并执行。
+fn finish_form(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
+    let Some(Dialog::Form(form)) = app.dialog.take() else { return };
+    let vals: Vec<String> = form.values.iter().map(|s| s.trim().to_string()).collect();
+    let argv = form_argv(form.spec, &vals);
+    app.note_command(&argv);
+    run_argv(app, run_command, output_drain, &argv);
 }
 
 /// 提交输入框内容为命令。
@@ -1251,6 +1366,15 @@ fn run_argv(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    extern "C" fn stub_run(_: &safer_ffi::Vec<safer_ffi::String>) -> cli_core_types::Result {
+        cli_core_types::Result::default()
+    }
+    unsafe extern "C" fn stub_drain() -> safer_ffi::vec::Vec<safer_ffi::String> {
+        Vec::new().into()
+    }
+    const STUB_RUN: RunCommandFn = stub_run;
+    const STUB_DRAIN: OutputDrainFn = stub_drain;
 
     #[test]
     fn reconcile_parses_freq_info_members() {
@@ -1339,5 +1463,72 @@ mod tests {
     fn unknown_command_is_not_builtin() {
         let mut app = App::new();
         assert!(!try_builtin(&mut app, &["msg".to_string(), "hi".to_string()]));
+    }
+
+    #[test]
+    fn truthy_recognizes_on_true_1_yes() {
+        for v in ["on", "true", "1", "yes", "ON", "Yes", "True"] {
+            assert!(is_truthy(v), "{v} should be truthy");
+        }
+        for v in ["", "off", "0", "no", "false", "n", "yep"] {
+            assert!(!is_truthy(v), "{v} should be falsy");
+        }
+    }
+
+    #[test]
+    fn form_argv_join_omits_empty_password() {
+        let with_pw = form_argv(&JOIN_FORM, &["abc".into(), "secret".into()]);
+        assert_eq!(with_pw, vec!["join_freq", "abc", "secret"]);
+
+        let no_pw = form_argv(&JOIN_FORM, &["abc".into(), "".into()]);
+        assert_eq!(no_pw, vec!["join_freq", "abc"]);
+    }
+
+    #[test]
+    fn open_form_initializes_focus_and_values() {
+        let mut app = App::new();
+        app.open_form(&JOIN_FORM);
+        let Some(Dialog::Form(form)) = &app.dialog else {
+            panic!("expected form dialog");
+        };
+        assert_eq!(form.focus, 0);
+        assert_eq!(form.values.len(), JOIN_FORM.fields.len());
+        assert!(app.dialog_buffer().unwrap().is_empty());
+    }
+
+    #[test]
+    fn form_required_field_blocks_advance() {
+        let mut app = App::new();
+        app.open_form(&JOIN_FORM);
+        // 必填的 freq 留空：回车应停留在第一字段。
+        dialog_advance(&mut app, &STUB_RUN, &STUB_DRAIN);
+        let Dialog::Form(form) = app.dialog.as_ref().unwrap() else {
+            panic!("expected form dialog");
+        };
+        assert_eq!(form.focus, 0);
+
+        // 填入 freq 后推进到可选密码字段。
+        app.dialog_buffer().unwrap().push_str("abc");
+        dialog_advance(&mut app, &STUB_RUN, &STUB_DRAIN);
+        let Dialog::Form(form) = app.dialog.as_ref().unwrap() else {
+            panic!("expected form dialog");
+        };
+        assert_eq!(form.focus, 1);
+    }
+
+    #[test]
+    fn form_action_prefills_when_prefer_cli() {
+        // 命令行偏好：退回输入框预填，不弹窗。
+        let mut app = App::new();
+        app.prefer_cli = true;
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
+        assert_eq!(app.input, JOIN_FORM.prefill);
+        assert!(app.dialog.is_none());
+
+        // 默认：弹出表单收集参数。
+        let mut app = App::new();
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
+        assert!(app.dialog.is_some());
+        assert!(app.input.is_empty());
     }
 }
