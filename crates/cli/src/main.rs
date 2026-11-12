@@ -93,9 +93,30 @@ mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
+/// 选项命令在 key 位置的补全候选：仅当首词为选项命令且处于第 1 参（key）位置时，
+/// 按大小写不敏感前缀过滤已注册选项。
+fn option_candidates(
+    options: &[String],
+    cmd: Option<&str>,
+    arg_index: usize,
+    prefix: &str,
+) -> Vec<String> {
+    let is_option_cmd = matches!(
+        cmd,
+        Some("set") | Some("setg") | Some("get") | Some("getg") | Some("unset") | Some("unsetg")
+    );
+    if !is_option_cmd || arg_index != 1 {
+        return Vec::new();
+    }
+    let needle = prefix.to_uppercase();
+    options.iter().filter(|o| o.to_uppercase().starts_with(&needle)).cloned().collect()
+}
+
 /// rustyline Helper：桥接 `clap_complete`
 struct ClapHelper {
     cli: Command,
+    /// 已注册选项 key（供 set/setg/get/... 的参数位置补全）。
+    options: Vec<String>,
 }
 
 impl Helper for ClapHelper {}
@@ -127,13 +148,22 @@ impl Completer for ClapHelper {
         let candidates =
             complete(&mut cli, args_os, arg_index, Some(Path::new("."))).unwrap_or_default();
 
-        let pairs = candidates
+        let mut pairs: Vec<Pair> = candidates
             .into_iter()
             .map(|c| {
                 let value = c.get_value().to_string_lossy().to_string();
                 Pair { display: value.clone(), replacement: value }
             })
             .collect();
+
+        // 选项命令的 key 位置：叠加已注册选项候选（大小写不敏感前缀匹配）。
+        let first = args.first().map(|s| s.to_string());
+        let prefix = args.last().map(|s| s.to_string()).unwrap_or_default();
+        for opt in option_candidates(&self.options, first.as_deref(), arg_index, &prefix) {
+            if !pairs.iter().any(|p| p.replacement == opt) {
+                pairs.push(Pair { display: opt.clone(), replacement: opt });
+            }
+        }
 
         let start = if is_starting_new_arg {
             pos
@@ -463,6 +493,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let is_connected: Option<Symbol<IsConnectedFn>> =
             unsafe { core_lib.get(b"is_connected") }.ok();
         let is_connected_ref: Option<&IsConnectedFn> = is_connected.as_deref();
+        // 已注册选项列举为可选符号：缺失时选项 key 不补全。
+        let registered_options: Option<Symbol<tui::GetRegisteredOptionsFn>> =
+            unsafe { core_lib.get(b"get_registered_options") }.ok();
+        let registered_options_ref: Option<&tui::GetRegisteredOptionsFn> =
+            registered_options.as_deref();
         return tui::run(
             &run_command,
             &take_pushes,
@@ -472,6 +507,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &output_drain,
             remote_list_dir_ref,
             is_connected_ref,
+            registered_options_ref,
         )
         .map_err(|e| e.into());
     }
@@ -482,7 +518,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
 
-    let helper = ClapHelper { cli: cli.clone() };
+    // 拉取已注册选项 key，供 REPL 选项命令的参数位置补全；符号缺失时退化为空候选。
+    let registered_options: Vec<String> = unsafe { get_cli_core().get(b"get_registered_options") }
+        .ok()
+        .map(|sym: Symbol<tui::GetRegisteredOptionsFn>| {
+            let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+                ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+            let _ = unsafe { sym(Out::from(&mut buf)) };
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+        })
+        .unwrap_or_default();
+
+    let helper = ClapHelper { cli: cli.clone(), options: registered_options };
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
     // 异步推送显示：tty 下用 rustyline 的 ExternalPrinter（在输入行上方打印，
@@ -628,4 +675,27 @@ Because everyone deserves a good cup of coffee."
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::option_candidates;
+
+    #[test]
+    fn option_candidates_match_prefix_case_insensitive() {
+        let opts = vec!["SERVER".into(), "PORT".into(), "PREFER_COMMAND_LINE".into()];
+        let c = option_candidates(&opts, Some("set"), 1, "pre");
+        assert_eq!(c, vec!["PREFER_COMMAND_LINE".to_string()]);
+    }
+
+    #[test]
+    fn option_candidates_empty_wrong_command_or_position() {
+        let opts = vec!["SERVER".into()];
+        // 非选项命令不补全选项 key。
+        assert!(option_candidates(&opts, Some("msg"), 1, "se").is_empty());
+        // 第 2 参（值位置）不补全选项 key。
+        assert!(option_candidates(&opts, Some("set"), 2, "se").is_empty());
+        // 无命令首词时不补全。
+        assert!(option_candidates(&opts, None, 1, "se").is_empty());
+    }
 }

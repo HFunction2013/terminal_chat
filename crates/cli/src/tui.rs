@@ -45,6 +45,10 @@ pub type GetOptionFn = unsafe extern "C" fn(
     Out<'_, TaggedOption<safer_ffi::String>>,
 ) -> cli_core_types::Result;
 
+/// 列举已注册选项 key 的 FFI 符号类型（cli-core `get_registered_options`）。
+pub type GetRegisteredOptionsFn =
+    unsafe extern "C" fn(Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> cli_core_types::Result;
+
 /// 切换 TUI/REPL 输出模式的 FFI 符号类型。
 pub type SetTuiModeFn = unsafe extern "C" fn(bool);
 
@@ -116,6 +120,8 @@ enum FieldKind {
     RemotePath,
     /// 本地路径（直接读本机当前目录）。
     LocalPath,
+    /// 已注册选项 key（set/setg/get/getg/unset/unsetg 的参数位置）。
+    OptionKey,
 }
 
 /// 一个待提交命令的表单规格（静态）。
@@ -870,6 +876,10 @@ struct App {
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
     is_connected: Option<IsConnectedFn>,
+    /// 已注册选项列举回调（cli-core `get_registered_options`）；缺失时选项 key 不补全。
+    list_registered_options: Option<GetRegisteredOptionsFn>,
+    /// 已注册选项 key 缓存（供选项参数位置补全）。
+    registered_options: Vec<String>,
     /// 状态栏快照（来自全局选项）。
     username: String,
     server: String,
@@ -907,6 +917,8 @@ impl App {
             members: Vec::new(),
             remote_list_dir: None,
             is_connected: None,
+            list_registered_options: None,
+            registered_options: Vec::new(),
             username: String::new(),
             server: String::new(),
             port: String::new(),
@@ -1132,6 +1144,14 @@ impl App {
                 let (parent, base) = split_path_prefix(&prefix);
                 local_candidates(parent, base)
             }
+            FieldKind::OptionKey => {
+                let needle = prefix.to_uppercase();
+                self.registered_options
+                    .iter()
+                    .filter(|k| k.to_uppercase().starts_with(&needle))
+                    .cloned()
+                    .collect()
+            }
         };
         self.completions = cands;
         if self.comp_idx >= self.completions.len() {
@@ -1155,6 +1175,19 @@ impl App {
             .filter(|n| n.starts_with(base))
             .map(|n| format!("{parent}{n}"))
             .collect()
+    }
+
+    /// 从宿主注册表刷新已注册选项 key 缓存（供选项参数位置补全）。
+    fn refresh_registered_options(&mut self) {
+        let Some(list) = self.list_registered_options else {
+            self.registered_options = Vec::new();
+            return;
+        };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe { list(Out::from(&mut buf)) };
+        self.registered_options =
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
     }
 
     /// 接受当前高亮候选：替换活动缓冲的末词（路径候选已含父目录前缀）。
@@ -1305,6 +1338,14 @@ fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
         }
         // lcd：切换本地目录。
         "lcd" => FieldKind::LocalPath,
+        // 选项命令：第 1 参为已注册选项 key。
+        "set" | "setg" | "get" | "getg" | "unset" | "unsetg" => {
+            if arg_index == 1 {
+                FieldKind::OptionKey
+            } else {
+                FieldKind::Plain
+            }
+        }
         // 其余参数按成员名补全。
         _ => FieldKind::Member,
     }
@@ -1443,6 +1484,7 @@ pub fn run(
     output_drain: &OutputDrainFn,
     remote_list_dir: Option<&ListRemoteDirFn>,
     is_connected: Option<&IsConnectedFn>,
+    registered_options: Option<&GetRegisteredOptionsFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -1488,6 +1530,7 @@ pub fn run(
     app.menubar_fg = menubar_fg;
     app.remote_list_dir = remote_list_dir.copied();
     app.is_connected = is_connected.copied();
+    app.list_registered_options = registered_options.copied();
     let res = event_loop(
         &mut tui,
         &mut app,
@@ -1524,6 +1567,7 @@ fn event_loop(
         app.quiet = is_quiet(&opt_get_effective(get_session, get_option, "QUIET"));
         app.prefer_cli =
             is_truthy(&opt_get_effective(get_session, get_option, "PREFER_COMMAND_LINE"));
+        app.refresh_registered_options();
 
         // 取积压推送。
         let pushes: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
@@ -2529,6 +2573,26 @@ mod tests {
         app.input = "msg al".into();
         app.refresh_completions();
         assert_eq!(app.completions, vec!["alice".to_string()]);
+    }
+
+    #[test]
+    fn option_key_arg_is_classified() {
+        assert_eq!(kind_for_command_arg("set", 1), FieldKind::OptionKey);
+        assert_eq!(kind_for_command_arg("setg", 1), FieldKind::OptionKey);
+        assert_eq!(kind_for_command_arg("get", 1), FieldKind::OptionKey);
+        assert_eq!(kind_for_command_arg("unsetg", 1), FieldKind::OptionKey);
+        // 第 2 参（值）不按选项 key 补全；普通命令参数仍归成员名。
+        assert_eq!(kind_for_command_arg("set", 2), FieldKind::Plain);
+        assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
+    }
+
+    #[test]
+    fn completes_registered_option_prefix_case_insensitive() {
+        let mut app = App::new();
+        app.registered_options = vec!["SERVER".into(), "PORT".into(), "PREFER_COMMAND_LINE".into()];
+        app.input = "set pre".into();
+        app.refresh_completions();
+        assert_eq!(app.completions, vec!["PREFER_COMMAND_LINE".to_string()]);
     }
 
     #[test]

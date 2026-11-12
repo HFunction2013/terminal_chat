@@ -16,7 +16,20 @@ impl SetgCommand {
     /// `password` - use rpassword to read the value, conflicts with: value
     pub fn execute(&self, key: String, value: Option<String>, password: bool) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        cli_core_macros::load_core_symbols!(lib, print_content, set_global_option);
+        cli_core_macros::load_core_symbols!(
+            lib,
+            print_content,
+            set_global_option,
+            option_is_registered
+        );
+
+        if option_is_registered(&key.clone().into()).code != 0 {
+            print_content(
+                &format!("This option has not been registered, use `unset(g) {key}` to unset it.")
+                    .into(),
+            );
+            return Ok(());
+        }
 
         let value = if password {
             rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()
