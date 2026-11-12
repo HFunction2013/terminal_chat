@@ -16,6 +16,7 @@ use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use srv_core_types::RegisterChannelFn;
+use srv_core_types::Result as SrvResult;
 use srv_core_types::channels::ChannelMetadata;
 use srv_core_types::packets::{Packet, PacketResult};
 use srv_core_types::plugin_fn_types::{ChannelHandlerFn, SetChannelHandlerFn};
@@ -701,19 +702,20 @@ fn register_channel_with_handler(
             .expect("Failed to find symbol 'set_channel_handler'");
 
     let registered = register_channel(metadata);
-    if registered == 0 {
+    if registered.code != 0 {
         println!("[srv-standard] channel '{}' already registered, skipping.", metadata.name);
         return;
     }
     let bound = set_channel_handler(&metadata.name, handler);
-    if bound == 0 {
+    if bound.code != 0 {
         println!("[srv-standard] failed to bind handler for channel '{}'.", metadata.name);
     }
 }
 
 #[ffi_export]
-pub fn get_plugin_metadata() -> SrvPluginMetadata {
-    METADATA.clone()
+pub fn get_plugin_metadata(out: Out<'_, SrvPluginMetadata>) -> SrvResult {
+    out.write(METADATA.clone());
+    SrvResult::success()
 }
 
 #[ffi_export]

@@ -5,6 +5,7 @@
 //! `LoadPluginFn` 等）。这里只手动声明 build.rs 扫描不到的、由
 //! `#[ffi_export]` 导出的函数类型。
 
+use crate::Result;
 use crate::packets::Packet;
 use crate::packets::PacketResult;
 
@@ -16,5 +17,5 @@ pub type ChannelHandlerFn = extern "C" fn(*const Packet) -> PacketResult;
 
 /// srv-core 的 `set_channel_handler` 函数指针类型。
 ///
-/// 签名：`set_channel_handler(channel_name, handler) -> i32`。
-pub type SetChannelHandlerFn = extern "C" fn(&safer_ffi::String, ChannelHandlerFn) -> i32;
+/// 签名：`set_channel_handler(channel_name, handler) -> Result`。
+pub type SetChannelHandlerFn = extern "C" fn(&safer_ffi::String, ChannelHandlerFn) -> Result;

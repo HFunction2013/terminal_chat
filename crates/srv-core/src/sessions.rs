@@ -5,8 +5,10 @@
 
 use hook_macro::register_hook;
 use safer_ffi::ffi_export;
+use safer_ffi::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use srv_core_types::Result;
 use srv_core_types::sessions::SessionInfo;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -17,49 +19,56 @@ static SESSION_MAP: LazyLock<Mutex<HashMap<String, SessionInfo>>> =
 
 /// 添加一个会话（id 已存在则失败）。
 #[register_hook]
-pub fn add_session(session: &SessionInfo) -> i32 {
+pub fn add_session(session: &SessionInfo) -> Result {
     let mut map = SESSION_MAP.lock().unwrap();
     let key = session.id.to_string();
     if map.contains_key(&key) {
-        false.into()
+        Result::error("already exists")
     } else {
         map.insert(key, session.clone());
-        true.into()
+        Result::success()
     }
 }
 
 /// 移除一个会话。
 #[register_hook]
-pub fn remove_session(id: &safer_ffi::String) -> i32 {
+pub fn remove_session(id: &safer_ffi::String) -> Result {
     let mut map = SESSION_MAP.lock().unwrap();
-    map.remove(&id.to_string()).map(|_| true).unwrap_or(false).into()
+    if map.remove(&id.to_string()).is_some() {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
 }
 
 /// 会话是否存在。
 #[register_hook]
-pub fn has_session(id: &safer_ffi::String) -> bool {
+pub fn has_session(id: &safer_ffi::String) -> Result {
     let map = SESSION_MAP.lock().unwrap();
-    map.contains_key(&id.to_string())
+    if map.contains_key(&id.to_string()) { Result::success() } else { Result::error("not found") }
 }
 
-/// 当前会话数量。
+/// 当前会话数量（经出参回填；状态经 Result.code 表达）。
 #[register_hook]
-pub fn session_count() -> i32 {
+pub fn session_count(out: Out<'_, i32>) -> Result {
     let map = SESSION_MAP.lock().unwrap();
-    map.len() as i32
+    out.write(map.len() as i32);
+    Result::success()
 }
 
 /// 清空所有会话。
 #[register_hook]
-pub fn clear_sessions() {
+pub fn clear_sessions() -> Result {
     let mut map = SESSION_MAP.lock().unwrap();
     map.clear();
+    Result::success()
 }
 
 /// 获取全部会话信息。
-#[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
-pub fn get_all_sessions() -> safer_ffi::Vec<SessionInfo> {
+#[register_hook]
+pub fn get_all_sessions(out: Out<'_, safer_ffi::Vec<SessionInfo>>) -> Result {
     let map = SESSION_MAP.lock().unwrap();
     let sessions: Vec<SessionInfo> = map.values().cloned().collect();
-    sessions.into()
+    out.write(sessions.into());
+    Result::success()
 }

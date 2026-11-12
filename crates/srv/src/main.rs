@@ -18,6 +18,7 @@
 use anyhow::{Result, anyhow};
 use libloading::Library;
 use prost::Message;
+use safer_ffi::prelude::Out;
 use srv_core_types::sessions::SessionInfo;
 use srv_core_types::{
     AddSessionFn, LoadPluginFn, OnRecievePacketFn, RemoveSessionFn, SessionCountFn,
@@ -186,8 +187,10 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
         channel: "".into(),
         state: 0,
     };
-    (symbols.add_session)(&session);
-    println!("[srv] session registered: {peer} (total={})", (symbols.session_count)());
+    let _ = (symbols.add_session)(&session);
+    let mut count_buf = 0i32;
+    let _ = (symbols.session_count)(Out::from(&mut count_buf));
+    println!("[srv] session registered: {peer} (total={count_buf})");
 
     // 帧循环：Packet 分发 / DisconnectRequest 断开 / EOF 清理。
     loop {
@@ -263,7 +266,7 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
     println!("[srv] pusher removed for {full_user}");
     SESSION_USERS.lock().unwrap().remove(&peer);
     let removed = (symbols.remove_session)(&peer.clone().into());
-    println!("[srv] session removed: {peer} removed={removed}");
+    println!("[srv] session removed: {peer} removed={}", removed.code == 0);
 }
 
 /// 线程内需要的 srv-core fn 指针（fn 指针是 Copy+Send，可直接跨线程）。

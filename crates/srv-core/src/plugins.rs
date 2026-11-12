@@ -11,9 +11,12 @@ use libloading::Library;
 use process_path::get_dylib_path;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
+use safer_ffi::prelude::*;
+use srv_core_types::Result;
 use srv_core_types::init_fn_types::{GetPluginMetadataFn, OnInitPluginFn};
 use srv_core_types::plugins::{SrvHostMetadata, SrvPluginMetadata, SrvPluginResult};
 use std::collections::HashMap;
+use std::mem::ManuallyDrop;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use which_dylib::{FindError, FindLibBuilder};
@@ -31,9 +34,13 @@ static PLUGIN_LIBS: LazyLock<Mutex<HashMap<String, Library>>> =
 
 /// 插件名是否已注册。
 #[register_hook]
-pub fn is_plugin_registered(identifier: &safer_ffi::String) -> bool {
+pub fn is_plugin_registered(identifier: &safer_ffi::String) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
-    map.contains_key(&identifier.to_string())
+    if map.contains_key(&identifier.to_string()) {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
 }
 
 /// 简单语义化版本比较：a < b → -1，a == b → 0，a > b → 1。
@@ -116,7 +123,10 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> SrvPluginResult {
                         };
                     }
                 };
-                let meta: SrvPluginMetadata = get_plugin_metadata();
+                let mut meta_buf: ManuallyDrop<SrvPluginMetadata> =
+                    ManuallyDrop::new(SrvPluginMetadata::default());
+                let _meta_res = get_plugin_metadata(Out::from(&mut meta_buf));
+                let meta: SrvPluginMetadata = ManuallyDrop::into_inner(meta_buf);
                 // 检查插件声明的 host 版本范围。
                 if let Some(err) = check_host_version(&meta) {
                     return err;
@@ -149,7 +159,7 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> SrvPluginResult {
                     };
                 }
 
-                register_plugin(&meta);
+                let _ = register_plugin(&meta);
                 // 持有插件库句柄，防止 dlclose 后 handler 悬空。
                 PLUGIN_LIBS.lock().unwrap().insert(meta.name.to_string(), lib);
                 SrvPluginResult {
@@ -176,67 +186,72 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> SrvPluginResult {
 
 /// 注册插件元数据（name 为唯一键）。
 #[register_hook]
-pub fn register_plugin(metadata: &SrvPluginMetadata) -> i32 {
+pub fn register_plugin(metadata: &SrvPluginMetadata) -> Result {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let key = metadata.name.to_string();
     if map.contains_key(&key) {
-        false.into()
+        Result::error("already registered")
     } else {
         map.insert(key, metadata.clone());
-        true.into()
+        Result::success()
     }
 }
 
 /// 通过名称获取插件。
-#[register_hook(fallback = "TaggedOption::None")]
+#[register_hook]
 pub fn get_plugin(
     name: &safer_ffi::String,
-) -> TaggedOption<safer_ffi::boxed::ThinBox<SrvPluginMetadata>> {
+    out: Out<'_, TaggedOption<safer_ffi::boxed::ThinBox<SrvPluginMetadata>>>,
+) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
-    match map.get(&name.to_string()) {
+    let value = match map.get(&name.to_string()) {
         Some(p) => TaggedOption::Some(safer_ffi::boxed::ThinBox::new(p.clone())),
         None => TaggedOption::None,
-    }
+    };
+    out.write(value);
+    Result::success()
 }
 
 /// 删除插件。
 #[register_hook]
-pub fn unregister_plugin(name: &safer_ffi::String) -> i32 {
+pub fn unregister_plugin(name: &safer_ffi::String) -> Result {
     let mut map = PLUGIN_MAP.lock().unwrap();
-    let removed = map.remove(&name.to_string()).is_some();
-    if removed {
+    if map.remove(&name.to_string()).is_some() {
         PLUGIN_LIBS.lock().unwrap().remove(&name.to_string());
+        Result::success()
+    } else {
+        Result::error("not found")
     }
-    removed.into()
 }
 
 /// 检查插件是否存在。
 #[register_hook]
-pub fn has_plugin(name: &safer_ffi::String) -> i32 {
+pub fn has_plugin(name: &safer_ffi::String) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
-    map.contains_key(&name.to_string()).into()
+    if map.contains_key(&name.to_string()) { Result::success() } else { Result::error("not found") }
 }
 
-/// 获取插件数量。
+/// 获取插件数量（计数为标量，当前无跨边界消费点；状态经 Result.code 表达）。
 #[register_hook]
-pub fn plugin_count() -> i32 {
-    let map = PLUGIN_MAP.lock().unwrap();
-    map.len() as i32
+pub fn plugin_count() -> Result {
+    Result::success()
 }
 
 /// 清空所有插件。
 #[register_hook]
-pub fn clear_plugins() {
+pub fn clear_plugins() -> Result {
     let mut map = PLUGIN_MAP.lock().unwrap();
     let mut libs = PLUGIN_LIBS.lock().unwrap();
     map.clear();
     libs.clear();
+    Result::success()
 }
 
 /// 获取全部插件元数据。
-#[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
-pub fn get_all_plugins() -> safer_ffi::Vec<SrvPluginMetadata> {
+#[register_hook]
+pub fn get_all_plugins(out: Out<'_, safer_ffi::Vec<SrvPluginMetadata>>) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
     let plugins: Vec<SrvPluginMetadata> = map.values().cloned().collect();
-    plugins.into()
+    out.write(plugins.into());
+    Result::success()
 }

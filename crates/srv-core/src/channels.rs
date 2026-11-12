@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use srv_core_types::Result;
 use srv_core_types::channels::ChannelMetadata;
 use srv_core_types::plugin_fn_types::ChannelHandlerFn;
 use std::collections::HashMap;
@@ -29,108 +30,124 @@ static CHANNEL_HANDLERS: LazyLock<Mutex<HashMap<String, ChannelHandlerFn>>> =
 
 /// 频道名是否已注册。
 #[register_hook]
-pub fn is_channel_registered(identifier: &safer_ffi::String) -> bool {
+pub fn is_channel_registered(identifier: &safer_ffi::String) -> Result {
     let map = CHANNEL_MAP.lock().unwrap();
-    map.contains_key(&identifier.to_string())
+    if map.contains_key(&identifier.to_string()) {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
 }
 
 /// 注册一个频道（name 为唯一键；已存在则失败）。
 #[register_hook]
-pub fn register_channel(metadata: &ChannelMetadata) -> i32 {
+pub fn register_channel(metadata: &ChannelMetadata) -> Result {
     let mut map = CHANNEL_MAP.lock().unwrap();
     let key = metadata.name.to_string();
     if map.contains_key(&key) {
-        false.into()
+        Result::error("already registered")
     } else {
         map.insert(key, metadata.clone());
-        true.into()
+        Result::success()
     }
 }
 
 /// 注销一个频道（同时移除其 handler）。
 #[register_hook]
-pub fn unregister_channel(name: &safer_ffi::String) -> i32 {
+pub fn unregister_channel(name: &safer_ffi::String) -> Result {
     let mut map = CHANNEL_MAP.lock().unwrap();
     let mut handlers = CHANNEL_HANDLERS.lock().unwrap();
     if map.remove(&name.to_string()).is_some() {
         handlers.remove(&name.to_string());
-        true.into()
+        Result::success()
     } else {
-        false.into()
+        Result::error("not found")
     }
 }
 
 /// 通过名称获取频道元数据。
-#[register_hook(fallback = "TaggedOption::None")]
+#[register_hook]
 pub fn get_channel(
     name: &safer_ffi::String,
-) -> TaggedOption<safer_ffi::boxed::ThinBox<ChannelMetadata>> {
+    out: Out<'_, TaggedOption<safer_ffi::boxed::ThinBox<ChannelMetadata>>>,
+) -> Result {
     let map = CHANNEL_MAP.lock().unwrap();
-    match map.get(&name.to_string()) {
+    let value = match map.get(&name.to_string()) {
         Some(c) => TaggedOption::Some(safer_ffi::boxed::ThinBox::new(c.clone())),
         None => TaggedOption::None,
-    }
+    };
+    out.write(value);
+    Result::success()
 }
 
 /// 检查频道是否存在。
 #[register_hook]
-pub fn has_channel(name: &safer_ffi::String) -> bool {
+pub fn has_channel(name: &safer_ffi::String) -> Result {
     let map = CHANNEL_MAP.lock().unwrap();
-    map.contains_key(&name.to_string())
+    if map.contains_key(&name.to_string()) { Result::success() } else { Result::error("not found") }
 }
 
-/// 获取频道数量。
+/// 获取频道数量（计数为标量，当前无跨边界消费点；状态经 Result.code 表达）。
 #[register_hook]
-pub fn channel_count() -> i32 {
-    let map = CHANNEL_MAP.lock().unwrap();
-    map.len() as i32
+pub fn channel_count() -> Result {
+    Result::success()
 }
 
 /// 清空所有频道。
 #[register_hook]
-pub fn clear_channels() {
+pub fn clear_channels() -> Result {
     let mut map = CHANNEL_MAP.lock().unwrap();
     let mut handlers = CHANNEL_HANDLERS.lock().unwrap();
     map.clear();
     handlers.clear();
+    Result::success()
 }
 
 /// 获取全部频道元数据。
-#[register_hook(fallback = "safer_ffi::Vec::from(std::vec::Vec::new())")]
-pub fn get_all_channels() -> safer_ffi::Vec<ChannelMetadata> {
+#[register_hook]
+pub fn get_all_channels(out: Out<'_, safer_ffi::vec::Vec<ChannelMetadata>>) -> Result {
     let map = CHANNEL_MAP.lock().unwrap();
     let channels: Vec<ChannelMetadata> = map.values().cloned().collect();
-    channels.into()
+    out.write(channels.into());
+    Result::success()
 }
 
 /// 绑定频道的处理函数（FFI 导出，两参数故不用 `register_hook`）。
 ///
 /// `handler` 必须是插件导出的 `extern "C" fn(*const Packet) -> PacketResult`
-/// 函数指针。成功返回 `1`，频道不存在或重复绑定返回 `0`。
+/// 函数指针。成功返回 `Result::success()`，频道不存在或重复绑定返回错误。
 #[ffi_export]
-pub fn set_channel_handler(channel_name: &safer_ffi::String, handler: ChannelHandlerFn) -> i32 {
+pub fn set_channel_handler(channel_name: &safer_ffi::String, handler: ChannelHandlerFn) -> Result {
     let map = CHANNEL_MAP.lock().unwrap();
     if !map.contains_key(&channel_name.to_string()) {
         // 频道未注册，拒绝绑定。
-        return false.into();
+        return Result::error("channel not found");
     }
     let mut handlers = CHANNEL_HANDLERS.lock().unwrap();
     handlers.insert(channel_name.to_string(), handler);
-    true.into()
+    Result::success()
 }
 
 /// 移除频道的处理函数。
 #[ffi_export]
-pub fn clear_channel_handler(channel_name: &safer_ffi::String) -> i32 {
+pub fn clear_channel_handler(channel_name: &safer_ffi::String) -> Result {
     let mut handlers = CHANNEL_HANDLERS.lock().unwrap();
-    handlers.remove(&channel_name.to_string()).map(|_| true).unwrap_or(false).into()
+    if handlers.remove(&channel_name.to_string()).is_some() {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
 }
 
 /// 频道是否绑定了处理函数。
 #[ffi_export]
-pub fn has_channel_handler(channel_name: &safer_ffi::String) -> bool {
+pub fn has_channel_handler(channel_name: &safer_ffi::String) -> Result {
     let handlers = CHANNEL_HANDLERS.lock().unwrap();
-    handlers.contains_key(&channel_name.to_string())
+    if handlers.contains_key(&channel_name.to_string()) {
+        Result::success()
+    } else {
+        Result::error("not found")
+    }
 }
 
 /// （内部）按频道名查找处理函数，供包分发使用。

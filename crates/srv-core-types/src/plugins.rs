@@ -35,6 +35,22 @@ pub struct SrvPluginMetadata {
     pub max_host_version: safer_ffi::option::TaggedOption<safer_ffi::String>,
 }
 
+impl Default for SrvPluginMetadata {
+    fn default() -> Self {
+        Self {
+            name: "".into(),
+            dylib_name: "".into(),
+            version: "".into(),
+            author: "".into(),
+            description: "".into(),
+            homepage: "".into(),
+            license: "".into(),
+            min_host_version: TaggedOption::None,
+            max_host_version: TaggedOption::None,
+        }
+    }
+}
+
 /// 插件初始化/关闭的返回值。
 #[derive_ReprC]
 #[repr(C)]
