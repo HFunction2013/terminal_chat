@@ -122,3 +122,9 @@ pub fn list_remote_dir(
     out.write(names.into());
     CmdResult::success()
 }
+
+/// 查询当前是否已建立 TCP 连接（1=已连接，0=未连接），供 TUI 闸门判断。
+#[ffi_export]
+pub fn is_connected() -> i32 {
+    crate::connection::CONNECTION.lock().unwrap().is_some() as i32
+}

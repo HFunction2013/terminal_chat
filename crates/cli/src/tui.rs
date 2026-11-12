@@ -19,8 +19,8 @@
 //! `Ctrl+Q` 退出。
 
 use anyhow::Result;
-use cli_core_types::RunCommandFn;
 use cli_core_types::plugin_fn_types::ListRemoteDirFn;
+use cli_core_types::{IsConnectedFn, RunCommandFn};
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::mem::ManuallyDrop;
@@ -860,6 +860,8 @@ struct App {
     members: Vec<String>,
     /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
     remote_list_dir: Option<ListRemoteDirFn>,
+    /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
+    is_connected: Option<IsConnectedFn>,
     /// 状态栏快照（来自全局选项）。
     username: String,
     server: String,
@@ -896,6 +898,7 @@ impl App {
             current_freq: None,
             members: Vec::new(),
             remote_list_dir: None,
+            is_connected: None,
             username: String::new(),
             server: String::new(),
             port: String::new(),
@@ -1169,6 +1172,16 @@ impl App {
             if delta > 0 { (self.comp_idx + 1) % n } else { (self.comp_idx + n - 1) % n };
     }
 
+    /// 当前是否已建立服务器连接；回调缺失或回报 0 时视为未连接。
+    fn connected(&self) -> bool {
+        let Some(f) = self.is_connected else {
+            return false;
+        };
+        let mut buf: ManuallyDrop<i32> = ManuallyDrop::new(0);
+        let _res = f(Out::from(&mut buf));
+        ManuallyDrop::into_inner(buf) != 0
+    }
+
     /// 根据刚执行的命令更新本地会话快照。
     fn note_command(&mut self, argv: &[String]) {
         let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
@@ -1182,6 +1195,58 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// 判断命令是否需要先建立服务器连接（云端 RPC）。按首词判定，覆盖复合命令
+/// （如 `workspace switch`、`load namespace`）；本地命令不在此列。
+fn needs_connection(cmd: &str) -> bool {
+    let first = cmd.split_whitespace().next().unwrap_or(cmd);
+    matches!(
+        first,
+        "join_freq"
+            | "create_freq"
+            | "msg"
+            | "reply"
+            | "call"
+            | "schedule_msg"
+            | "cancel"
+            | "mute"
+            | "unmute"
+            | "ignore"
+            | "unignore"
+            | "kick"
+            | "ban"
+            | "unban"
+            | "op"
+            | "deop"
+            | "trop"
+            | "user_info"
+            | "freq_info"
+            | "active_users"
+            | "active_freqs"
+            | "ls"
+            | "cd"
+            | "mkdir"
+            | "rm"
+            | "mv"
+            | "cp"
+            | "upload"
+            | "download"
+            | "checksum"
+            | "file_info"
+            | "tree"
+            | "away"
+            | "background"
+            | "foreground"
+            | "leave_freq"
+            | "disband"
+            | "sessions"
+            | "status"
+            | "whoami"
+            | "pwd"
+            | "route"
+            | "notifications"
+    )
 }
 
 /// 按命令名与参数位置判定主命令行该位置的补全类别。
@@ -1328,6 +1393,7 @@ pub fn run(
     set_tui_mode: &SetTuiModeFn,
     output_drain: &OutputDrainFn,
     remote_list_dir: Option<&ListRemoteDirFn>,
+    is_connected: Option<&IsConnectedFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -1372,6 +1438,7 @@ pub fn run(
     app.menubar_bg = menubar_bg;
     app.menubar_fg = menubar_fg;
     app.remote_list_dir = remote_list_dir.copied();
+    app.is_connected = is_connected.copied();
     let res = event_loop(
         &mut tui,
         &mut app,
@@ -1767,7 +1834,9 @@ fn run_action(
             app.input = prefix.to_string();
         }
         Action::Form(spec) => {
-            if app.prefer_cli {
+            if needs_connection(spec.cmd) && !app.connected() {
+                app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
+            } else if app.prefer_cli {
                 // 优先命令行：退回输入框预填前缀，交用户补全参数。
                 app.input = spec.prefill.to_string();
             } else {
@@ -1792,6 +1861,12 @@ fn execute_or_dialog(
     let wants_connect = argv.first().map(|s| s == "connect").unwrap_or(false);
     if wants_connect && (app.server.is_empty() || app.username.is_empty()) {
         app.open_connect_dialog();
+        return;
+    }
+    // 需连接的云端命令：未连接时直接提示，不发 RPC、不弹表单。
+    let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
+    if needs_connection(cmd) && !app.connected() {
+        app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
         return;
     }
     run_argv(app, run_command, output_drain, argv);
@@ -2215,11 +2290,16 @@ mod tests {
     extern "C" fn stub_run(_: &safer_ffi::Vec<safer_ffi::String>) -> cli_core_types::Result {
         cli_core_types::Result::default()
     }
+    extern "C" fn stub_connected(out: Out<'_, i32>) -> cli_core_types::Result {
+        out.write(1);
+        cli_core_types::Result::success()
+    }
     unsafe extern "C" fn stub_drain() -> safer_ffi::vec::Vec<safer_ffi::String> {
         Vec::new().into()
     }
     const STUB_RUN: RunCommandFn = stub_run;
     const STUB_DRAIN: OutputDrainFn = stub_drain;
+    const STUB_CONNECTED: IsConnectedFn = stub_connected;
 
     #[test]
     fn reconcile_parses_freq_info_members() {
@@ -2375,14 +2455,25 @@ mod tests {
         // 命令行偏好：退回输入框预填，不弹窗。
         let mut app = App::new();
         app.prefer_cli = true;
+        app.is_connected = Some(STUB_CONNECTED);
         run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
         assert_eq!(app.input, JOIN_FORM.prefill);
         assert!(app.dialog.is_none());
 
         // 默认：弹出表单收集参数。
         let mut app = App::new();
+        app.is_connected = Some(STUB_CONNECTED);
         run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
         assert!(app.dialog.is_some());
+        assert!(app.input.is_empty());
+    }
+
+    #[test]
+    fn form_action_blocked_when_not_connected() {
+        // 未连接：云端命令不弹表单、不预填，只留提示。
+        let mut app = App::new();
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
+        assert!(app.dialog.is_none());
         assert!(app.input.is_empty());
     }
 
@@ -2469,6 +2560,47 @@ mod tests {
         // 末段非数字：整串视为 host，不拆端口。
         assert_eq!(split_host_port("example.com:http"), ("example.com:http".to_string(), None));
         assert_eq!(split_host_port("127.0.0.1"), ("127.0.0.1".to_string(), None));
+    }
+
+    #[test]
+    fn needs_connection_classifies_cloud_and_local() {
+        // 云端 RPC 命令。
+        for cmd in [
+            "join_freq",
+            "create_freq",
+            "msg",
+            "reply",
+            "call",
+            "ls",
+            "upload",
+            "download",
+            "kick",
+            "ban",
+            "op",
+            "freq_info",
+            "status",
+            "whoami",
+        ] {
+            assert!(needs_connection(cmd), "{cmd} should require connection");
+        }
+        // 本地命令（含复合命令首词）。
+        for cmd in [
+            "workspace switch",
+            "workspace new",
+            "load",
+            "unload",
+            "load namespace",
+            "unload namespace",
+            "shell",
+            "setg",
+            "getg",
+            "set",
+            "get",
+            "unset",
+            "unsetg",
+        ] {
+            assert!(!needs_connection(cmd), "{cmd} should be local");
+        }
     }
 
     #[test]

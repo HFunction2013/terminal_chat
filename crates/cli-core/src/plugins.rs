@@ -1,6 +1,7 @@
 use cli_core_types::{
     HostMetadata, PluginMetadata, PluginResult, Result, plugin_fn_types::GetPluginMetadataFn,
     plugin_fn_types::ListRemoteDirFn, plugin_fn_types::OnInitPluginFn,
+    plugin_fn_types::PluginIsConnectedFn,
 };
 use hook_macro::register_hook;
 use libloading::Library;
@@ -329,5 +330,26 @@ pub fn remote_list_dir(
         }
     };
     list_dir(dir, out);
+    Result::success()
+}
+
+/// 查询插件当前 TCP 连接态（1=已连接，0=未连接）：转发到 cli-standard 插件；
+/// 插件未加载或符号缺失时回写 0。
+#[register_hook]
+pub fn is_connected(out: Out<'_, i32>) -> Result {
+    let Some(lib) = get_plugin_library("cli-standard") else {
+        out.write(0);
+        return Result::success();
+    };
+    let f: PluginIsConnectedFn = unsafe {
+        match lib.get(b"is_connected") {
+            Ok(s) => *s,
+            Err(_) => {
+                out.write(0);
+                return Result::success();
+            }
+        }
+    };
+    out.write(f());
     Result::success()
 }

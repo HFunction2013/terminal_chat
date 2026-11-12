@@ -11,3 +11,6 @@ pub type OnShutdownPlugin = extern "C" fn() -> PluginResult;
 /// 以 Result 回报状态。供 TUI 路径补全同步取候选。
 pub type ListRemoteDirFn =
     extern "C" fn(&safer_ffi::String, Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result;
+
+/// 插件回报当前 TCP 连接态：1=已连接，0=未连接。core hook 内部转发到插件时使用。
+pub type PluginIsConnectedFn = extern "C" fn() -> i32;

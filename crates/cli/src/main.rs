@@ -3,8 +3,8 @@ use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
 use cli_core_types::{
-    GetAllPluginsFn, IsInCmdFn, LoadPluginFn, PluginMetadata, RunCommandFn, SetInterruptedFn,
-    plugin_fn_types::ListRemoteDirFn,
+    GetAllPluginsFn, IsConnectedFn, IsInCmdFn, LoadPluginFn, PluginMetadata, RunCommandFn,
+    SetInterruptedFn, plugin_fn_types::ListRemoteDirFn,
 };
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -455,6 +455,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let remote_list_dir: Option<Symbol<ListRemoteDirFn>> =
             unsafe { core_lib.get(b"remote_list_dir") }.ok();
         let remote_list_dir_ref: Option<&ListRemoteDirFn> = remote_list_dir.as_deref();
+        // 连接态查询为可选符号：缺失时 TUI 视为未连接。
+        let is_connected: Option<Symbol<IsConnectedFn>> =
+            unsafe { core_lib.get(b"is_connected") }.ok();
+        let is_connected_ref: Option<&IsConnectedFn> = is_connected.as_deref();
         return tui::run(
             &run_command,
             &take_pushes,
@@ -462,6 +466,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &set_tui_mode,
             &output_drain,
             remote_list_dir_ref,
+            is_connected_ref,
         )
         .map_err(|e| e.into());
     }
