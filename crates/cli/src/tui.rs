@@ -802,6 +802,10 @@ fn draw_body(ctx: &mut Context, app: &App) {
     let off = if app.follow { base } else { base + app.scroll_y };
 
     ctx.scrollarea_begin("chat", Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
+    // 必须在加入子节点之前定位滚动偏移：begin 返回时 last_node 仍是挂
+    // ScrollareaContent 的外层容器；进入子节点后 last_node 会变成叶子节点，
+    // 再调用 scrollarea_scroll_to 会命中框架的 debug_assert!(false)。
+    ctx.scrollarea_scroll_to(Point { x: 0, y: off as CoordType });
     for (i, line) in app.log.iter().enumerate() {
         ctx.next_block_id_mixin(i as u64);
         ctx.styled_label_begin("log-line");
@@ -809,7 +813,6 @@ fn draw_body(ctx: &mut Context, app: &App) {
         ctx.styled_label_add_text(&line.text);
         ctx.styled_label_end();
     }
-    ctx.scrollarea_scroll_to(Point { x: 0, y: off as CoordType });
     ctx.scrollarea_end();
 
     ctx.table_end();
