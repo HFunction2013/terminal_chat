@@ -690,13 +690,17 @@ const COMMAND_NAMES: &[&str] = &[
 fn menu_groups() -> Vec<MenuGroup> {
     vec![
         MenuGroup {
+            name: "File",
+            accel: 'E',
+            items: vec![MenuItem { label: "Exit", action: Action::Run(vec!["exit"]) }],
+        },
+        MenuGroup {
             name: "Connection",
             accel: 'C',
             items: vec![
                 MenuItem { label: "Connect", action: Action::Run(vec!["connect"]) },
                 MenuItem { label: "Reconnect", action: Action::Run(vec!["reconnect"]) },
                 MenuItem { label: "Disconnect", action: Action::Run(vec!["disconnect"]) },
-                MenuItem { label: "Exit", action: Action::Run(vec!["exit"]) },
             ],
         },
         MenuGroup {
@@ -719,6 +723,15 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Info...", action: Action::Form(&FREQ_INFO_FORM) },
                 MenuItem { label: "Background", action: Action::Run(vec!["background"]) },
                 MenuItem { label: "Sessions", action: Action::Run(vec!["sessions", "list"]) },
+                MenuItem { label: "Disband...", action: Action::Prefill("disband ") },
+                MenuItem {
+                    label: "Active freqs",
+                    action: Action::Run(vec!["show", "active_freqs"]),
+                },
+                MenuItem {
+                    label: "Active users",
+                    action: Action::Run(vec!["show", "active_users"]),
+                },
             ],
         },
         MenuGroup {
@@ -742,13 +755,11 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Kick...", action: Action::Form(&KICK_FORM) },
                 MenuItem { label: "Ban...", action: Action::Form(&BAN_FORM) },
                 MenuItem { label: "Unban...", action: Action::Form(&UNBAN_FORM) },
-                MenuItem { label: "Ignore...", action: Action::Form(&IGNORE_FORM) },
                 MenuItem { label: "Unignore...", action: Action::Form(&UNIGNORE_FORM) },
                 MenuItem { label: "Op...", action: Action::Form(&OP_FORM) },
                 MenuItem { label: "Deop...", action: Action::Form(&DEOP_FORM) },
                 MenuItem { label: "Trop...", action: Action::Form(&TROP_FORM) },
                 MenuItem { label: "User Info...", action: Action::Form(&USER_INFO_FORM) },
-                MenuItem { label: "Disband...", action: Action::Prefill("disband ") },
             ],
         },
         MenuGroup {
@@ -777,6 +788,7 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Unload...", action: Action::Form(&UNLOAD_FORM) },
                 MenuItem { label: "Load Namespace...", action: Action::Form(&LOAD_NS_FORM) },
                 MenuItem { label: "Unload Namespace...", action: Action::Form(&UNLOAD_NS_FORM) },
+                MenuItem { label: "Shell...", action: Action::Form(&SHELL_FORM) },
             ],
         },
         MenuGroup {
@@ -789,23 +801,8 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Get Global...", action: Action::Form(&GETG_FORM) },
                 MenuItem { label: "Unset...", action: Action::Form(&UNSET_FORM) },
                 MenuItem { label: "Unset Global...", action: Action::Form(&UNSETG_FORM) },
-            ],
-        },
-        MenuGroup {
-            name: "Help",
-            accel: 'H',
-            items: vec![
                 MenuItem { label: "Options", action: Action::Run(vec!["show", "options"]) },
                 MenuItem { label: "Locals", action: Action::Run(vec!["show", "locals"]) },
-                MenuItem {
-                    label: "Active freqs",
-                    action: Action::Run(vec!["show", "active_freqs"]),
-                },
-                MenuItem {
-                    label: "Active users",
-                    action: Action::Run(vec!["show", "active_users"]),
-                },
-                MenuItem { label: "Shell...", action: Action::Form(&SHELL_FORM) },
             ],
         },
     ]
@@ -2601,6 +2598,42 @@ mod tests {
         ] {
             assert!(!needs_connection(cmd), "{cmd} should be local");
         }
+    }
+
+    #[test]
+    fn menu_groups_place_entries_in_correct_group() {
+        let groups = menu_groups();
+        let find = |name: &str| groups.iter().find(|g| g.name == name).expect(name);
+        let labels = |g: &MenuGroup| g.items.iter().map(|i| i.label).collect::<Vec<_>>();
+
+        // File: Exit only; Connection must not hold Exit.
+        assert_eq!(labels(find("File")), vec!["Exit"]);
+        assert!(!labels(find("Connection")).contains(&"Exit"));
+
+        // Frequency: disband lifecycle + online queries.
+        let freq = labels(find("Frequency"));
+        assert!(freq.contains(&"Disband..."));
+        assert!(freq.contains(&"Active freqs"));
+        assert!(freq.contains(&"Active users"));
+
+        // Moderation: a single Ignore, no Disband.
+        let moderation = labels(find("Moderation"));
+        assert_eq!(moderation.iter().filter(|l| **l == "Ignore...").count(), 1);
+        assert!(!moderation.contains(&"Disband..."));
+
+        // Settings: option inspection; Plugins: local shell.
+        let settings = labels(find("Settings"));
+        assert!(settings.contains(&"Options"));
+        assert!(settings.contains(&"Locals"));
+        assert!(labels(find("Plugins")).contains(&"Shell..."));
+
+        // Help group was removed after its entries were re-homed.
+        assert!(groups.iter().all(|g| g.name != "Help"));
+
+        // Menu accelerators must be unique.
+        let mut accels: Vec<char> = groups.iter().map(|g| g.accel).collect();
+        accels.sort();
+        assert!(!accels.windows(2).any(|w| w[0] == w[1]), "duplicate accel");
     }
 
     #[test]
