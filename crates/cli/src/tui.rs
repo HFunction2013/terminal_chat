@@ -203,6 +203,8 @@ struct App {
     history: Vec<String>,
     /// 历史翻页位置：`None` 表示正在编辑新命令。
     history_idx: Option<usize>,
+    /// 聊天记录向上回看的额外行数；`0` 表示跟随最新消息。
+    chat_scroll: usize,
     /// 侧栏快照：当前会话 freq。
     current_freq: Option<String>,
     /// 侧栏快照：收集到的成员名。
@@ -228,6 +230,7 @@ impl App {
             input: String::new(),
             history: Vec::new(),
             history_idx: None,
+            chat_scroll: 0,
             current_freq: None,
             members: Vec::new(),
             username: String::new(),
@@ -277,22 +280,33 @@ impl App {
         }
     }
 
-    /// 用 `freq_info` 等命令的权威成员列表回填侧栏。
+    /// 用 `freq_info` / `show active_users` 等命令的成员列表回填侧栏。
     ///
-    /// 支持的行格式：`  - <nick> (<ip>)`、`Creator: <nick> (<ip>)`。
+    /// 支持的行格式：
+    /// - `freq_info`：`  - <nick> (<ip>)`、`Creator: <nick> (<ip>)`
+    /// - `active_users`：`  <user> <nickname> [<flags>]`（取昵称列，昵称空时回退账号列）
     fn reconcile_members(&mut self, text: &str) {
         let mut names: Vec<String> = Vec::new();
         for line in text.lines() {
             let t = line.trim();
-            let name = t
-                .strip_prefix("- ")
-                .or_else(|| t.strip_prefix("Creator: "))
-                .and_then(|rest| rest.split(" (").next())
-                .map(|s| s.trim().to_string());
-            if let Some(n) = name {
-                if !n.is_empty() && !names.iter().any(|x| x == &n) {
-                    names.push(n);
-                }
+            if t.is_empty() {
+                continue;
+            }
+
+            // freq_info 格式。
+            if let Some(rest) = t.strip_prefix("- ").or_else(|| t.strip_prefix("Creator: ")) {
+                let name = rest.split(" (").next().unwrap_or(rest).trim().to_string();
+                push_unique(&mut names, &name);
+                continue;
+            }
+
+            // active_users 格式；跳过汇总行（如 `3 user(s) in freq \`xxx\``）。
+            if looks_like_summary_line(t) {
+                continue;
+            }
+            let tokens: Vec<&str> = t.split_whitespace().collect();
+            if let Some(name) = tokens.get(1).or(tokens.first()) {
+                push_unique(&mut names, name);
             }
         }
         if !names.is_empty() {
@@ -328,6 +342,16 @@ impl App {
         }
     }
 
+    /// 聊天记录向上回看一页（`page` 为可见行数）。
+    fn scroll_chat_up(&mut self, page: usize) {
+        self.chat_scroll = self.chat_scroll.saturating_add(page.max(1));
+    }
+
+    /// 聊天记录向下翻一页；回到底部时归零，恢复跟随最新消息。
+    fn scroll_chat_down(&mut self, page: usize) {
+        self.chat_scroll = self.chat_scroll.saturating_sub(page.max(1));
+    }
+
     /// 根据刚执行的命令更新本地会话快照。
     fn note_command(&mut self, argv: &[String]) {
         let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
@@ -341,6 +365,30 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// 向成员列表追加一个去重后的非空名字。
+fn push_unique(list: &mut Vec<String>, name: &str) {
+    let n = name.trim().to_string();
+    if !n.is_empty() && !list.iter().any(|x| x == &n) {
+        list.push(n);
+    }
+}
+
+/// 判断一行是否为命令汇总/提示文本，而非成员条目（避免把计数行回填进侧栏）。
+fn looks_like_summary_line(t: &str) -> bool {
+    let lower = t.to_lowercase();
+    lower.contains("user(s)")
+        || lower.contains("in freq")
+        || lower.contains("not found")
+        || lower.contains("not in any freq")
+        || lower.starts_with("freq:")
+        || lower.starts_with("members:")
+        || lower.starts_with("password:")
+        || t.split_whitespace()
+            .next()
+            .map(|first| first.chars().all(|c| c.is_ascii_digit()))
+            .unwrap_or(false)
 }
 
 fn now_ts() -> u64 {
@@ -498,6 +546,16 @@ fn draw(
         if key == kbmod::CTRL | vk::Q {
             app.exit = true;
             ctx.set_input_consumed();
+        } else if key == vk::PRIOR {
+            // PgUp：聊天记录向上回看一页。
+            let page = (ctx.size().height - 3).max(1).max(0) as usize;
+            app.scroll_chat_up(page);
+            ctx.set_input_consumed();
+        } else if key == vk::NEXT {
+            // PgDn：聊天记录向下翻一页，回到底部恢复跟随。
+            let page = (ctx.size().height - 3).max(1).max(0) as usize;
+            app.scroll_chat_down(page);
+            ctx.set_input_consumed();
         }
     }
 }
@@ -555,10 +613,19 @@ fn draw_body(ctx: &mut Context, app: &App) {
     }
     ctx.block_end();
 
-    // 右侧：聊天记录滚动区。
+    // 右侧：聊天记录滚动区。按可见行数切片；`chat_scroll == 0` 跟随最新，否则向上回看。
+    let total = app.log.len();
+    let view_height = body_height.max(0) as usize;
+    let start = if app.chat_scroll == 0 {
+        total.saturating_sub(view_height)
+    } else {
+        total.saturating_sub(view_height + app.chat_scroll)
+    };
+    let end = total;
+
     ctx.scrollarea_begin("chat", Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
-    for (i, line) in app.log.iter().enumerate() {
-        ctx.next_block_id_mixin(i as u64);
+    for (i, line) in app.log[start..end].iter().enumerate() {
+        ctx.next_block_id_mixin((start + i) as u64);
         ctx.styled_label_begin("log-line");
         ctx.styled_label_set_foreground(ctx.indexed(line.kind.color()));
         ctx.styled_label_add_text(&line.text);
@@ -695,8 +762,8 @@ fn run_argv(
         app.push_line(result.message.to_string(), LineKind::Result);
     }
 
-    // `freq_info` 返回权威成员列表，回填侧栏。
-    if matches!(cmd, "freq_info") {
+    // `freq_info` / `show active_users` 返回成员列表，回填侧栏。
+    if argv.iter().any(|a| a == "freq_info" || a == "active_users") {
         app.reconcile_members(&drained_text);
     }
     // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
@@ -709,5 +776,42 @@ fn run_argv(
     // 离开 / 解散频点后清空成员列表。
     if matches!(cmd, "leave_freq" | "disband") {
         app.members.clear();
+    }
+
+    // 命令回显与结果都在末尾，执行后回到最新视图。
+    app.chat_scroll = 0;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reconcile_parses_freq_info_members() {
+        let mut app = App::new();
+        app.reconcile_members(
+            "Freq:    test\nCreator: alice (1.2.3.4)\nMembers: 2/inf\nPassword: no\n  - bob (5.6.7.8)",
+        );
+        assert_eq!(app.members, vec!["alice".to_string(), "bob".to_string()]);
+    }
+
+    #[test]
+    fn reconcile_parses_active_users_and_skips_summary() {
+        let mut app = App::new();
+        app.reconcile_members(
+            "  alice   AliceA  @+\n  bob     BobB    away\n2 user(s) in freq `test`",
+        );
+        assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
+    }
+
+    #[test]
+    fn chat_scroll_clamps_at_zero() {
+        let mut app = App::new();
+        app.scroll_chat_up(5);
+        assert_eq!(app.chat_scroll, 5);
+        app.scroll_chat_down(2);
+        assert_eq!(app.chat_scroll, 3);
+        app.scroll_chat_down(10);
+        assert_eq!(app.chat_scroll, 0);
     }
 }
