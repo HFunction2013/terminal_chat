@@ -20,6 +20,7 @@
 
 use anyhow::Result;
 use cli_core_types::RunCommandFn;
+use cli_core_types::plugin_fn_types::ListRemoteDirFn;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::mem::ManuallyDrop;
@@ -101,6 +102,21 @@ struct FormField {
     required: bool,
     /// 密码字段：界面以 `*` 掩码回显，缓冲内仍为明文。
     secret: bool,
+    /// 字段类别：决定补全候选来源（命令名 / 成员 / 远端路径 / 本地路径）。
+    kind: FieldKind,
+}
+
+/// 输入字段的补全类别。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FieldKind {
+    /// 自由文本 / 命令名（默认，不做语义补全）。
+    Plain,
+    /// 成员名（用户 / 频点内用户名）。
+    Member,
+    /// 远端路径（经插件 RPC 列举服务端目录）。
+    RemotePath,
+    /// 本地路径（直接读本机当前目录）。
+    LocalPath,
 }
 
 /// 一个待提交命令的表单规格（静态）。
@@ -120,8 +136,13 @@ const JOIN_FORM: FormSpec = FormSpec {
     cmd: "join_freq",
     prefill: "join_freq ",
     fields: &[
-        FormField { label: "Frequency ID:", required: true, secret: false },
-        FormField { label: "Password (optional):", required: false, secret: true },
+        FormField { label: "Frequency ID:", required: true, secret: false, kind: FieldKind::Plain },
+        FormField {
+            label: "Password (optional):",
+            required: false,
+            secret: true,
+            kind: FieldKind::Plain,
+        },
     ],
 };
 
@@ -130,7 +151,12 @@ const SWITCH_WS_FORM: FormSpec = FormSpec {
     title: "Switch Workspace",
     cmd: "workspace switch",
     prefill: "workspace switch ",
-    fields: &[FormField { label: "Workspace name:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Workspace name:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// `workspace new` 表单：名称可选（服务端默认 `Workspace-xxx`）。
@@ -138,7 +164,12 @@ const NEW_WS_FORM: FormSpec = FormSpec {
     title: "New Workspace",
     cmd: "workspace new",
     prefill: "workspace new ",
-    fields: &[FormField { label: "Workspace name (optional):", required: false, secret: false }],
+    fields: &[FormField {
+        label: "Workspace name (optional):",
+        required: false,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// `create_freq` 表单：频点名必填，密码可选（掩码回显）；成员数等其余参数仍走命令行。
@@ -147,8 +178,13 @@ const CREATE_FREQ_FORM: FormSpec = FormSpec {
     cmd: "create_freq",
     prefill: "create_freq ",
     fields: &[
-        FormField { label: "Frequency ID:", required: true, secret: false },
-        FormField { label: "Password (optional):", required: false, secret: true },
+        FormField { label: "Frequency ID:", required: true, secret: false, kind: FieldKind::Plain },
+        FormField {
+            label: "Password (optional):",
+            required: false,
+            secret: true,
+            kind: FieldKind::Plain,
+        },
     ],
 };
 
@@ -158,8 +194,13 @@ const MSG_FORM: FormSpec = FormSpec {
     cmd: "msg",
     prefill: "msg -m ",
     fields: &[
-        FormField { label: "Users (optional):", required: false, secret: false },
-        FormField { label: "Message:", required: true, secret: false },
+        FormField {
+            label: "Users (optional):",
+            required: false,
+            secret: false,
+            kind: FieldKind::Member,
+        },
+        FormField { label: "Message:", required: true, secret: false, kind: FieldKind::Plain },
     ],
 };
 
@@ -168,7 +209,12 @@ const REPLY_FORM: FormSpec = FormSpec {
     title: "Reply",
     cmd: "reply",
     prefill: "reply ",
-    fields: &[FormField { label: "Message:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Message:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// `call` 表单。
@@ -176,7 +222,7 @@ const CALL_FORM: FormSpec = FormSpec {
     title: "Call User",
     cmd: "call",
     prefill: "call ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 
 /// 单用户管理命令表单（mute/unmute/ignore/kick/ban）。
@@ -184,31 +230,31 @@ const MUTE_FORM: FormSpec = FormSpec {
     title: "Mute User",
     cmd: "mute",
     prefill: "mute ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const UNMUTE_FORM: FormSpec = FormSpec {
     title: "Unmute User",
     cmd: "unmute",
     prefill: "unmute ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const IGNORE_FORM: FormSpec = FormSpec {
     title: "Ignore User",
     cmd: "ignore",
     prefill: "ignore ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const KICK_FORM: FormSpec = FormSpec {
     title: "Kick User",
     cmd: "kick",
     prefill: "kick ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const BAN_FORM: FormSpec = FormSpec {
     title: "Ban User",
     cmd: "ban",
     prefill: "ban ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 
 /// 文件列表表单：目录可选。
@@ -216,7 +262,12 @@ const LS_FORM: FormSpec = FormSpec {
     title: "List Remote Files",
     cmd: "ls",
     prefill: "ls ",
-    fields: &[FormField { label: "Directory (optional):", required: false, secret: false }],
+    fields: &[FormField {
+        label: "Directory (optional):",
+        required: false,
+        secret: false,
+        kind: FieldKind::RemotePath,
+    }],
 };
 
 /// 上传表单：本地路径必填，远端路径可选。
@@ -225,8 +276,18 @@ const UPLOAD_FORM: FormSpec = FormSpec {
     cmd: "upload",
     prefill: "upload ",
     fields: &[
-        FormField { label: "Local path:", required: true, secret: false },
-        FormField { label: "Remote path (optional):", required: false, secret: false },
+        FormField {
+            label: "Local path:",
+            required: true,
+            secret: false,
+            kind: FieldKind::LocalPath,
+        },
+        FormField {
+            label: "Remote path (optional):",
+            required: false,
+            secret: false,
+            kind: FieldKind::RemotePath,
+        },
     ],
 };
 
@@ -236,8 +297,18 @@ const DOWNLOAD_FORM: FormSpec = FormSpec {
     cmd: "download",
     prefill: "download ",
     fields: &[
-        FormField { label: "Remote path:", required: true, secret: false },
-        FormField { label: "Local path (optional):", required: false, secret: false },
+        FormField {
+            label: "Remote path:",
+            required: true,
+            secret: false,
+            kind: FieldKind::RemotePath,
+        },
+        FormField {
+            label: "Local path (optional):",
+            required: false,
+            secret: false,
+            kind: FieldKind::LocalPath,
+        },
     ],
 };
 
@@ -246,7 +317,12 @@ const RM_FORM: FormSpec = FormSpec {
     title: "Remove Remote File",
     cmd: "rm",
     prefill: "rm ",
-    fields: &[FormField { label: "Remote path:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Remote path:",
+        required: true,
+        secret: false,
+        kind: FieldKind::RemotePath,
+    }],
 };
 
 /// 移动/重命名远端文件表单。
@@ -255,8 +331,8 @@ const MV_FORM: FormSpec = FormSpec {
     cmd: "mv",
     prefill: "mv ",
     fields: &[
-        FormField { label: "From:", required: true, secret: false },
-        FormField { label: "To:", required: true, secret: false },
+        FormField { label: "From:", required: true, secret: false, kind: FieldKind::RemotePath },
+        FormField { label: "To:", required: true, secret: false, kind: FieldKind::RemotePath },
     ],
 };
 
@@ -266,8 +342,8 @@ const CP_FORM: FormSpec = FormSpec {
     cmd: "cp",
     prefill: "cp ",
     fields: &[
-        FormField { label: "From:", required: true, secret: false },
-        FormField { label: "To:", required: true, secret: false },
+        FormField { label: "From:", required: true, secret: false, kind: FieldKind::RemotePath },
+        FormField { label: "To:", required: true, secret: false, kind: FieldKind::RemotePath },
     ],
 };
 
@@ -276,7 +352,12 @@ const LOAD_FORM: FormSpec = FormSpec {
     title: "Load Plugin",
     cmd: "load",
     prefill: "load ",
-    fields: &[FormField { label: "Plugin:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Plugin:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// 卸载插件表单。
@@ -284,7 +365,12 @@ const UNLOAD_FORM: FormSpec = FormSpec {
     title: "Unload Plugin",
     cmd: "unload",
     prefill: "unload ",
-    fields: &[FormField { label: "Plugin name:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Plugin name:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// 本地 shell 命令表单。
@@ -292,7 +378,12 @@ const SHELL_FORM: FormSpec = FormSpec {
     title: "Local Shell",
     cmd: "shell",
     prefill: "shell ",
-    fields: &[FormField { label: "Command:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Command:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// 单用户管理命令表单（unban/unignore/op/deop/trop/user_info）。
@@ -300,37 +391,37 @@ const UNBAN_FORM: FormSpec = FormSpec {
     title: "Unban User",
     cmd: "unban",
     prefill: "unban ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const UNIGNORE_FORM: FormSpec = FormSpec {
     title: "Unignore User",
     cmd: "unignore",
     prefill: "unignore ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const OP_FORM: FormSpec = FormSpec {
     title: "Grant Moderator",
     cmd: "op",
     prefill: "op ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const DEOP_FORM: FormSpec = FormSpec {
     title: "Revoke Moderator",
     cmd: "deop",
     prefill: "deop ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const TROP_FORM: FormSpec = FormSpec {
     title: "Transfer Creator",
     cmd: "trop",
     prefill: "trop ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 const USER_INFO_FORM: FormSpec = FormSpec {
     title: "User Info",
     cmd: "user_info",
     prefill: "user_info ",
-    fields: &[FormField { label: "User:", required: true, secret: false }],
+    fields: &[FormField { label: "User:", required: true, secret: false, kind: FieldKind::Member }],
 };
 
 /// 远端文件系统命令表单。
@@ -338,25 +429,45 @@ const MKDIR_FORM: FormSpec = FormSpec {
     title: "Make Remote Directory",
     cmd: "mkdir",
     prefill: "mkdir ",
-    fields: &[FormField { label: "Directory:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Directory:",
+        required: true,
+        secret: false,
+        kind: FieldKind::RemotePath,
+    }],
 };
 const CD_FORM: FormSpec = FormSpec {
     title: "Change Remote Directory",
     cmd: "cd",
     prefill: "cd ",
-    fields: &[FormField { label: "Directory:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Directory:",
+        required: true,
+        secret: false,
+        kind: FieldKind::RemotePath,
+    }],
 };
 const CHECKSUM_FORM: FormSpec = FormSpec {
     title: "File Checksum",
     cmd: "checksum",
     prefill: "checksum ",
-    fields: &[FormField { label: "File:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "File:",
+        required: true,
+        secret: false,
+        kind: FieldKind::RemotePath,
+    }],
 };
 const FILE_INFO_FORM: FormSpec = FormSpec {
     title: "File Info",
     cmd: "file_info",
     prefill: "file_info ",
-    fields: &[FormField { label: "File:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "File:",
+        required: true,
+        secret: false,
+        kind: FieldKind::RemotePath,
+    }],
 };
 
 /// 定时消息表单：time 位置、message 走 `-m`、users 可选。
@@ -365,16 +476,31 @@ const SCHEDULE_MSG_FORM: FormSpec = FormSpec {
     cmd: "schedule_msg",
     prefill: "schedule_msg ",
     fields: &[
-        FormField { label: "Time (+30s / HH:MM):", required: true, secret: false },
-        FormField { label: "Message:", required: true, secret: false },
-        FormField { label: "Users (optional):", required: false, secret: false },
+        FormField {
+            label: "Time (+30s / HH:MM):",
+            required: true,
+            secret: false,
+            kind: FieldKind::Plain,
+        },
+        FormField { label: "Message:", required: true, secret: false, kind: FieldKind::Plain },
+        FormField {
+            label: "Users (optional):",
+            required: false,
+            secret: false,
+            kind: FieldKind::Member,
+        },
     ],
 };
 const CANCEL_FORM: FormSpec = FormSpec {
     title: "Cancel Task",
     cmd: "cancel",
     prefill: "cancel ",
-    fields: &[FormField { label: "Task ID:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Task ID:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// 加载/卸载命名空间表单。
@@ -382,13 +508,23 @@ const LOAD_NS_FORM: FormSpec = FormSpec {
     title: "Load Namespace",
     cmd: "load namespace",
     prefill: "load namespace ",
-    fields: &[FormField { label: "Namespace:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Namespace:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 const UNLOAD_NS_FORM: FormSpec = FormSpec {
     title: "Unload Namespace",
     cmd: "unload namespace",
     prefill: "unload namespace ",
-    fields: &[FormField { label: "Namespace:", required: true, secret: false }],
+    fields: &[FormField {
+        label: "Namespace:",
+        required: true,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 /// 会话/全局选项表单。
@@ -397,42 +533,47 @@ const SET_FORM: FormSpec = FormSpec {
     cmd: "set",
     prefill: "set ",
     fields: &[
-        FormField { label: "Key:", required: true, secret: false },
-        FormField { label: "Value:", required: true, secret: false },
+        FormField { label: "Key:", required: true, secret: false, kind: FieldKind::Plain },
+        FormField { label: "Value:", required: true, secret: false, kind: FieldKind::Plain },
     ],
 };
 const GET_FORM: FormSpec = FormSpec {
     title: "Get Session Option",
     cmd: "get",
     prefill: "get ",
-    fields: &[FormField { label: "Key:", required: true, secret: false }],
+    fields: &[FormField { label: "Key:", required: true, secret: false, kind: FieldKind::Plain }],
 };
 const SETG_FORM: FormSpec = FormSpec {
     title: "Set Global Option",
     cmd: "setg",
     prefill: "setg ",
     fields: &[
-        FormField { label: "Key:", required: true, secret: false },
-        FormField { label: "Value (optional):", required: false, secret: false },
+        FormField { label: "Key:", required: true, secret: false, kind: FieldKind::Plain },
+        FormField {
+            label: "Value (optional):",
+            required: false,
+            secret: false,
+            kind: FieldKind::Plain,
+        },
     ],
 };
 const GETG_FORM: FormSpec = FormSpec {
     title: "Get Global Option",
     cmd: "getg",
     prefill: "getg ",
-    fields: &[FormField { label: "Key:", required: true, secret: false }],
+    fields: &[FormField { label: "Key:", required: true, secret: false, kind: FieldKind::Plain }],
 };
 const UNSET_FORM: FormSpec = FormSpec {
     title: "Unset Session Option",
     cmd: "unset",
     prefill: "unset ",
-    fields: &[FormField { label: "Key:", required: true, secret: false }],
+    fields: &[FormField { label: "Key:", required: true, secret: false, kind: FieldKind::Plain }],
 };
 const UNSETG_FORM: FormSpec = FormSpec {
     title: "Unset Global Option",
     cmd: "unsetg",
     prefill: "unsetg ",
-    fields: &[FormField { label: "Key:", required: true, secret: false }],
+    fields: &[FormField { label: "Key:", required: true, secret: false, kind: FieldKind::Plain }],
 };
 
 /// 频点信息表单：频点可选（留空取当前）。
@@ -440,7 +581,12 @@ const FREQ_INFO_FORM: FormSpec = FormSpec {
     title: "Frequency Info",
     cmd: "freq_info",
     prefill: "freq_info ",
-    fields: &[FormField { label: "Frequency (optional):", required: false, secret: false }],
+    fields: &[FormField {
+        label: "Frequency (optional):",
+        required: false,
+        secret: false,
+        kind: FieldKind::Plain,
+    }],
 };
 
 struct MenuItem {
@@ -712,6 +858,8 @@ struct App {
     current_freq: Option<String>,
     /// 侧栏快照：收集到的成员名。
     members: Vec<String>,
+    /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
+    remote_list_dir: Option<ListRemoteDirFn>,
     /// 状态栏快照（来自全局选项）。
     username: String,
     server: String,
@@ -747,6 +895,7 @@ impl App {
             dialog: None,
             current_freq: None,
             members: Vec::new(),
+            remote_list_dir: None,
             username: String::new(),
             server: String::new(),
             port: String::new(),
@@ -914,20 +1063,57 @@ impl App {
         self.scroll_y = 0;
     }
 
-    /// 根据当前输入刷新补全候选：首词匹配命令名，后续词匹配成员名。
-    fn refresh_completions(&mut self) {
+    /// 返回当前正在编辑的缓冲：有弹窗时为弹窗字段，否则为主输入框。
+    fn active_buffer(&mut self) -> Option<&mut String> {
+        if self.dialog.is_some() { self.dialog_buffer() } else { Some(&mut self.input) }
+    }
+
+    /// 判定当前活动缓冲的补全类别与前缀。
+    fn completion_context(&self) -> (FieldKind, String) {
+        if let Some(Dialog::Form(form)) = &self.dialog {
+            let kind = form.spec.fields[form.focus].kind;
+            return (kind, form.values[form.focus].clone());
+        }
         let parts: Vec<&str> = self.input.split_whitespace().collect();
-        let cands: Vec<String> = match parts.as_slice() {
-            [] => Vec::new(),
-            [prefix] => COMMAND_NAMES
-                .iter()
-                .copied()
-                .filter(|c| c.starts_with(*prefix))
-                .map(String::from)
-                .collect(),
+        match parts.as_slice() {
+            [] => (FieldKind::Plain, String::new()),
+            [first] => (FieldKind::Plain, (*first).to_string()),
             _ => {
-                let prefix = parts[parts.len() - 1];
-                self.members.iter().filter(|m| m.starts_with(prefix)).cloned().collect()
+                let cmd = parts[0];
+                let arg_index = parts.len() - 1; // 命令后第几个参数（1 起）
+                let kind = kind_for_command_arg(cmd, arg_index);
+                (kind, parts[parts.len() - 1].to_string())
+            }
+        }
+    }
+
+    /// 依据当前类别刷新补全候选：命令名 / 成员名 / 远端路径 / 本地路径。
+    fn refresh_completions(&mut self) {
+        let (kind, prefix) = self.completion_context();
+        let cands: Vec<String> = match kind {
+            FieldKind::Plain => {
+                // 表单内自由文本不补全；主命令行首词匹配命令名。
+                if self.dialog.is_some() {
+                    Vec::new()
+                } else {
+                    COMMAND_NAMES
+                        .iter()
+                        .copied()
+                        .filter(|c| c.starts_with(&prefix))
+                        .map(String::from)
+                        .collect()
+                }
+            }
+            FieldKind::Member => {
+                self.members.iter().filter(|m| m.starts_with(&prefix)).cloned().collect()
+            }
+            FieldKind::RemotePath => {
+                let (parent, base) = split_path_prefix(&prefix);
+                self.remote_candidates(parent, base)
+            }
+            FieldKind::LocalPath => {
+                let (parent, base) = split_path_prefix(&prefix);
+                local_candidates(parent, base)
             }
         };
         self.completions = cands;
@@ -936,18 +1122,39 @@ impl App {
         }
     }
 
-    /// 接受当前高亮候选：首词替换为命令名，其余位置替换为成员名。
+    /// 经插件回调列举远端目录条目，按基名前缀过滤并补回父目录前缀。
+    fn remote_candidates(&self, parent: &str, base: &str) -> Vec<String> {
+        let Some(list_dir) = self.remote_list_dir else {
+            return Vec::new();
+        };
+        let dir = parent.trim_end_matches('/').to_string();
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = list_dir(&dir.into(), Out::from(&mut buf));
+        let entries: Vec<String> =
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+        entries
+            .into_iter()
+            .filter(|n| n.starts_with(base))
+            .map(|n| format!("{parent}{n}"))
+            .collect()
+    }
+
+    /// 接受当前高亮候选：替换活动缓冲的末词（路径候选已含父目录前缀）。
     fn accept_completion(&mut self) {
         let Some(cand) = self.completions.get(self.comp_idx).cloned() else {
             return;
         };
-        let mut parts: Vec<&str> = self.input.split_whitespace().collect();
+        let Some(buf) = self.active_buffer() else {
+            return;
+        };
+        let mut parts: Vec<&str> = buf.split_whitespace().collect();
         if parts.len() <= 1 {
-            self.input = cand;
+            *buf = cand;
         } else {
             parts.pop();
             parts.push(cand.as_str());
-            self.input = parts.join(" ");
+            *buf = parts.join(" ");
         }
         self.refresh_completions();
     }
@@ -975,6 +1182,67 @@ impl App {
             _ => {}
         }
     }
+}
+
+/// 按命令名与参数位置判定主命令行该位置的补全类别。
+fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
+    match cmd {
+        // 单参数远端路径命令。
+        "ls" | "cd" | "mkdir" | "rm" | "checksum" | "file_info" => FieldKind::RemotePath,
+        // mv / cp：from、to 均为远端路径。
+        "mv" | "cp" => FieldKind::RemotePath,
+        // upload：第 1 参本地路径，第 2 参远端路径。
+        "upload" => {
+            if arg_index == 1 {
+                FieldKind::LocalPath
+            } else {
+                FieldKind::RemotePath
+            }
+        }
+        // download：第 1 参远端路径，第 2 参本地路径。
+        "download" => {
+            if arg_index == 1 {
+                FieldKind::RemotePath
+            } else {
+                FieldKind::LocalPath
+            }
+        }
+        // lcd：切换本地目录。
+        "lcd" => FieldKind::LocalPath,
+        // 其余参数按成员名补全。
+        _ => FieldKind::Member,
+    }
+}
+
+/// 拆分路径前缀为 `(父目录, 基名)`；父目录保留尾斜杠，空表示当前目录。
+fn split_path_prefix(prefix: &str) -> (&str, &str) {
+    match prefix.rfind('/') {
+        Some(i) => (&prefix[..=i], &prefix[i + 1..]),
+        None => ("", prefix),
+    }
+}
+
+/// 列举本机目录条目，按基名前缀过滤；目录条目补 `/` 后缀。
+fn local_candidates(parent: &str, base: &str) -> Vec<String> {
+    let base_dir = if parent.is_empty() {
+        std::env::current_dir().unwrap_or_default()
+    } else {
+        std::path::PathBuf::from(parent)
+    };
+    let Ok(rd) = std::fs::read_dir(&base_dir) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for entry in rd.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with(base) {
+            continue;
+        }
+        let suffix = if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { "/" } else { "" };
+        out.push(format!("{parent}{name}{suffix}"));
+    }
+    out.sort();
+    out
 }
 
 /// 向成员列表追加一个去重后的非空名字。
@@ -1043,6 +1311,7 @@ pub fn run(
     get_option: &GetOptionFn,
     set_tui_mode: &SetTuiModeFn,
     output_drain: &OutputDrainFn,
+    remote_list_dir: Option<&ListRemoteDirFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -1086,6 +1355,7 @@ pub fn run(
     let mut app = App::new();
     app.menubar_bg = menubar_bg;
     app.menubar_fg = menubar_fg;
+    app.remote_list_dir = remote_list_dir.copied();
     let res = event_loop(
         &mut tui,
         &mut app,
@@ -1335,37 +1605,42 @@ fn draw_input(
         }
     }
 
-    // 候选非空时，在输入框正下方叠加一个浮层列表（对齐 upstream edit
-    // 的 autocomplete suggestions 浮层），当前高亮项随 `comp_idx` 标记。
-    if !app.completions.is_empty() {
-        let bg = ctx.indexed_alpha(IndexedColor::Background, 3, 4);
-        let fg = ctx.contrasted(bg);
-        ctx.list_begin("suggestions");
-        ctx.attr_float(FloatSpec {
-            anchor: Anchor::Last,
-            gravity_x: 0.0,
-            // 输入栏贴近底部状态栏，浮层向上展开：底边贴住输入框上缘。
-            gravity_y: 1.0,
-            offset_x: 0.0,
-            offset_y: 0.0,
-        });
-        ctx.attr_border();
-        ctx.attr_background_rgba(bg);
-        ctx.attr_foreground_rgba(fg);
-        let cands = app.completions.clone();
-        for (idx, cand) in cands.iter().enumerate() {
-            let sel = ctx.list_item(idx == app.comp_idx, cand);
-            if sel == ListSelection::Activated {
-                app.comp_idx = idx;
-                app.accept_completion();
-            } else if sel == ListSelection::Selected {
-                app.comp_idx = idx;
-            }
-        }
-        ctx.list_end();
-    }
+    // 候选非空时叠加补全浮层（主输入框与表单弹窗共用）。
+    draw_suggestions(ctx, app);
 
     ctx.table_end();
+}
+
+/// 候选非空时，在当前控件下方叠加一个浮层列表（对齐 upstream edit 的
+/// autocomplete suggestions 浮层），当前高亮项随 `comp_idx` 标记。
+fn draw_suggestions(ctx: &mut Context, app: &mut App) {
+    if app.completions.is_empty() {
+        return;
+    }
+    let bg = ctx.indexed_alpha(IndexedColor::Background, 3, 4);
+    let fg = ctx.contrasted(bg);
+    ctx.list_begin("suggestions");
+    ctx.attr_float(FloatSpec {
+        anchor: Anchor::Last,
+        gravity_x: 0.0,
+        gravity_y: 1.0,
+        offset_x: 0.0,
+        offset_y: 0.0,
+    });
+    ctx.attr_border();
+    ctx.attr_background_rgba(bg);
+    ctx.attr_foreground_rgba(fg);
+    let cands = app.completions.clone();
+    for (idx, cand) in cands.iter().enumerate() {
+        let sel = ctx.list_item(idx == app.comp_idx, cand);
+        if sel == ListSelection::Activated {
+            app.comp_idx = idx;
+            app.accept_completion();
+        } else if sel == ListSelection::Selected {
+            app.comp_idx = idx;
+        }
+    }
+    ctx.list_end();
 }
 
 fn draw_status(ctx: &mut Context, app: &App) {
@@ -1429,11 +1704,26 @@ fn draw_dialog(
                 ctx.editline("dlg-input", buf);
             }
             ctx.focus_on_first_present();
-            ctx.is_focused() && ctx.consume_shortcut(vk::RETURN)
+            let focused = ctx.is_focused();
+            app.refresh_completions();
+            if focused {
+                if ctx.consume_shortcut(vk::UP) {
+                    app.cycle_completion(-1);
+                } else if ctx.consume_shortcut(vk::DOWN) {
+                    app.cycle_completion(1);
+                } else if ctx.consume_shortcut(vk::TAB) {
+                    if !app.completions.is_empty() {
+                        app.accept_completion();
+                    }
+                }
+            }
+            focused && ctx.consume_shortcut(vk::RETURN)
         }
         None => false,
     };
     ctx.block_end();
+
+    draw_suggestions(ctx, app);
 
     if advance {
         dialog_advance(app, run_command, output_drain);
@@ -2135,5 +2425,40 @@ mod tests {
         assert_eq!(form_argv(&UNSETG_FORM, &["k".into()]), vec!["unsetg", "k"]);
         // 可选频点留空：只发命令本身。
         assert_eq!(form_argv(&FREQ_INFO_FORM, &["".into()]), vec!["freq_info"]);
+    }
+
+    #[test]
+    fn split_path_prefix_splits_parent_and_base() {
+        assert_eq!(split_path_prefix("docs/rep"), ("docs/", "rep"));
+        assert_eq!(split_path_prefix("rep"), ("", "rep"));
+        assert_eq!(split_path_prefix("/abs/p"), ("/abs/", "p"));
+    }
+
+    #[test]
+    fn command_arg_kind_maps_path_commands() {
+        assert_eq!(kind_for_command_arg("ls", 1), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("rm", 1), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("mv", 2), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("cp", 1), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("checksum", 1), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("upload", 1), FieldKind::LocalPath);
+        assert_eq!(kind_for_command_arg("upload", 2), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("download", 1), FieldKind::RemotePath);
+        assert_eq!(kind_for_command_arg("download", 2), FieldKind::LocalPath);
+        assert_eq!(kind_for_command_arg("lcd", 1), FieldKind::LocalPath);
+        assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
+    }
+
+    #[test]
+    fn local_candidates_filters_and_marks_dirs() {
+        let dir = std::env::temp_dir().join(format!("tc_comp_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        std::fs::write(dir.join("alpha.txt"), b"").unwrap();
+        std::fs::write(dir.join("beta.md"), b"").unwrap();
+        let parent = dir.to_string_lossy().to_string() + "/";
+        assert_eq!(local_candidates(&parent, "al"), vec![format!("{parent}alpha.txt")]);
+        assert_eq!(local_candidates(&parent, "su"), vec![format!("{parent}sub/")]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

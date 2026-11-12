@@ -93,3 +93,32 @@ pub fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> CmdResult {
 pub fn on_shutdown_plugin() -> PluginResult {
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
+
+/// 列举远端目录条目名（供 TUI 路径补全同步取候选）。失败或目录为空时回填空列表。
+#[ffi_export]
+pub fn list_remote_dir(
+    dir: &safer_ffi::String,
+    out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+) -> CmdResult {
+    let req = protos::remote::fs::LsRequest { dir: dir.to_string() };
+    let resp: protos::remote::fs::LsResponse = match crate::connection::rpc("remote_ls", &req) {
+        Ok(r) => r,
+        Err(e) => {
+            out.write(Vec::new().into());
+            return CmdResult::error(&e.to_string());
+        }
+    };
+    let names: Vec<safer_ffi::String> = if resp.success {
+        resp.entries
+            .iter()
+            .map(|e| {
+                let name = if e.is_dir { format!("{}/", e.name) } else { e.name.clone() };
+                name.into()
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    out.write(names.into());
+    CmdResult::success()
+}

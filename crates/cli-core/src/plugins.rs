@@ -1,6 +1,6 @@
 use cli_core_types::{
     HostMetadata, PluginMetadata, PluginResult, Result, plugin_fn_types::GetPluginMetadataFn,
-    plugin_fn_types::OnInitPluginFn,
+    plugin_fn_types::ListRemoteDirFn, plugin_fn_types::OnInitPluginFn,
 };
 use hook_macro::register_hook;
 use libloading::Library;
@@ -305,5 +305,29 @@ pub fn get_all_plugins(out: Out<'_, safer_ffi::Vec<PluginMetadata>>) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
     let plugins: Vec<PluginMetadata> = map.values().cloned().collect();
     out.write(plugins.into());
+    Result::success()
+}
+
+/// 列举远端目录条目名：转发到已加载 cli-standard 插件的 RPC 通路，供 TUI 路径补全。
+/// 插件未加载或符号缺失时回填空列表，不阻断补全。
+#[register_hook]
+pub fn remote_list_dir(
+    dir: &safer_ffi::String,
+    out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+) -> Result {
+    let Some(lib) = get_plugin_library("cli-standard") else {
+        out.write(Vec::new().into());
+        return Result::success();
+    };
+    let list_dir: ListRemoteDirFn = unsafe {
+        match lib.get(b"list_remote_dir") {
+            Ok(f) => *f,
+            Err(_) => {
+                out.write(Vec::new().into());
+                return Result::success();
+            }
+        }
+    };
+    list_dir(dir, out);
     Result::success()
 }

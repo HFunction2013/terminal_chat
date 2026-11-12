@@ -4,6 +4,7 @@ use clap::Command;
 use clap_complete::engine::complete;
 use cli_core_types::{
     GetAllPluginsFn, IsInCmdFn, LoadPluginFn, PluginMetadata, RunCommandFn, SetInterruptedFn,
+    plugin_fn_types::ListRemoteDirFn,
 };
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -450,8 +451,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let output_drain: Symbol<tui::OutputDrainFn> =
             unsafe { core_lib.get(b"tc_cli_output_drain") }
                 .map_err(|e| format!("Failed to find symbol 'tc_cli_output_drain': {e}"))?;
-        return tui::run(&run_command, &take_pushes, &get_option, &set_tui_mode, &output_drain)
-            .map_err(|e| e.into());
+        // 远端目录列举为可选符号：旧 core 缺失时 TUI 远端路径不补全，不阻断启动。
+        let remote_list_dir: Option<Symbol<ListRemoteDirFn>> =
+            unsafe { core_lib.get(b"remote_list_dir") }.ok();
+        let remote_list_dir_ref: Option<&ListRemoteDirFn> = remote_list_dir.as_deref();
+        return tui::run(
+            &run_command,
+            &take_pushes,
+            &get_option,
+            &set_tui_mode,
+            &output_drain,
+            remote_list_dir_ref,
+        )
+        .map_err(|e| e.into());
     }
 
     #[cfg(not(debug_assertions))]
