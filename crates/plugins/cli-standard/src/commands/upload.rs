@@ -8,7 +8,11 @@ use clap::ArgMatches;
 pub struct UploadCommand;
 
 impl UploadCommand {
-    fn upload_one(&self, local: &str, remote: String) -> Result<()> {
+    fn upload_one(
+        &self,
+        local: &str,
+        remote: String,
+    ) -> Result<protos::remote::fs::UploadResponse> {
         let content = std::fs::read(local).map_err(|e| anyhow!("cannot read `{local}`: {e}"))?;
         let req = protos::remote::fs::UploadRequest {
             local_path: local.to_string(),
@@ -16,8 +20,8 @@ impl UploadCommand {
             total_size: content.len() as i64,
             content,
         };
-        let _resp: protos::remote::fs::UploadResponse = crate::connection::rpc("upload", &req)?;
-        Ok(())
+        let resp: protos::remote::fs::UploadResponse = crate::connection::rpc("upload", &req)?;
+        Ok(resp)
     }
 
     /// 递归收集目录下所有普通文件：(相对路径, 绝对路径)。
@@ -55,7 +59,11 @@ impl UploadCommand {
             let mut ok = 0usize;
             for (rel, abs) in &files {
                 let remote = format!("{}/{}", base.trim_end_matches('/'), rel);
-                self.upload_one(abs, remote)?;
+                let resp = self.upload_one(abs, remote)?;
+                if !resp.success {
+                    print_content(&format!("[!] {}", resp.message).into());
+                    return Ok(());
+                }
                 ok += 1;
             }
             print_content(
@@ -64,7 +72,11 @@ impl UploadCommand {
             Ok(())
         } else {
             let remote = remote_path.unwrap_or_else(|| base_name(&local_path));
-            self.upload_one(&local_path, remote.clone())?;
+            let resp = self.upload_one(&local_path, remote.clone())?;
+            if !resp.success {
+                print_content(&format!("[!] {}", resp.message).into());
+                return Ok(());
+            }
             print_content(&format!("[*] uploaded `{local_path}` to `{remote}`").into());
             Ok(())
         }
