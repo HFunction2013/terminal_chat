@@ -1598,6 +1598,11 @@ pub fn run(
     app.remote_list_dir = remote_list_dir.copied();
     app.is_connected = is_connected.copied();
     app.list_registered_options = registered_options.copied();
+
+    // debug 构建：缺省自动连本地回环并补随机昵称；release 跳过。
+    #[cfg(debug_assertions)]
+    debug_seed_autoconnect(&mut app, run_command, output_drain, get_option, get_session);
+
     let res = event_loop(
         &mut tui,
         &mut app,
@@ -2304,6 +2309,48 @@ fn finish_confirm(app: &mut App, run_command: &RunCommandFn, output_drain: &Outp
     run_argv(app, run_command, output_drain, &argv);
 }
 
+/// 生成 `hf` + 两位随机小写字母的调试昵称（如 `hfqx`）。
+#[cfg(debug_assertions)]
+fn debug_random_nickname() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let suffix: String = (0..2).map(|_| (b'a' + rng.gen_range(0..26)) as char).collect();
+    format!("hf{suffix}")
+}
+
+/// 计算 debug 启动种子要执行的命令：缺省才补本地回环与随机昵称，最后连接。
+#[cfg(debug_assertions)]
+fn debug_seed_argv(server: &str, username: &str) -> Vec<Vec<String>> {
+    let mut cmds: Vec<Vec<String>> = Vec::new();
+    if server.is_empty() {
+        cmds.push(vec!["setg".into(), "SERVER".into(), "127.0.0.1".into()]);
+        cmds.push(vec!["setg".into(), "PORT".into(), "50051".into()]);
+    }
+    if username.is_empty() {
+        let nick = debug_random_nickname();
+        cmds.push(vec!["setg".into(), "USERNAME".into(), nick]);
+    }
+    cmds.push(vec!["connect".into()]);
+    cmds
+}
+
+/// debug 构建启动种子：缺省自动连本地回环 `127.0.0.1:50051`，并补一个随机昵称。
+/// 已显式设置的 `SERVER` / `USERNAME` 不被覆盖；release 构建不调用本函数。
+#[cfg(debug_assertions)]
+fn debug_seed_autoconnect(
+    app: &mut App,
+    run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
+    get_option: &GetOptionFn,
+    get_session: Option<&GetOptionFn>,
+) {
+    let server = opt_get_effective(get_session, get_option, "SERVER");
+    let username = opt_get_effective(get_session, get_option, "USERNAME");
+    for argv in debug_seed_argv(&server, &username) {
+        run_argv(app, run_command, output_drain, &argv);
+    }
+}
+
 /// 弹窗完成：把收集到的服务器 / 昵称经 `setg` 回填全局选项，再执行 `connect`。
 fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let Some(d) = app.dialog.take() else { return };
@@ -2938,6 +2985,40 @@ mod tests {
             _ => "",
         };
         assert_eq!(title, "Copyright");
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_nickname_is_hf_two_lowercase_letters() {
+        for _ in 0..20 {
+            let nick = debug_random_nickname();
+            assert!(nick.starts_with("hf"));
+            assert_eq!(nick.len(), 4);
+            assert!(nick[2..].chars().all(|c| c.is_ascii_lowercase()));
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_seed_argv_seeds_defaults_when_empty() {
+        let cmds = debug_seed_argv("", "");
+        assert_eq!(
+            cmds[0],
+            vec!["setg".to_string(), "SERVER".to_string(), "127.0.0.1".to_string()]
+        );
+        assert_eq!(cmds[1], vec!["setg".to_string(), "PORT".to_string(), "50051".to_string()]);
+        assert_eq!(cmds[2][0], "setg");
+        assert_eq!(cmds[2][1], "USERNAME");
+        assert!(cmds[2][2].starts_with("hf") && cmds[2][2].len() == 4);
+        assert_eq!(cmds.last().unwrap(), &vec!["connect".to_string()]);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_seed_argv_keeps_explicit_config() {
+        let cmds = debug_seed_argv("10.0.0.2", "alice");
+        assert!(cmds.iter().all(|c| c[0] != "setg"));
+        assert_eq!(cmds, vec![vec!["connect".to_string()]]);
     }
 
     #[test]
