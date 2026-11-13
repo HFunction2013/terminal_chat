@@ -179,6 +179,8 @@ pub fn connect_now() -> Result<()> {
                 }
                 Err(e) => {
                     eprintln!("[cli-standard] reader error: {e}");
+                    // 对端断开/读出错：清掉存储的连接，避免后续误报“已连接”并向死连接写帧。
+                    CONNECTION.lock().unwrap().take();
                     break;
                 }
             }
@@ -252,7 +254,12 @@ pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
             .unwrap_or(0),
         seq: SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
     };
-    write_frame(stream, frame_type::PACKET, &req.encode_to_vec())?;
+    if let Err(e) = write_frame(stream, frame_type::PACKET, &req.encode_to_vec()) {
+        drop(guard);
+        // 写失败通常意味着对端已断开：清掉死连接，下次可重新 `connect`。
+        CONNECTION.lock().unwrap().take();
+        return Err(e.into());
+    }
     drop(guard); // 读由后台线程负责，释放连接锁避免与读线程无关的等待。
 
     // 等待匹配 seq 的响应帧（推送帧已由读线程旁路）。
