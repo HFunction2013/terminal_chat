@@ -1843,12 +1843,8 @@ fn draw_input(
             }
         } else if ctx.consume_shortcut(vk::TAB) {
             if !app.completions.is_empty() {
-                // 首次 Tab 激活候选浮层；已激活则在候选间循环。
-                if app.completion_active {
-                    app.cycle_completion(1);
-                } else {
-                    app.completion_active = true;
-                }
+                // Tab 直接接受当前高亮候选并填入输入框。
+                app.accept_completion();
             }
         } else if ctx.consume_shortcut(vk::ESCAPE) {
             app.completion_active = false;
