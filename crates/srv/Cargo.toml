@@ -16,6 +16,7 @@ which_dylib = { workspace = true }
 prost = { workspace = true }
 base64 = { workspace = true }
 protos = { workspace = true }
+socket2 = "0.6.5"
 
 [lints]
 workspace = true

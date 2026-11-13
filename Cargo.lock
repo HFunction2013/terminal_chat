@@ -2507,6 +2507,7 @@ dependencies = [
  "prost",
  "protos",
  "safer-ffi",
+ "socket2",
  "srv-core-types",
  "which_dylib",
 ]

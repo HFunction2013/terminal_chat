@@ -15,10 +15,11 @@
 //! - 断开：客户端发 `DisconnectRequest` → 服务端回
 //!   `DisconnectResponse` 后关闭连接并注销会话。
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use libloading::Library;
 use prost::Message;
 use safer_ffi::prelude::Out;
+use socket2::{Domain, Protocol, Socket as Socket2, Type};
 use srv_core_types::sessions::SessionInfo;
 use srv_core_types::{
     AddSessionFn, LoadPluginFn, OnRecievePacketFn, RemoveSessionFn, SessionCountFn,
@@ -26,7 +27,7 @@ use srv_core_types::{
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Ipv6Addr, SocketAddrV6, TcpListener, TcpStream};
 use std::os::raw::c_void;
 use std::sync::mpsc;
 use std::sync::{LazyLock, Mutex, OnceLock};
@@ -317,9 +318,18 @@ fn main() -> Result<()> {
         .and_then(|i| std::env::args().nth(i + 1))
         .or_else(|| std::env::var("SRV_PORT").ok())
         .unwrap_or_else(|| "50051".to_string());
-    let addr = format!("[::]:{port}");
-    let listener = TcpListener::bind(&addr)?;
-    println!("[srv] listening on {addr} (TCP, prost frames)");
+    let port_str = port;
+    let port: u16 =
+        port_str.parse().with_context(|| format!("invalid listen port `{port_str}`"))?;
+    let bind_addr = SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, port, 0, 0);
+    // 显式双栈：Windows 的 IPv6 socket 默认 IPV6_V6ONLY=1（仅收 IPv6），
+    // 必须在 bind 前关闭，才能同时接受 IPv4 映射连接（如 127.0.0.1）。
+    let socket = Socket2::new(Domain::IPV6, Type::STREAM, Some(Protocol::TCP))?;
+    socket.set_only_v6(false)?;
+    socket.bind(&bind_addr.into())?;
+    socket.listen(128)?;
+    let listener: TcpListener = socket.into();
+    println!("[srv] listening on [::]:{port} (TCP dual-stack, prost frames)");
 
     let symbols = SrvSymbols {
         on_recieve_packet,
