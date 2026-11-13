@@ -1437,6 +1437,10 @@ fn local_candidates(parent: &str, base: &str) -> Vec<String> {
         let suffix = if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { "/" } else { "" };
         out.push(format!("{parent}{name}{suffix}"));
     }
+    // 非根目录时补上上级目录入口，便于向上导航；同样按基名前缀过滤。
+    if base_dir.parent().is_some() && "..".starts_with(base) {
+        out.push(format!("{parent}../"));
+    }
     out.sort();
     out
 }
@@ -1677,8 +1681,20 @@ fn draw(
     // delta 累加进自身内部偏移并标记 consumed，这里后置读取拿到 0，App 的
     // follow/scroll_y 不再增长；每帧 scroll_to 又覆盖内部偏移，表现为滚不动。
     // 先消费 delta 转为 App 滚动状态，框架后续节点见到 consumed 便不再自行累加。
-    if app.dialog.is_none() {
-        let wheel = ctx.scroll_delta();
+    // 滚轮归属：候选处于激活选择态时滚动候选；否则聊天记录翻页。弹窗打开时
+    // 聊天记录不响应滚轮，激活的候选仍可在弹窗内滚动。
+    let wheel = ctx.scroll_delta();
+    if app.completion_active && !app.completions.is_empty() {
+        if wheel.y < 0 {
+            app.completion_active = true;
+            app.cycle_completion(1);
+            ctx.set_input_consumed();
+        } else if wheel.y > 0 {
+            app.completion_active = true;
+            app.cycle_completion(-1);
+            ctx.set_input_consumed();
+        }
+    } else if app.dialog.is_none() {
         if wheel.y < 0 {
             app.scroll_up((-wheel.y) as usize);
             ctx.set_input_consumed();
@@ -1864,8 +1880,11 @@ fn draw_input(
         }
     }
 
-    // 候选非空时叠加补全浮层（主输入框与表单弹窗共用）。
-    draw_suggestions(ctx, app);
+    // 候选非空时叠加补全浮层；弹窗打开时由 `draw_dialog` 负责弹窗内浮层，
+    // 主输入框不再重复绘制一份。
+    if app.dialog.is_none() {
+        draw_suggestions(ctx, app);
+    }
 
     ctx.table_end();
 }
@@ -3154,6 +3173,10 @@ mod tests {
         let parent = dir.to_string_lossy().to_string() + "/";
         assert_eq!(local_candidates(&parent, "al"), vec![format!("{parent}alpha.txt")]);
         assert_eq!(local_candidates(&parent, "su"), vec![format!("{parent}sub/")]);
+        // 非根目录候选应带上上级目录入口；前缀不匹配 `..` 时被过滤。
+        let all = local_candidates(&parent, "");
+        assert!(all.contains(&format!("{parent}../")));
+        assert!(!local_candidates(&parent, "al").iter().any(|c| c.ends_with("../")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
