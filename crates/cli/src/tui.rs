@@ -843,6 +843,8 @@ enum Dialog {
     Form(FormDialog),
     /// 危险操作二次确认：确认后执行 `argv`，取消则丢弃。
     Confirm { message: String, argv: Vec<String> },
+    /// 内置帮助：纯展示弹窗，Esc/Enter/Close 关闭。
+    Help,
 }
 
 /// 通用命令表单弹窗状态。
@@ -1082,6 +1084,11 @@ impl App {
         self.dialog = Some(Dialog::Confirm { message, argv });
     }
 
+    /// 打开内置帮助弹窗。
+    fn open_help(&mut self) {
+        self.dialog = Some(Dialog::Help);
+    }
+
     /// 返回弹窗当前阶段正在编辑的文本缓冲。
     fn dialog_buffer(&mut self) -> Option<&mut String> {
         let d = self.dialog.as_mut()?;
@@ -1091,7 +1098,7 @@ impl App {
                 DialogStage::AskUser => username,
             }),
             Dialog::Form(form) => Some(&mut form.values[form.focus]),
-            Dialog::Confirm { .. } => None,
+            Dialog::Confirm { .. } | Dialog::Help => None,
         }
     }
 
@@ -1943,6 +1950,28 @@ fn draw_dialog(
         return;
     }
 
+    // 内置帮助：纯展示弹窗，无文本输入。
+    if let Dialog::Help = app.dialog.as_ref().unwrap() {
+        ctx.modal_begin("help-dialog", "Help");
+        ctx.block_begin("content");
+        ctx.inherit_focus();
+        ctx.attr_padding(Rect::three(1, 2, 1));
+        for line in builtin_help_lines() {
+            ctx.label("help-line", line);
+        }
+        ctx.label("help-hint", "Enter/Esc: close");
+        let closed = ctx.button("help-close", "Close", ButtonStyle::default().bracketed(false));
+        ctx.block_end();
+        if closed {
+            app.dialog = None;
+        }
+        let esc = ctx.modal_end();
+        if esc {
+            app.dialog = None;
+        }
+        return;
+    }
+
     // 危险操作确认框：纯按钮，无文本输入。
     if let Dialog::Confirm { message, .. } = app.dialog.as_ref().unwrap() {
         ctx.modal_begin("confirm-dialog", "Confirm");
@@ -1974,6 +2003,7 @@ fn draw_dialog(
             (form.spec.title, field.label, field.secret)
         }
         Dialog::Confirm { .. } => unreachable!("confirm dialog rendered above"),
+        Dialog::Help => unreachable!("help dialog rendered above"),
     };
 
     ctx.modal_begin("connect-dialog", title);
@@ -2127,8 +2157,7 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
             }
         },
         "help" => {
-            app.push_line(builtin_help_text(), LineKind::Result);
-            app.follow_latest();
+            app.open_help();
             true
         }
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
@@ -2169,14 +2198,13 @@ const COFFEE_ART: &str = r"                  ( (
 Because everyone deserves a good cup of coffee.";
 
 /// 内置 / 常用命令帮助文本。
-fn builtin_help_text() -> String {
-    [
+fn builtin_help_lines() -> Vec<&'static str> {
+    vec![
         "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info",
         "          copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help",
         "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> [password] | create_freq <freq>",
         "          show active_users | show active_freqs | workspace list | ls | upload | download",
     ]
-    .join("\n")
 }
 
 /// 弹窗当前阶段确认：推进到下一阶段，或回填选项后执行 `connect`。
@@ -2207,6 +2235,7 @@ fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &Outp
             }
         }
         Dialog::Confirm { .. } => finish_confirm(app, run_command, output_drain),
+        Dialog::Help => {}
     }
 }
 
@@ -2222,7 +2251,7 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
     let Some(d) = app.dialog.take() else { return };
     let (server, username) = match d {
         Dialog::Connect { server, username, .. } => (server, username),
-        Dialog::Form(_) | Dialog::Confirm { .. } => return,
+        Dialog::Form(_) | Dialog::Confirm { .. } | Dialog::Help => return,
     };
     if !server.is_empty() {
         let (host, port) = split_host_port(&server);
@@ -2802,6 +2831,16 @@ mod tests {
     fn unknown_command_is_not_builtin() {
         let mut app = App::new();
         assert!(!try_builtin(&mut app, &["msg".to_string(), "hi".to_string()]));
+    }
+
+    #[test]
+    fn builtin_help_opens_modal_not_log() {
+        let mut app = App::new();
+        let before = app.log.len();
+        assert!(try_builtin(&mut app, &["help".to_string()]));
+        assert!(matches!(app.dialog, Some(Dialog::Help)));
+        assert_eq!(app.log.len(), before);
+        assert!(!app.log.iter().any(|l| l.text.contains("Built-in:")));
     }
 
     #[test]
