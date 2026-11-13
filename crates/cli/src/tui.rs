@@ -608,6 +608,9 @@ struct MenuGroup {
 /// 补全浮层最多同时可见的候选条数；超出部分靠窗口滚动跟随高亮。
 const COMPLETION_VIEW: usize = 5;
 
+/// 长文本信息弹窗（如 License）内容滚动区的可见行数。
+const INFO_SCROLL_HEIGHT: CoordType = 16;
+
 /// 输入框命令名补全候选（与 cli-standard 注册命令一致的静态子集）。
 const COMMAND_NAMES: &[&str] = &[
     "away",
@@ -631,6 +634,7 @@ const COMMAND_NAMES: &[&str] = &[
     "quit",
     "q",
     "clear",
+    "about",
     "version",
     "build_info",
     "copyright",
@@ -823,11 +827,21 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Locals", action: Action::Run(vec!["show", "locals"]) },
             ],
         },
+        MenuGroup {
+            name: "Help",
+            accel: 'H',
+            items: vec![
+                MenuItem { label: "About", action: Action::Run(vec!["about"]) },
+                MenuItem { label: "Copyright", action: Action::Run(vec!["copyright"]) },
+                MenuItem { label: "License", action: Action::Run(vec!["license"]) },
+                MenuItem { label: "Help", action: Action::Run(vec!["help"]) },
+            ],
+        },
     ]
 }
 
 /// `connect` 缺配置时的弹窗询问阶段。
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DialogStage {
     /// 先问服务器地址（SERVER[:PORT]）。
     AskServer,
@@ -843,8 +857,8 @@ enum Dialog {
     Form(FormDialog),
     /// 危险操作二次确认：确认后执行 `argv`，取消则丢弃。
     Confirm { message: String, argv: Vec<String> },
-    /// 内置帮助：纯展示弹窗，Esc/Enter/Close 关闭。
-    Help,
+    /// 内置信息展示弹窗：标题 + 多行内容 + Close；`scroll` 为真时内容区可滚动。
+    Info { title: String, lines: Vec<String>, scroll: bool },
 }
 
 /// 通用命令表单弹窗状态。
@@ -1084,9 +1098,9 @@ impl App {
         self.dialog = Some(Dialog::Confirm { message, argv });
     }
 
-    /// 打开内置帮助弹窗。
-    fn open_help(&mut self) {
-        self.dialog = Some(Dialog::Help);
+    /// 打开内置信息展示弹窗（帮助 / 关于 / 版权 / 许可）。
+    fn open_info(&mut self, title: String, lines: Vec<String>, scroll: bool) {
+        self.dialog = Some(Dialog::Info { title, lines, scroll });
     }
 
     /// 返回弹窗当前阶段正在编辑的文本缓冲。
@@ -1098,7 +1112,7 @@ impl App {
                 DialogStage::AskUser => username,
             }),
             Dialog::Form(form) => Some(&mut form.values[form.focus]),
-            Dialog::Confirm { .. } | Dialog::Help => None,
+            Dialog::Confirm { .. } | Dialog::Info { .. } => None,
         }
     }
 
@@ -1969,17 +1983,32 @@ fn draw_dialog(
         return;
     }
 
-    // 内置帮助：纯展示弹窗，无文本输入。
-    if let Dialog::Help = app.dialog.as_ref().unwrap() {
-        ctx.modal_begin("help-dialog", "Help");
+    // 内置信息展示弹窗：纯文本 + Close，无文本输入。
+    if let Dialog::Info { title, lines, scroll } = app.dialog.as_ref().unwrap() {
+        ctx.modal_begin("info-dialog", title);
         ctx.block_begin("content");
         ctx.inherit_focus();
         ctx.attr_padding(Rect::three(1, 2, 1));
-        for line in builtin_help_lines() {
-            ctx.label("help-line", line);
+
+        // 长文本（如 LICENSE）包进固定高度滚动区；短文本直接逐行展示。
+        // 同一父节点下每行 classname 相同，用 `next_block_id_mixin` 区分节点 ID。
+        if *scroll {
+            ctx.scrollarea_begin("info-body", Size { width: 0, height: INFO_SCROLL_HEIGHT });
+            ctx.scrollarea_scroll_to(Point { x: 0, y: 0 });
+            for (i, line) in lines.iter().enumerate() {
+                ctx.next_block_id_mixin(i as u64);
+                ctx.label("info-line", line);
+            }
+            ctx.scrollarea_end();
+        } else {
+            for (i, line) in lines.iter().enumerate() {
+                ctx.next_block_id_mixin(i as u64);
+                ctx.label("info-line", line);
+            }
         }
-        ctx.label("help-hint", "Enter/Esc: close");
-        let closed = ctx.button("help-close", "Close", ButtonStyle::default().bracketed(false));
+
+        ctx.label("info-hint", "Enter/Esc: close");
+        let closed = ctx.button("info-close", "Close", ButtonStyle::default().bracketed(false));
         ctx.block_end();
         if closed {
             app.dialog = None;
@@ -2022,7 +2051,7 @@ fn draw_dialog(
             (form.spec.title, field.label, field.secret)
         }
         Dialog::Confirm { .. } => unreachable!("confirm dialog rendered above"),
-        Dialog::Help => unreachable!("help dialog rendered above"),
+        Dialog::Info { .. } => unreachable!("info dialog rendered above"),
     };
 
     ctx.modal_begin("connect-dialog", title);
@@ -2144,21 +2173,30 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
             true
         }
         "version" => {
-            app.push_line(crate::welcome_text(false), LineKind::Result);
-            app.follow_latest();
+            let lines = crate::welcome_text(false).lines().map(String::from).collect();
+            app.open_info("About".to_string(), lines, false);
             true
         }
         "build_info" => {
-            app.push_line(crate::build_info_text(), LineKind::Result);
-            app.follow_latest();
+            let lines = crate::build_info_text().lines().map(String::from).collect();
+            app.open_info("Build Info".to_string(), lines, false);
+            true
+        }
+        "about" => {
+            let mut lines: Vec<String> =
+                crate::welcome_text(false).lines().map(String::from).collect();
+            lines.push(String::new());
+            lines.extend(crate::build_info_text().lines().map(String::from));
+            app.open_info("About".to_string(), lines, false);
             true
         }
         "copyright" => {
-            app.push_line(crate::copyright_text(), LineKind::Result);
+            app.open_info("Copyright".to_string(), vec![crate::copyright_text()], false);
             true
         }
         "license" => {
-            app.push_line(crate::license_text(), LineKind::Result);
+            let lines: Vec<String> = crate::license_text().lines().map(String::from).collect();
+            app.open_info("License".to_string(), lines, true);
             true
         }
         "coffee" => {
@@ -2176,7 +2214,8 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
             }
         },
         "help" => {
-            app.open_help();
+            let lines: Vec<String> = builtin_help_lines().into_iter().map(String::from).collect();
+            app.open_info("Help".to_string(), lines, false);
             true
         }
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
@@ -2254,7 +2293,7 @@ fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &Outp
             }
         }
         Dialog::Confirm { .. } => finish_confirm(app, run_command, output_drain),
-        Dialog::Help => {}
+        Dialog::Info { .. } => {}
     }
 }
 
@@ -2270,7 +2309,7 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
     let Some(d) = app.dialog.take() else { return };
     let (server, username) = match d {
         Dialog::Connect { server, username, .. } => (server, username),
-        Dialog::Form(_) | Dialog::Confirm { .. } | Dialog::Help => return,
+        Dialog::Form(_) | Dialog::Confirm { .. } | Dialog::Info { .. } => return,
     };
     if !server.is_empty() {
         let (host, port) = split_host_port(&server);
@@ -2839,11 +2878,12 @@ mod tests {
     }
 
     #[test]
-    fn builtin_version_appends_text() {
+    fn builtin_version_opens_info_dialog() {
         let mut app = App::new();
         let before = app.log.len();
         assert!(try_builtin(&mut app, &["version".to_string()]));
-        assert!(app.log.len() > before);
+        assert!(matches!(app.dialog, Some(Dialog::Info { .. })));
+        assert_eq!(app.log.len(), before);
     }
 
     #[test]
@@ -2857,9 +2897,47 @@ mod tests {
         let mut app = App::new();
         let before = app.log.len();
         assert!(try_builtin(&mut app, &["help".to_string()]));
-        assert!(matches!(app.dialog, Some(Dialog::Help)));
+        match &app.dialog {
+            Some(Dialog::Info { title, lines, scroll }) => {
+                assert_eq!(title, "Help");
+                assert!(!lines.is_empty());
+                assert!(!scroll);
+            }
+            _ => panic!("expected Info dialog"),
+        }
         assert_eq!(app.log.len(), before);
         assert!(!app.log.iter().any(|l| l.text.contains("Built-in:")));
+    }
+
+    #[test]
+    fn builtin_license_opens_scrollable_dialog() {
+        let mut app = App::new();
+        assert!(try_builtin(&mut app, &["license".to_string()]));
+        match &app.dialog {
+            Some(Dialog::Info { title, lines, scroll }) => {
+                assert_eq!(title, "License");
+                assert!(*scroll, "license dialog must be scrollable");
+                assert!(!lines.is_empty());
+            }
+            _ => panic!("expected scrollable Info dialog"),
+        }
+    }
+
+    #[test]
+    fn builtin_about_copyright_open_dialogs() {
+        let mut app = App::new();
+        assert!(try_builtin(&mut app, &["about".to_string()]));
+        let title = match &app.dialog {
+            Some(Dialog::Info { title, .. }) => title.as_str(),
+            _ => "",
+        };
+        assert_eq!(title, "About");
+        assert!(try_builtin(&mut app, &["copyright".to_string()]));
+        let title = match &app.dialog {
+            Some(Dialog::Info { title, .. }) => title.as_str(),
+            _ => "",
+        };
+        assert_eq!(title, "Copyright");
     }
 
     #[test]
@@ -3139,8 +3217,9 @@ mod tests {
         assert!(settings.contains(&"Locals"));
         assert!(labels(find("Plugins")).contains(&"Shell..."));
 
-        // Help group was removed after its entries were re-homed.
-        assert!(groups.iter().all(|g| g.name != "Help"));
+        // Help group: About / Copyright / License / Help info dialogs.
+        let help = labels(find("Help"));
+        assert_eq!(help, vec!["About", "Copyright", "License", "Help"]);
 
         // Menu accelerators must be unique.
         let mut accels: Vec<char> = groups.iter().map(|g| g.accel).collect();
