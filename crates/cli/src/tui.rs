@@ -1759,17 +1759,18 @@ fn draw(
     // delta 累加进自身内部偏移并标记 consumed，这里后置读取拿到 0，App 的
     // follow/scroll_y 不再增长；每帧 scroll_to 又覆盖内部偏移，表现为滚不动。
     // 先消费 delta 转为 App 滚动状态，框架后续节点见到 consumed 便不再自行累加。
-    // 滚轮归属：候选处于激活选择态时滚动候选；否则聊天记录翻页。弹窗打开时
-    // 聊天记录不响应滚轮，激活的候选仍可在弹窗内滚动。
+    // 滚轮归属：候选浮层可见时滚动候选（无需先用方向键激活）；否则聊天记录翻页。
+    // 框架约定：`y < 0` 向上滚（高亮上移），`y > 0` 向下滚（高亮下移）。弹窗打开时
+    // 聊天记录不响应滚轮。
     let wheel = ctx.scroll_delta();
-    if app.completion_active && !app.completions.is_empty() {
+    if app.dialog.is_none() && !app.completions.is_empty() {
         if wheel.y < 0 {
             app.completion_active = true;
-            app.cycle_completion(1);
+            app.cycle_completion(-1);
             ctx.set_input_consumed();
         } else if wheel.y > 0 {
             app.completion_active = true;
-            app.cycle_completion(-1);
+            app.cycle_completion(1);
             ctx.set_input_consumed();
         }
     } else if app.dialog.is_none() {
