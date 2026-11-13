@@ -871,6 +871,8 @@ struct App {
     comp_idx: usize,
     /// 补全浮层窗口首项的全局下标（视口最多 `COMPLETION_VIEW` 条）。
     comp_scroll: usize,
+    /// 候选浮层是否处于激活锁定态：激活后 Up/Down 在候选间移动，否则翻历史。
+    completion_active: bool,
     /// 激活中的配置弹窗；`None` 表示无弹窗。
     dialog: Option<Dialog>,
     /// 侧栏快照：当前会话 freq。
@@ -904,7 +906,7 @@ impl App {
     fn new() -> Self {
         let mut log = Vec::new();
         log.push(ChatLine {
-            text: "[tui] Chat: F10/Alt open menu, Enter run command, Tab complete, Ctrl+Q quit."
+            text: "[tui] Chat: Up/Down history, Tab complete, Enter accept/run, Esc close popup, F10/Alt menu, Ctrl+Q quit."
                 .to_string(),
             kind: LineKind::System,
         });
@@ -918,6 +920,7 @@ impl App {
             completions: Vec::new(),
             comp_idx: 0,
             comp_scroll: 0,
+            completion_active: false,
             dialog: None,
             current_freq: None,
             members: Vec::new(),
@@ -1159,11 +1162,17 @@ impl App {
                     .collect()
             }
         };
+        // 仅当候选集合实际变化时才回到首项并退出选择态；重绘帧保留当前
+        // 高亮与视口位置，否则方向键移动高亮后下一帧会被刷回顶部。
+        let changed = self.completions != cands;
         self.completions = cands;
-        if self.comp_idx >= self.completions.len() {
+        if changed {
+            self.comp_idx = 0;
+            self.comp_scroll = 0;
+            self.completion_active = false;
+        } else if self.comp_idx >= self.completions.len() {
             self.comp_idx = 0;
         }
-        self.comp_scroll = 0;
     }
 
     /// 经插件回调列举远端目录条目，按基名前缀过滤并补回父目录前缀。
@@ -1213,6 +1222,7 @@ impl App {
             parts.push(cand.as_str());
             *buf = parts.join(" ");
         }
+        self.completion_active = false;
         self.refresh_completions();
     }
 
@@ -1820,23 +1830,34 @@ fn draw_input(
     // 输入框的行容器，用 contains_focus 判断子树是否聚焦。
     if ctx.contains_focus() {
         if ctx.consume_shortcut(vk::UP) {
-            if !app.completions.is_empty() {
+            if app.completion_active && !app.completions.is_empty() {
                 app.cycle_completion(-1);
             } else {
                 app.history_prev();
             }
         } else if ctx.consume_shortcut(vk::DOWN) {
-            if !app.completions.is_empty() {
+            if app.completion_active && !app.completions.is_empty() {
                 app.cycle_completion(1);
             } else {
                 app.history_next();
             }
         } else if ctx.consume_shortcut(vk::TAB) {
             if !app.completions.is_empty() {
-                app.accept_completion();
+                // 首次 Tab 激活候选浮层；已激活则在候选间循环。
+                if app.completion_active {
+                    app.cycle_completion(1);
+                } else {
+                    app.completion_active = true;
+                }
             }
+        } else if ctx.consume_shortcut(vk::ESCAPE) {
+            app.completion_active = false;
         } else if ctx.consume_shortcut(vk::RETURN) {
-            submit(app, run_command, output_drain);
+            if app.completion_active && !app.completions.is_empty() {
+                app.accept_completion();
+            } else {
+                submit(app, run_command, output_drain);
+            }
         }
     }
 
@@ -1872,12 +1893,18 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
     let end = (start + view).min(n);
     for (local, cand) in cands[start..end].iter().enumerate() {
         let idx = start + local;
-        let sel = ctx.list_item(idx == app.comp_idx, cand);
-        if sel == ListSelection::Activated {
-            app.comp_idx = idx;
-            app.accept_completion();
-        } else if sel == ListSelection::Selected {
-            app.comp_idx = idx;
+        let selected = app.completion_active && idx == app.comp_idx;
+        let sel = ctx.list_item(selected, cand);
+        match sel {
+            ListSelection::Activated => {
+                app.comp_idx = idx;
+                app.accept_completion();
+            }
+            ListSelection::Selected => {
+                app.comp_idx = idx;
+                app.completion_active = true;
+            }
+            ListSelection::Unchanged => {}
         }
     }
     app.clamp_completion_scroll();
@@ -2429,6 +2456,7 @@ fn finish_form(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputD
 fn submit(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let cmd = app.input.trim().to_string();
     app.input.clear();
+    app.completion_active = false;
     if cmd.is_empty() {
         return;
     }
@@ -2693,6 +2721,60 @@ mod tests {
         let first = app.completions[0].clone();
         app.accept_completion();
         assert_eq!(app.input, first);
+    }
+
+    #[test]
+    fn history_prev_recalls_older_commands() {
+        let mut app = App::new();
+        app.history = vec!["connect".into(), "msg hi".into()];
+        app.history_prev();
+        assert_eq!(app.input, "msg hi");
+        app.history_prev();
+        assert_eq!(app.input, "connect");
+    }
+
+    #[test]
+    fn history_next_returns_to_empty_input() {
+        let mut app = App::new();
+        app.history = vec!["connect".into(), "msg hi".into()];
+        app.history_idx = Some(0);
+        app.history_next();
+        assert_eq!(app.input, "msg hi");
+        app.history_next();
+        assert!(app.input.is_empty());
+        assert_eq!(app.history_idx, None);
+    }
+
+    #[test]
+    fn completion_highlight_preserved_when_candidates_unchanged() {
+        let mut app = App::new();
+        app.members = vec!["alice".into(), "andrew".into(), "anna".into()];
+        app.input = "msg a".into();
+        app.refresh_completions();
+        assert!(app.completions.len() > 1);
+        app.cycle_completion(1);
+        let idx = app.comp_idx;
+        let scroll = app.comp_scroll;
+        // 重绘帧候选未变：高亮与视口保留，不被刷回顶部。
+        app.refresh_completions();
+        assert_eq!(app.comp_idx, idx);
+        assert_eq!(app.comp_scroll, scroll);
+    }
+
+    #[test]
+    fn completion_view_resets_when_candidates_change() {
+        let mut app = App::new();
+        app.members = vec!["alice".into(), "andrew".into(), "anna".into()];
+        app.input = "msg a".into();
+        app.refresh_completions();
+        app.cycle_completion(1);
+        app.completion_active = true;
+        // 前缀改变 -> 候选集合变化，回到首项并退出选择态。
+        app.input = "msg z".into();
+        app.refresh_completions();
+        assert_eq!(app.comp_idx, 0);
+        assert_eq!(app.comp_scroll, 0);
+        assert!(!app.completion_active);
     }
 
     #[test]
