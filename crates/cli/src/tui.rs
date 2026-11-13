@@ -594,6 +594,65 @@ const FREQ_INFO_FORM: FormSpec = FormSpec {
     }],
 };
 
+/// 全部带参命令的表单规格；供菜单动作之外的输入框回车路径按命令名反查。
+const FORM_SPECS: &[&FormSpec] = &[
+    &JOIN_FORM,
+    &SWITCH_WS_FORM,
+    &NEW_WS_FORM,
+    &CREATE_FREQ_FORM,
+    &MSG_FORM,
+    &REPLY_FORM,
+    &CALL_FORM,
+    &MUTE_FORM,
+    &UNMUTE_FORM,
+    &IGNORE_FORM,
+    &KICK_FORM,
+    &BAN_FORM,
+    &LS_FORM,
+    &UPLOAD_FORM,
+    &DOWNLOAD_FORM,
+    &RM_FORM,
+    &MV_FORM,
+    &CP_FORM,
+    &LOAD_FORM,
+    &UNLOAD_FORM,
+    &SHELL_FORM,
+    &UNBAN_FORM,
+    &UNIGNORE_FORM,
+    &OP_FORM,
+    &DEOP_FORM,
+    &TROP_FORM,
+    &USER_INFO_FORM,
+    &MKDIR_FORM,
+    &CD_FORM,
+    &CHECKSUM_FORM,
+    &FILE_INFO_FORM,
+    &SCHEDULE_MSG_FORM,
+    &CANCEL_FORM,
+    &LOAD_NS_FORM,
+    &UNLOAD_NS_FORM,
+    &SET_FORM,
+    &GET_FORM,
+    &SETG_FORM,
+    &GETG_FORM,
+    &UNSET_FORM,
+    &UNSETG_FORM,
+    &FREQ_INFO_FORM,
+];
+
+/// 按 argv 反查表单规格：先匹配复合命令（前两个 token，如 `workspace switch`），
+/// 再匹配单 token 命令；未注册返回 `None`。
+fn form_spec_for(argv: &[String]) -> Option<&'static FormSpec> {
+    if let Some(two) = argv.first_chunk::<2>() {
+        let compound = format!("{} {}", two[0], two[1]);
+        if let Some(spec) = FORM_SPECS.iter().find(|s| s.cmd == compound) {
+            return Some(spec);
+        }
+    }
+    let first = argv.first()?;
+    FORM_SPECS.iter().find(|s| s.cmd == first.as_str()).copied()
+}
+
 struct MenuItem {
     label: &'static str,
     action: Action,
@@ -2155,6 +2214,15 @@ fn execute_or_dialog(
         app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
         return;
     }
+    // 带参命令在命令行偏好关闭、且未带任何参数时，打开参数表单收集；
+    // 已敲参数则按原样执行。命令行偏好开启时保持直接走命令行（见 #51 反向口径）。
+    if !app.prefer_cli
+        && argv.len() <= 1
+        && let Some(spec) = form_spec_for(argv)
+    {
+        app.open_form(spec);
+        return;
+    }
     // 危险操作：先弹二次确认框，确认后再执行。
     if is_dangerous(cmd) {
         app.open_confirm(confirm_message(cmd, argv), argv.to_vec());
@@ -3111,6 +3179,66 @@ mod tests {
         assert!(app.dialog.is_some());
         assert!(app.input.is_empty());
         assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before2);
+    }
+
+    #[test]
+    fn form_spec_for_matches_single_and_compound_commands() {
+        let upload = vec!["upload".to_string()];
+        assert_eq!(form_spec_for(&upload).unwrap().cmd, "upload");
+
+        let switch_ws = vec!["workspace".to_string(), "switch".to_string()];
+        assert_eq!(form_spec_for(&switch_ws).unwrap().cmd, "workspace switch");
+
+        // 只有复合命令的首 token 时不应误匹配。
+        let ws_only = vec!["workspace".to_string()];
+        assert!(form_spec_for(&ws_only).is_none());
+
+        let bogus = vec!["definitely_not_a_command".to_string()];
+        assert!(form_spec_for(&bogus).is_none());
+    }
+
+    #[test]
+    fn missing_arg_command_opens_form_when_not_prefer_cli() {
+        let mut app = App::new();
+        app.is_connected = Some(STUB_CONNECTED);
+        let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
+
+        // 缺参、非命令行偏好：打开 upload 表单，不进 FFI。
+        execute_or_dialog(&mut app, &STUB_RUN, &STUB_DRAIN, &["upload".to_string()]);
+        let Some(Dialog::Form(form)) = &app.dialog else {
+            panic!("expected form dialog");
+        };
+        assert_eq!(form.spec.cmd, "upload");
+        assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before);
+    }
+
+    #[test]
+    fn missing_arg_command_skips_form_when_prefer_cli() {
+        let mut app = App::new();
+        app.is_connected = Some(STUB_CONNECTED);
+        app.prefer_cli = true;
+        let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
+
+        // 命令行偏好：缺参也不弹窗，直接交命令行/FFI。
+        execute_or_dialog(&mut app, &STUB_RUN, &STUB_DRAIN, &["upload".to_string()]);
+        assert!(app.dialog.is_none());
+        assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before + 1);
+    }
+
+    #[test]
+    fn command_with_args_does_not_open_form() {
+        let mut app = App::new();
+        app.is_connected = Some(STUB_CONNECTED);
+        let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
+
+        execute_or_dialog(
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &["upload".to_string(), ".gitignore".to_string()],
+        );
+        assert!(app.dialog.is_none());
+        assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before + 1);
     }
 
     #[test]
