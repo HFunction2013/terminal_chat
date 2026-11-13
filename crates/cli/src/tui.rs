@@ -1465,7 +1465,7 @@ fn opt_get(get: &GetOptionFn, key: &str) -> String {
     }
 }
 
-/// 读取有效选项值：会话（session）设置优先，未设置再回退全局（global）。
+/// 读取有效选项值：会话（session）设置优先，未设置（或为空串）时回退全局。
 fn opt_get_effective(
     get_session: Option<&GetOptionFn>,
     get_global: &GetOptionFn,
@@ -1476,15 +1476,21 @@ fn opt_get_effective(
             ManuallyDrop::new(TaggedOption::None);
         let _res = unsafe { session(&key.into(), Out::from(&mut buf)) };
         if let TaggedOption::Some(v) = ManuallyDrop::into_inner(buf) {
-            return v.to_string();
+            // 会话存了空串视为未设置，避免空值把全局真值盖掉。
+            if !v.is_empty() {
+                return v.to_string();
+            }
         }
     }
     opt_get(get_global, key)
 }
 
-/// 全局选项真值判定：`on/true/1/yes`（大小写不敏感）。
+/// 全局选项真值判定：`on/true/1/yes/y/enabled`（大小写、首尾空白不敏感）。
 fn is_truthy(v: &str) -> bool {
-    matches!(v.to_lowercase().as_str(), "on" | "true" | "1" | "yes")
+    matches!(
+        v.trim().to_lowercase().as_str(),
+        "on" | "true" | "1" | "yes" | "y" | "enabled" | "enable"
+    )
 }
 
 fn is_quiet(v: &str) -> bool {
@@ -2009,7 +2015,9 @@ fn run_action(
             if needs_connection(spec.cmd) && !app.connected() {
                 app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
             } else if app.prefer_cli {
-                // 优先命令行：退回输入框预填前缀，交用户补全参数。
+                // 优先命令行：退回输入框预填前缀，交用户补全参数；
+                // 同时清掉残留表单弹窗，避免浮层挡住输入框。
+                app.dialog = None;
                 app.input = spec.prefill.to_string();
             } else {
                 app.open_form(spec);
@@ -2492,7 +2500,9 @@ fn run_argv(
 mod tests {
     use super::*;
 
+    static RUN_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     extern "C" fn stub_run(_: &safer_ffi::Vec<safer_ffi::String>) -> cli_core_types::Result {
+        RUN_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         cli_core_types::Result::default()
     }
     extern "C" fn stub_connected(out: Out<'_, i32>) -> cli_core_types::Result {
@@ -2727,7 +2737,7 @@ mod tests {
 
     #[test]
     fn truthy_recognizes_on_true_1_yes() {
-        for v in ["on", "true", "1", "yes", "ON", "Yes", "True"] {
+        for v in ["on", "true", "1", "yes", "ON", "Yes", "True", " y ", "enabled", "enable", "y"] {
             assert!(is_truthy(v), "{v} should be truthy");
         }
         for v in ["", "off", "0", "no", "false", "n", "yep"] {
@@ -2787,20 +2797,25 @@ mod tests {
 
     #[test]
     fn form_action_prefills_when_prefer_cli() {
-        // 命令行偏好：退回输入框预填，不弹窗。
+        // 命令行偏好：退回输入框预填，不弹窗、不执行。
+        let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
         let mut app = App::new();
         app.prefer_cli = true;
         app.is_connected = Some(STUB_CONNECTED);
         run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
         assert_eq!(app.input, JOIN_FORM.prefill);
         assert!(app.dialog.is_none());
+        // 预填路径绝不触发命令执行。
+        assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before);
 
-        // 默认：弹出表单收集参数。
+        // 默认：弹出表单收集参数，同样不在菜单点击时直接执行。
+        let before2 = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
         run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(&JOIN_FORM));
         assert!(app.dialog.is_some());
         assert!(app.input.is_empty());
+        assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before2);
     }
 
     #[test]
@@ -3129,6 +3144,20 @@ mod tests {
         // 无 session 回调时直接读全局。
         set_global(Some("1"));
         assert_eq!(opt_get_effective(None, &STUB_GLOBAL, "X"), "1");
+        set_global(None);
+    }
+
+    #[test]
+    fn effective_option_empty_session_falls_back_to_global() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        // 会话存了空串不能盖掉全局真值，否则偏好被错误判为关闭。
+        set_session(Some(""));
+        set_global(Some("on"));
+        assert_eq!(
+            opt_get_effective(Some(&STUB_SESSION), &STUB_GLOBAL, "PREFER_COMMAND_LINE"),
+            "on"
+        );
+        set_session(None);
         set_global(None);
     }
 
