@@ -4023,6 +4023,17 @@ impl<'a> Node<'a> {
                     total_height += size.height;
                 }
 
+                // A modal paints its title on the top border; the title text is
+                // not part of any child node, so fold its width into the minimum
+                // intrinsic width, otherwise a long title overflows the border.
+                if let NodeContent::Modal(title) = &self.content
+                    && !title.is_empty()
+                {
+                    // Inner width leaves room for the two border columns and
+                    // the one-space right margin used when drawing the title.
+                    max_width = max_width.max(title.len() as CoordType + 2);
+                }
+
                 if !self.intrinsic_size_set {
                     self.intrinsic_size.width = max_width;
                     self.intrinsic_size.height = total_height;
