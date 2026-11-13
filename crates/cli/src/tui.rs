@@ -2072,8 +2072,7 @@ fn draw_dialog(
             }
         }
 
-        ctx.label("info-hint", "Enter/Esc: close");
-        let closed = ctx.button("info-close", "Close", ButtonStyle::default().bracketed(false));
+        let closed = ctx.button("info-close", "Close", ButtonStyle::default());
         ctx.block_end();
         if closed {
             app.dialog = None;

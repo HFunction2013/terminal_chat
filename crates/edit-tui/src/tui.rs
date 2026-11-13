@@ -2885,13 +2885,17 @@ impl<'a> Context<'a, '_> {
                 scroll_offset: Point::MIN,
                 scroll_offset_y_drag_start: CoordType::MIN,
                 thumb_height: 0,
+                lock_width: intrinsic_size.width > 0,
+                lock_height: intrinsic_size.height > 0,
             });
 
-            if intrinsic_size.width > 0 || intrinsic_size.height > 0 {
-                container.intrinsic_size.width = intrinsic_size.width.max(0);
-                container.intrinsic_size.height = intrinsic_size.height.max(0);
-                container.intrinsic_size_set = true;
+            if intrinsic_size.width > 0 {
+                container.intrinsic_size.width = intrinsic_size.width;
             }
+            if intrinsic_size.height > 0 {
+                container.intrinsic_size.height = intrinsic_size.height;
+            }
+            container.intrinsic_size_set = intrinsic_size.width > 0 || intrinsic_size.height > 0;
         }
 
         self.block_begin("content");
@@ -3824,6 +3828,12 @@ struct ScrollareaContent {
     scroll_offset: Point,
     scroll_offset_y_drag_start: CoordType,
     thumb_height: CoordType,
+    /// Whether the width is locked to the requested intrinsic size. When
+    /// `false`, the width adapts to the widest child.
+    lock_width: bool,
+    /// Whether the height is locked to the requested intrinsic size. When
+    /// `false`, the height adapts to the children's total height.
+    lock_height: bool,
 }
 
 /// NOTE: Must not contain items that require drop().
@@ -4009,6 +4019,29 @@ impl<'a> Node<'a> {
                     self.intrinsic_size.height = total_height;
                     self.intrinsic_size_set = true;
                 }
+            }
+            NodeContent::Scrollarea(sc) => {
+                let mut max_width = 0;
+                let mut total_height = 0;
+
+                for child in Tree::iterate_siblings(self.children.first) {
+                    let mut child = child.borrow_mut();
+                    child.compute_intrinsic_size(arena);
+
+                    let size = child.intrinsic_to_outer();
+                    max_width = max_width.max(size.width);
+                    total_height += size.height;
+                }
+
+                // A dimension left unlocked (requested size 0) adapts to the
+                // children; a locked dimension keeps the requested intrinsic size.
+                if !sc.lock_width {
+                    self.intrinsic_size.width = max_width;
+                }
+                if !sc.lock_height {
+                    self.intrinsic_size.height = total_height;
+                }
+                self.intrinsic_size_set = true;
             }
             _ => {
                 let mut max_width = 0;
