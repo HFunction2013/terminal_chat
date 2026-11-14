@@ -3368,6 +3368,13 @@ mod tests {
         assert_eq!(title, "Copyright");
     }
 
+    #[test]
+    fn copyright_text_names_hfunction_author() {
+        let text = crate::copyright_text();
+        assert!(text.contains("HFunction2013"), "{text}");
+        assert!(!text.contains("HZFY"), "{text}");
+    }
+
     #[cfg(debug_assertions)]
     #[test]
     fn debug_nickname_is_hf_two_lowercase_letters() {
@@ -3947,6 +3954,47 @@ mod tests {
         );
         assert!(!tui.testing_find("sec-members").is_empty());
         assert!(!tui.testing_nodes().is_empty());
+    }
+
+    /// The Info dialog's Close button owns the focus, sizes to its label (no full-row
+    /// reverse highlight), and is centered under the body text.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn info_dialog_button_is_centered_and_focused() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.open_info("Info".into(), vec!["hello world".into()], false);
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        let buttons = tui.testing_find("info-close");
+        let container = buttons.iter().find(|n| n.text.is_empty()).expect("button container");
+        let label = buttons.iter().find(|n| n.text == "[Close]").expect("button label");
+        assert!(container.focused, "button container owns focus, not the parent row");
+        assert_eq!(
+            container.width,
+            "[Close]".chars().count() as CoordType,
+            "highlight covers only the label width"
+        );
+        let contents: Vec<_> = tui.testing_find("content");
+        let content = contents.last().expect("dialog content");
+        let expected_x = content.x + (content.width - container.width) / 2;
+        assert_eq!(container.x, expected_x, "button centered horizontally");
+        assert_eq!(label.x, container.x);
     }
 
     /// Open a confirm dialog, pump Esc straight through the kernel, then read the

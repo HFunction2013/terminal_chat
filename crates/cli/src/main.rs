@@ -300,7 +300,7 @@ fn build_info() {
 }
 
 pub(crate) fn copyright_text() -> String {
-    "Copyright (c) 2026 HZFY. All Rights Reserved.".to_string()
+    "Copyright (c) 2026 HFunction2013. All Rights Reserved.".to_string()
 }
 
 fn print_copyright() {

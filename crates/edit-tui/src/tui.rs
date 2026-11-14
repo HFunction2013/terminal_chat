@@ -1066,9 +1066,9 @@ impl Tui {
             NodeContent::Scrollarea(sc) => {
                 let content = node.children.first.unwrap().borrow();
                 let track = Rect {
-                    left: inner.right,
+                    left: inner.right - 1,
                     top: inner.top,
-                    right: inner.right + 1,
+                    right: inner.right,
                     bottom: inner.bottom,
                 };
                 sc.thumb_height = self.framebuffer.draw_scrollbar(
@@ -2157,12 +2157,20 @@ impl<'a> Context<'a, '_> {
     /// Creates a button with the given text.
     /// Returns true if the button was activated.
     pub fn button(&mut self, classname: &'static str, text: &str, style: ButtonStyle) -> bool {
-        self.button_label(classname, text, style);
-        self.attr_focusable();
+        // The button gets its own focusable container so the focus/reverse highlight
+        // and mouse hit-test cover only the button label, not the whole parent row.
+        // The label is a child of this container; after `button_label` returns the
+        // stack is back on the container, so activation is evaluated before `block_end`.
+        self.block_begin(classname);
+        self.attr_position(Position::Center);
+        self.focus_on_first_present();
         if self.is_focused() {
             self.attr_reverse();
         }
-        self.button_activated()
+        self.button_label(classname, text, style);
+        let activated = self.button_activated();
+        self.block_end();
+        activated
     }
 
     /// Creates a checkbox with the given text.
