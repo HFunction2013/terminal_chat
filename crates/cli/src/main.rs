@@ -63,6 +63,9 @@ fn get_cli_core() -> &'static Library {
 /// cli-core 导出：取走异步推送队列（safer_ffi Vec<String>，C ABI）。
 type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::Vec<safer_ffi::String>;
 
+/// cli-core 导出：阻塞等待推送队列非空（毫秒超时），返回 1 有待取项 / 0 超时。
+type PushWaitFn = unsafe extern "C" fn(u32) -> i32;
+
 fn install_ctrlc_handler() {
     let lib = get_cli_core();
 
@@ -505,11 +508,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let core_lib = get_cli_core();
     let take_pushes: Symbol<PushDrainFn> = unsafe { core_lib.get(b"tc_cli_push_drain") }
         .map_err(|e| format!("Failed to find symbol 'tc_cli_push_drain': {e}"))?;
+    // 可选：事件唤醒等待；旧核心无此符号时退化为固定间隔轮询。
+    let push_wait: Option<PushWaitFn> =
+        unsafe { core_lib.get(b"tc_cli_push_wait").ok().map(|sym| *sym) };
     if io::stdout().is_terminal() {
         let mut printer = rl.create_external_printer()?;
         thread::spawn(move || {
             loop {
-                thread::sleep(Duration::from_millis(150));
+                match push_wait {
+                    Some(wait) => {
+                        let _ = unsafe { wait(200) };
+                    }
+                    None => thread::sleep(Duration::from_millis(150)),
+                }
                 let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
                 for t in texts {
                     let _ = printer.print(t.to_string());
@@ -519,7 +530,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         thread::spawn(move || {
             loop {
-                thread::sleep(Duration::from_millis(150));
+                match push_wait {
+                    Some(wait) => {
+                        let _ = unsafe { wait(200) };
+                    }
+                    None => thread::sleep(Duration::from_millis(150)),
+                }
                 let texts: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
                 for t in texts {
                     println!("{t}");

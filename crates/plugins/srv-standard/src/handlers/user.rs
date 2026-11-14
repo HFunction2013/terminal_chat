@@ -127,10 +127,23 @@ pub(crate) fn handle_set_presence(
         _ => "",
     };
     state.users.get_mut(&sender).unwrap().away = away.to_string();
-    if let Some(freq) = user_freq(&state, &sender)
-        && let Some(m) = state.freqs.get_mut(&freq).and_then(|f| f.members.get_mut(&sender))
+    let freq = user_freq(&state, &sender);
+    if let Some(freq) = &freq
+        && let Some(m) = state.freqs.get_mut(freq).and_then(|f| f.members.get_mut(&sender))
     {
         m.away = away.to_string();
+    }
+    // 主动把在线状态变更推送给同频点其他成员（替代依赖请求-响应刷新）。
+    let label = if away.is_empty() { "online" } else { away };
+    if let Some(freq) = &freq {
+        let who = display_user(&state, freq, &sender);
+        let members: Vec<String> =
+            state.freqs.get(freq).map(|r| r.members.keys().cloned().collect()).unwrap_or_default();
+        for m in &members {
+            if m != &sender {
+                notify(m, format!("[presence:{freq}] {who} is {label}"));
+            }
+        }
     }
     SetPresenceResponse {
         success: true,
