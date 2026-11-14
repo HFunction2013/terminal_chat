@@ -24,6 +24,10 @@ use cli_core_types::{IsConnectedFn, RunCommandFn};
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::mem::ManuallyDrop;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 use edit_tui::arena::{self, scratch_arena};
@@ -54,6 +58,59 @@ pub type SetTuiModeFn = unsafe extern "C" fn(bool);
 
 /// 取走 TUI 命令输出缓冲的 FFI 符号类型。
 pub type OutputDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::String>;
+
+/// 后台命令完成后回传 UI 线程的结果。
+struct JobResult {
+    code: i32,
+    message: String,
+    argv: Vec<String>,
+}
+
+/// 常驻命令 worker 的共享句柄。
+///
+/// 命令在后台线程串行执行（同一时刻只跑一个，避免并发 FFI / 连接竞争），
+/// UI 线程只投递 argv、每帧取回实时输出与完成结果，不再被阻塞命令卡住。
+#[derive(Clone)]
+struct CommandWorker {
+    tx: Sender<Vec<String>>,
+    running: Arc<AtomicBool>,
+    result: Arc<Mutex<Option<JobResult>>>,
+}
+
+impl CommandWorker {
+    /// 启动常驻 worker 线程；`run_command` 为裸 FFI 函数指针副本（`Send`/`Copy`）。
+    fn spawn(run_command: RunCommandFn) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel::<Vec<String>>();
+        let running = Arc::new(AtomicBool::new(false));
+        let result = Arc::new(Mutex::new(None));
+        let running_w = running.clone();
+        let result_w = result.clone();
+        thread::spawn(move || {
+            while let Ok(argv) = rx.recv() {
+                running_w.store(true, Ordering::SeqCst);
+                let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
+                    argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
+                let res = run_command(&args_ffi);
+                *result_w.lock().unwrap() =
+                    Some(JobResult { code: res.code, message: res.message.to_string(), argv });
+                running_w.store(false, Ordering::SeqCst);
+            }
+        });
+        Self { tx, running, result }
+    }
+
+    fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+
+    fn submit(&self, argv: Vec<String>) {
+        let _ = self.tx.send(argv);
+    }
+
+    fn take_result(&self) -> Option<JobResult> {
+        self.result.lock().unwrap().take()
+    }
+}
 
 #[cfg(target_pointer_width = "32")]
 const SCRATCH_ARENA_CAPACITY: usize = 128 * MEBI;
@@ -969,6 +1026,10 @@ struct App {
     quiet: bool,
     /// 优先命令行：`PREFER_COMMAND_LINE` 为真值时，表单动作退回输入框预填。
     prefer_cli: bool,
+    /// 后台命令 worker；`None` 时退回同步执行（测试桩 / 回退路径）。
+    worker: Option<CommandWorker>,
+    /// 累积当前后台命令的实时输出文本，命令完成后供成员列表回填。
+    worker_output: String,
     /// 退出标志。
     exit: bool,
     /// 菜单栏 / 状态栏主题背景（对齐 upstream edit 配色）。
@@ -1008,6 +1069,8 @@ impl App {
             port: String::new(),
             quiet: false,
             prefer_cli: false,
+            worker: None,
+            worker_output: String::new(),
             exit: false,
             menubar_bg: StraightRgba::zero(),
             menubar_fg: StraightRgba::zero(),
@@ -1658,6 +1721,10 @@ pub fn run(
     app.is_connected = is_connected.copied();
     app.list_registered_options = registered_options.copied();
 
+    // 启动后台命令 worker：命令在独立线程串行执行，UI 线程不被阻塞命令卡住；
+    // 输出经全局缓冲逐帧回流，完成结果由事件循环取回。
+    app.worker = Some(CommandWorker::spawn(*run_command));
+
     // debug 构建：缺省自动连本地回环并补随机昵称；release 跳过。
     #[cfg(debug_assertions)]
     debug_seed_autoconnect(&mut app, run_command, output_drain, get_option, get_session);
@@ -1706,6 +1773,22 @@ fn event_loop(
             let text = p.to_string();
             app.note_push(&text);
             app.push_line(text, LineKind::Push);
+        }
+
+        // 后台命令实时输出回流：逐帧取走 `print_content` 暂存的行，追加到聊天记录，
+        // 同时累积文本供命令完成后回填成员侧栏。
+        let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
+        for d in drained {
+            let text = d.to_string();
+            app.push_line(text.clone(), LineKind::Result);
+            app.worker_output.push_str(&text);
+            app.worker_output.push('\n');
+        }
+
+        // 后台命令完成：取回结果消息并落地成员侧栏副作用。
+        let finished = app.worker.as_ref().and_then(|worker| worker.take_result());
+        if let Some(job) = finished {
+            apply_job_result(app, job);
         }
 
         // 读取一批输入（超时较短，便于定时拉取推送）。
@@ -2675,10 +2758,36 @@ fn run_argv(
     let display = argv.join(" ");
     app.push_line(format!("tc> {display}"), LineKind::Cmd);
 
+    // 有后台 worker：投递到 worker 线程串行执行，不阻塞 UI；实时输出由事件循环
+    // 每帧 drain 回流，完成结果在事件循环里取回（见 `apply_job_result`）。
+    if let Some(worker) = &app.worker {
+        if worker.is_running() {
+            app.push_line(
+                "A command is still running; wait for it to finish.".to_string(),
+                LineKind::System,
+            );
+            return;
+        }
+        app.worker_output.clear();
+        worker.submit(argv.to_vec());
+        app.follow_latest();
+        return;
+    }
+
+    // 无 worker（测试桩 / 回退路径）：保持旧的同步执行。
+    run_argv_sync(app, run_command, output_drain, argv);
+}
+
+/// 同步执行命令（worker 缺失时的回退路径，行为与历史一致）。
+fn run_argv_sync(
+    app: &mut App,
+    run_command: &RunCommandFn,
+    output_drain: &OutputDrainFn,
+    argv: &[String],
+) {
     let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
         argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
     let result = run_command(&args_ffi);
-    let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
 
     // 取回 TUI 模式下由 `print_content` 暂存的命令同步输出。
     let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
@@ -2692,6 +2801,7 @@ fn run_argv(
         for line in &drained {
             app.push_line(line.clone(), LineKind::Result);
         }
+        app.follow_latest();
         return;
     }
 
@@ -2702,9 +2812,16 @@ fn run_argv(
         app.push_line(result.message.to_string(), LineKind::Result);
     }
 
+    apply_member_side_effects(app, argv, &drained_text);
+    app.follow_latest();
+}
+
+/// 命令完成后对成员侧栏的本地回填/清空（同步路径与后台完成回调共用）。
+fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str) {
+    let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
     // `freq_info` / `show active_users` 返回成员列表，回填侧栏。
     if argv.iter().any(|a| a == "freq_info" || a == "active_users") {
-        app.reconcile_members(&drained_text);
+        app.reconcile_members(drained_text);
     }
     // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
     if matches!(cmd, "join_freq" | "create_freq") {
@@ -2717,8 +2834,22 @@ fn run_argv(
     if matches!(cmd, "leave_freq" | "disband") {
         app.members.clear();
     }
+}
 
-    // 命令回显与结果都在末尾，执行后回到最新视图。
+/// 后台命令完成：取回结果消息并落地成员侧栏副作用。
+fn apply_job_result(app: &mut App, job: JobResult) {
+    let drained_text = app.worker_output.clone();
+    app.worker_output.clear();
+
+    if job.code != 0 {
+        if !job.message.is_empty() {
+            app.push_line(job.message, LineKind::Result);
+        }
+    } else if !job.message.is_empty() {
+        app.push_line(job.message, LineKind::Result);
+    }
+
+    apply_member_side_effects(app, &job.argv, &drained_text);
     app.follow_latest();
 }
 
@@ -3706,5 +3837,45 @@ mod tests {
             draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
         }
         assert_eq!(app.input, "hi");
+    }
+
+    #[test]
+    fn command_dispatched_to_worker_runs_off_ui_thread() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut app = App::new();
+        app.worker = Some(CommandWorker::spawn(STUB_RUN));
+        let worker = app.worker.clone().unwrap();
+
+        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["sleep".to_string(), "1ms".to_string()]);
+        // 命令回显行先落到聊天记录（UI 线程不等待执行完成）。
+        assert!(app.log.iter().any(|l| l.text.starts_with("tc> sleep")));
+
+        // 轮询 worker 结果槽：命令在后台线程执行完毕后结果回流。结果槽被写入
+        // 即证明 worker 线程确实执行了命令（闭包在 FFI 返回后才写槽）。
+        let mut done = None;
+        for _ in 0..50 {
+            done = worker.take_result();
+            if done.is_some() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(done.is_some(), "worker result never arrived");
+        assert!(!worker.is_running());
+    }
+
+    #[test]
+    fn job_result_applies_member_side_effects() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        app.worker_output = "  alice   AliceA  @+\n  bob     BobB  away\n".to_string();
+        let job =
+            JobResult { code: 0, message: String::new(), argv: vec!["active_users".to_string()] };
+        apply_job_result(&mut app, job);
+        assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
+        assert!(app.worker_output.is_empty());
     }
 }

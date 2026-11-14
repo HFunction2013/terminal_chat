@@ -34,6 +34,7 @@ use std::{
     io::{self, IsTerminal, stdout},
     mem::ManuallyDrop,
     path::Path,
+    sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, Mutex, OnceLock},
     thread,
     time::Duration,
@@ -524,6 +525,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rl.clear_screen()?;
     print_banner(&colored);
     welcome(true);
+
+    // 后台命令 worker：命令在独立线程串行执行，主线程（readline）不被阻塞命令卡住；
+    // 命令输出由插件经 `print_content` 直接写终端，错误结果在此回打。单命令串行槽位，
+    // 避免并发 FFI / 连接竞争。
+    let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<Vec<String>>();
+    let cmd_running = Arc::new(AtomicBool::new(false));
+    {
+        let cmd_running_w = cmd_running.clone();
+        let run_cmd_fn: RunCommandFn = *run_command;
+        thread::spawn(move || {
+            while let Ok(argv) = cmd_rx.recv() {
+                cmd_running_w.store(true, Ordering::SeqCst);
+                let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
+                    argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
+                let result = run_cmd_fn(&args_ffi);
+                if result.code != 0 {
+                    eprintln!("{}", result.message);
+                }
+                cmd_running_w.store(false, Ordering::SeqCst);
+            }
+        });
+    }
+
     loop {
         // 检查到期的本地调度任务（schedule / schedule_msg）
         let _ = tasks::check_and_run(&run_command);
@@ -625,14 +649,14 @@ Because everyone deserves a good cup of coffee."
             }
         };
 
-        // 转换为 FFI 兼容的类型
-        let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
-            args.into_iter().map(|s| s.into()).collect::<Vec<_>>().into();
-
-        // 通过动态库调用 run_command
-        let result = run_command(&args_ffi);
-        if result.code != 0 {
-            eprintln!("{}", result.message);
+        // 投递到后台 worker 线程执行，不阻塞 readline；单命令串行槽位，
+        // 上一条命令未跑完则提示等待，避免并发 FFI / 连接竞争。
+        if cmd_running.load(Ordering::SeqCst) {
+            eprintln!("Previous command still running; wait for it to finish.");
+            continue;
+        }
+        if cmd_tx.send(args).is_err() {
+            eprintln!("Command worker unavailable.");
         }
     }
 
