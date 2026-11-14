@@ -295,6 +295,26 @@ impl Default for ButtonStyle {
     }
 }
 
+/// Debug-only read-only snapshot of a single UI node, used by the test harness
+/// to assert on the rendered tree without a real terminal.
+#[cfg(debug_assertions)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeSnapshot {
+    /// Stable node id (hash of parent + classname, plus any mixin).
+    pub id: u64,
+    /// Node classname as passed to `block_begin`/`label`/`button`, etc.
+    pub classname: &'static str,
+    /// Visible text of text nodes; empty for containers/controls without a label.
+    pub text: String,
+    /// Outer layout rect in screen space.
+    pub x: CoordType,
+    pub y: CoordType,
+    pub width: CoordType,
+    pub height: CoordType,
+    /// Whether this node is on the current focus path.
+    pub focused: bool,
+}
+
 /// There's two types of lifetimes the TUI code needs to manage:
 /// * Across frames
 /// * Per frame
@@ -1158,6 +1178,67 @@ impl Tui {
                 }
             }
         }
+    }
+
+    /// Read-only snapshot of every node in the last committed frame's tree.
+    ///
+    /// Debug/test-only: lets a test assert on classnames, visible text, layout
+    /// rects and focus without a real terminal or mouse/keyboard hardware.
+    #[cfg(debug_assertions)]
+    pub fn testing_nodes(&self) -> Vec<NodeSnapshot> {
+        let mut out = Vec::new();
+        for root in self.prev_tree.iterate_roots() {
+            Self::testing_collect_node(root, &mut out, self);
+        }
+        out
+    }
+
+    #[cfg(debug_assertions)]
+    fn testing_collect_node<'a>(node: &'a NodeCell<'a>, out: &mut Vec<NodeSnapshot>, tui: &Tui) {
+        let (id, classname, text, outer, focused, child_first) = {
+            let n = node.borrow();
+            let text = match &n.content {
+                NodeContent::Text(content) => content.text.to_string(),
+                _ => String::new(),
+            };
+            (n.id, n.classname, text, n.outer, tui.is_node_focused(n.id), n.children.first)
+        };
+
+        out.push(NodeSnapshot {
+            id,
+            classname,
+            text,
+            x: outer.left,
+            y: outer.top,
+            width: outer.right.saturating_sub(outer.left),
+            height: outer.bottom.saturating_sub(outer.top),
+            focused,
+        });
+
+        let mut child = child_first;
+        while let Some(next) = child {
+            Self::testing_collect_node(next, out, tui);
+            child = next.borrow().siblings.next;
+        }
+    }
+
+    /// Snapshots of all nodes matching the given classname.
+    #[cfg(debug_assertions)]
+    pub fn testing_find(&self, classname: &str) -> Vec<NodeSnapshot> {
+        self.testing_nodes().into_iter().filter(|node| node.classname == classname).collect()
+    }
+
+    /// Current focus path as node ids.
+    #[cfg(debug_assertions)]
+    pub fn testing_focus_path(&self) -> &[u64] {
+        &self.focused_node_path
+    }
+
+    /// Debug/test-only: the last rendered frame's text grid, one string per row.
+    /// Call after [`Tui::render`] to inspect what the framebuffer actually drew.
+    #[cfg(debug_assertions)]
+    pub fn testing_frame_lines(&self) -> Vec<String> {
+        self.framebuffer.testing_lines()
     }
 
     /// Outputs a debug string of the layout and focus tree.
@@ -4191,5 +4272,94 @@ impl<'a> Node<'a> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod testing_harness_tests {
+    use super::*;
+    use crate::helpers::{Point, Size};
+    use crate::input::{Input, InputMouse, kbmod};
+
+    fn draw(ctx: &mut Context) {
+        ctx.table_begin("root");
+        ctx.table_next_row();
+        ctx.label("greeting", "Hello, world");
+        ctx.table_end();
+    }
+
+    /// The debug harness can build a frame from a synthetic resize event and read
+    /// back node text, layout rects and the focus path without a real terminal.
+    #[test]
+    fn snapshot_reads_label_text_layout_and_focus() {
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+
+        {
+            let mut ctx = tui.create_context(Some(Input::Resize(Size { width: 80, height: 24 })));
+            draw(&mut ctx);
+        }
+        while tui.needs_settling() {
+            let mut ctx = tui.create_context(None);
+            draw(&mut ctx);
+        }
+
+        let greet = tui.testing_find("greeting");
+        assert_eq!(greet.len(), 1, "one label node");
+        assert_eq!(greet[0].text, "Hello, world");
+        assert!(greet[0].width > 0 && greet[0].height > 0, "layout rect assigned");
+        assert!(!tui.testing_focus_path().is_empty());
+        assert!(!tui.testing_nodes().is_empty());
+
+        let scratch = crate::arena::scratch_arena(None);
+        let _output = tui.render(&scratch);
+        let lines = tui.testing_frame_lines();
+        assert!(
+            lines.iter().any(|line| line.contains("Hello, world")),
+            "rendered frame grid contains the label text: {lines:?}"
+        );
+    }
+
+    /// A synthetic keyboard event goes through `create_context` without touching
+    /// stdin; the committed frame still snapshots cleanly.
+    #[test]
+    fn injected_keyboard_frame_does_not_panic() {
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+
+        {
+            let mut ctx = tui.create_context(Some(Input::Keyboard(vk::ESCAPE)));
+            draw(&mut ctx);
+        }
+        while tui.needs_settling() {
+            let mut ctx = tui.create_context(None);
+            draw(&mut ctx);
+        }
+        assert!(!tui.testing_nodes().is_empty());
+    }
+
+    /// A synthetic mouse click goes through `create_context` without touching stdin
+    /// or a real mouse; the committed frame still snapshots cleanly.
+    #[test]
+    fn injected_mouse_frame_does_not_panic() {
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+
+        let mouse = InputMouse {
+            state: InputMouseState::Left,
+            modifiers: kbmod::NONE,
+            position: Point { x: 5, y: 5 },
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+        {
+            let mut ctx = tui.create_context(Some(Input::Mouse(mouse)));
+            draw(&mut ctx);
+        }
+        while tui.needs_settling() {
+            let mut ctx = tui.create_context(None);
+            draw(&mut ctx);
+        }
+        assert!(!tui.testing_nodes().is_empty());
     }
 }

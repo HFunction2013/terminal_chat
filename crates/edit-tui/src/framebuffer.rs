@@ -470,6 +470,12 @@ impl Framebuffer {
 
     /// Renders the framebuffer contents accumulated since the
     /// last call to `flip()` and returns them serialized as VT.
+    /// Debug/test-only: the current frame's text grid, one string per viewport row.
+    #[cfg(debug_assertions)]
+    pub fn testing_lines(&self) -> Vec<String> {
+        self.buffers[self.frame_counter & 1].text.lines.clone()
+    }
+
     pub fn render<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
         // DEC private mode 2026, Synchronized Output, lets us avoid flickering / tearing.
         const SYNCHRONIZED_OUTPUT_ENABLE: &str = "\x1b[?2026h";

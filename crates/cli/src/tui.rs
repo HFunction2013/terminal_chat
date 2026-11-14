@@ -3598,4 +3598,113 @@ mod tests {
         assert!(is_truthy(&value));
         set_session(None);
     }
+
+    /// Debug harness: drive a real frame through the framework kernel with a synthetic
+    /// resize event (no TTY, no real mouse/keyboard), then read the committed tree back.
+    #[test]
+    fn tui_frame_snapshot_reads_sidebar_without_tty() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        let freq = tui.testing_find("freq");
+        assert!(
+            freq.iter().any(|node| node.text.contains("(not joined)")),
+            "sidebar shows the unjoined placeholder: {freq:?}"
+        );
+        assert!(!tui.testing_find("sec-members").is_empty());
+        assert!(!tui.testing_nodes().is_empty());
+    }
+
+    /// Open a confirm dialog, pump Esc straight through the kernel, then read the
+    /// node tree back to assert the dialog is gone — no TTY, no real keyboard.
+    #[test]
+    fn esc_through_kernel_closes_confirm_dialog() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.open_confirm("Really kick alice?".into(), vec!["kick".into(), "alice".into()]);
+
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(!tui.testing_find("confirm-dialog").is_empty(), "dialog rendered");
+
+        draw(
+            &mut tui,
+            Some(Input::Keyboard(vk::ESCAPE)),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(app.dialog.is_none(), "Esc closed the dialog");
+        assert!(tui.testing_find("confirm-dialog").is_empty(), "dialog node gone from the tree");
+    }
+
+    /// Type printable text through the kernel and read it back from the input buffer.
+    #[test]
+    fn typed_text_lands_in_input_buffer() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+
+        // First frame establishes the tree (and focus) so the editline has a
+        // previous-node cache; input is only dispatched from the second frame on.
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        draw(&mut tui, Some(Input::Text("hi")), &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert_eq!(app.input, "hi");
+    }
 }
