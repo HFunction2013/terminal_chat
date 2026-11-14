@@ -1032,6 +1032,8 @@ struct App {
     worker: Option<CommandWorker>,
     /// 累积当前后台命令的实时输出文本，命令完成后供成员列表回填。
     worker_output: String,
+    /// join/create（或重连）成功后待拉取一次当前成员 roster；空闲时投递 `active_users`。
+    pending_roster: bool,
     /// 退出标志。
     exit: bool,
     /// 菜单栏 / 状态栏主题背景（对齐 upstream edit 配色）。
@@ -1074,6 +1076,7 @@ impl App {
             prefer_cli: false,
             worker: None,
             worker_output: String::new(),
+            pending_roster: false,
             exit: false,
             menubar_bg: StraightRgba::zero(),
             menubar_fg: StraightRgba::zero(),
@@ -1815,6 +1818,21 @@ fn event_loop(
         let finished = app.worker.as_ref().and_then(|worker| worker.take_result());
         if let Some(job) = finished {
             apply_job_result(app, job);
+        }
+
+        // join/create/重连成功后拉取一次当前成员 roster，补齐加入前已在频点的成员；
+        // worker 仍忙则保留标志，下一帧空闲时再投递。
+        if app.pending_roster {
+            let idle = app.worker.as_ref().map(|w| !w.is_running()).unwrap_or(true);
+            if idle {
+                app.pending_roster = false;
+                run_argv(
+                    app,
+                    run_command,
+                    output_drain,
+                    &["show".to_string(), "active_users".to_string()],
+                );
+            }
         }
 
         // 读取一批输入（超时较短，便于定时拉取推送）。
@@ -2843,12 +2861,13 @@ fn run_argv_sync(
         app.push_line(result.message.to_string(), LineKind::Result);
     }
 
-    apply_member_side_effects(app, argv, &drained_text);
+    apply_member_side_effects(app, argv, &drained_text, result.code == 0);
     app.follow_latest();
 }
 
 /// 命令完成后对成员侧栏的本地回填/清空（同步路径与后台完成回调共用）。
-fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str) {
+/// `success` 为命令返回码是否为 0；只有成功才触发后续 roster 拉取。
+fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str, success: bool) {
     let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
     // `freq_info` / `show active_users` 返回成员列表，回填侧栏。
     if argv.iter().any(|a| a == "freq_info" || a == "active_users") {
@@ -2860,10 +2879,19 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str)
         if !me.is_empty() {
             app.add_member(&me);
         }
+        // 成功后再拉取一次当前 roster，补齐加入前已在频点的成员（不只靠后续推送）。
+        if success {
+            app.pending_roster = true;
+        }
+    }
+    // 重连成功后同样拉取一次 roster，恢复此前所在频点的成员快照。
+    if success && cmd == "connect" {
+        app.pending_roster = true;
     }
     // 离开 / 解散频点后清空成员列表。
     if matches!(cmd, "leave_freq" | "disband") {
         app.members.clear();
+        app.pending_roster = false;
     }
 }
 
@@ -2880,7 +2908,7 @@ fn apply_job_result(app: &mut App, job: JobResult) {
         app.push_line(job.message, LineKind::Result);
     }
 
-    apply_member_side_effects(app, &job.argv, &drained_text);
+    apply_member_side_effects(app, &job.argv, &drained_text, job.code == 0);
     app.follow_latest();
 }
 
@@ -3915,6 +3943,34 @@ mod tests {
         apply_job_result(&mut app, job);
         assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
         assert!(app.worker_output.is_empty());
+    }
+
+    #[test]
+    fn join_success_schedules_roster_refresh() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        app.username = "alice".to_string();
+        let job = JobResult {
+            code: 0,
+            message: String::new(),
+            argv: vec!["join_freq".to_string(), "1.0".to_string()],
+        };
+        apply_job_result(&mut app, job);
+        assert!(app.pending_roster, "successful join schedules a roster fetch");
+        assert!(app.members.iter().any(|m| m == "alice"));
+    }
+
+    #[test]
+    fn join_failure_does_not_schedule_roster_refresh() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        let job = JobResult {
+            code: 1,
+            message: "join failed".into(),
+            argv: vec!["join_freq".to_string(), "1.0".to_string()],
+        };
+        apply_job_result(&mut app, job);
+        assert!(!app.pending_roster);
     }
 
     #[test]
