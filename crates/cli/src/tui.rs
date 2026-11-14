@@ -1936,6 +1936,10 @@ fn event_loop(
 
         // 布局稳定前持续重绘。
         if !busy {
+            // 定时刷新：即使本轮无按键 / resize，也重建一帧节点树，把回流的推送、
+            // 实时输出、完成结果画进界面。否则新内容只改了 App 状态，要等下一次
+            // 输入事件触发 draw 才会进入节点树并被 render 输出。
+            draw(tui, None, app, run_command, output_drain, &groups);
             while tui.needs_settling() {
                 draw(tui, None, app, run_command, output_drain, &groups);
             }
