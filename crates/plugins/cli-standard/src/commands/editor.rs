@@ -102,6 +102,13 @@ impl EditorCommand {
             .map(str::to_lowercase)
             .unwrap_or_default();
 
+        // GUI 图形编辑器不共享终端 alternate screen，不做全屏切换；其余视为
+        // 终端 TUI 编辑器，拉起前离开全屏、退出后重进。
+        let is_gui = matches!(
+            stem.as_str(),
+            "code" | "subl" | "zed" | "gedit" | "notepad" | "notepad++" | "explorer"
+        );
+
         match stem.as_str() {
             "code" | "subl" | "zed" => {
                 cmd.arg("--wait");
@@ -117,9 +124,17 @@ impl EditorCommand {
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit());
 
+        if !is_gui {
+            crate::terminal::suspend();
+        }
         let status = cmd
             .status()
-            .with_context(|| format!("failed to start editor: {}", editor_path.display()))?;
+            .with_context(|| format!("failed to start editor: {}", editor_path.display()));
+        if !is_gui {
+            crate::terminal::resume();
+        }
+
+        let status = status?;
 
         if !status.success() {
             anyhow::bail!("editor exited with status: {status}");

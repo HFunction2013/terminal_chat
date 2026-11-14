@@ -59,6 +59,9 @@ pub type SetTuiModeFn = unsafe extern "C" fn(bool);
 /// 取走 TUI 命令输出缓冲的 FFI 符号类型。
 pub type OutputDrainFn = unsafe extern "C" fn() -> safer_ffi::vec::Vec<safer_ffi::String>;
 
+/// 查询终端是否正被外部子进程占用（1 占用 / 0 空闲）的 FFI 符号类型。
+pub type TerminalBusyFn = unsafe extern "C" fn() -> i32;
+
 /// 后台命令完成后回传 UI 线程的结果。
 struct JobResult {
     code: i32,
@@ -1702,6 +1705,7 @@ pub fn run(
     is_connected: Option<&IsConnectedFn>,
     registered_options: Option<&GetRegisteredOptionsFn>,
     set_interrupted: Option<&SetInterruptedFn>,
+    terminal_busy: Option<&TerminalBusyFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -1768,6 +1772,7 @@ pub fn run(
         get_option,
         get_session,
         output_drain,
+        terminal_busy,
     );
 
     res
@@ -1783,6 +1788,7 @@ fn event_loop(
     get_option: &GetOptionFn,
     get_session: Option<&GetOptionFn>,
     output_drain: &OutputDrainFn,
+    terminal_busy: Option<&TerminalBusyFn>,
 ) -> Result<()> {
     let groups = menu_groups();
 
@@ -1835,8 +1841,12 @@ fn event_loop(
             }
         }
 
+        // 外部 TUI 子进程占用终端期间：不读按键、不画帧、不写终端输出，
+        // 把终端完全交给子进程；busy 复位后下一帧整屏重绘。
+        let busy = terminal_busy.map(|f| unsafe { f() != 0 }).unwrap_or(false);
+
         // 读取一批输入（超时较短，便于定时拉取推送）。
-        {
+        if !busy {
             let scratch = scratch_arena(None);
             let read_timeout =
                 vt_parser.read_timeout().min(tui.read_timeout()).min(Duration::from_millis(100));
@@ -1856,17 +1866,21 @@ fn event_loop(
         }
 
         // 布局稳定前持续重绘。
-        while tui.needs_settling() {
-            draw(tui, None, app, run_command, output_drain, &groups);
+        if !busy {
+            while tui.needs_settling() {
+                draw(tui, None, app, run_command, output_drain, &groups);
+            }
         }
 
         if app.exit {
             break;
         }
 
-        let scratch = scratch_arena(None);
-        let output = tui.render(&scratch);
-        sys::write_stdout(&output);
+        if !busy {
+            let scratch = scratch_arena(None);
+            let output = tui.render(&scratch);
+            sys::write_stdout(&output);
+        }
     }
 
     Ok(())
@@ -2433,14 +2447,8 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
             );
             true
         }
-        // `editor` 拉起外部编辑器抢占终端，`sleep` 占用事件循环，均不适合在全屏 TUI 内运行。
-        "editor" => {
-            app.push_line(
-                "`editor` opens an external editor that takes over the terminal; run it in the REPL, not the TUI.".to_string(),
-                LineKind::System,
-            );
-            true
-        }
+        // `sleep` 占用事件循环，不适合在全屏 TUI 内运行；编辑器经后台 worker
+        // 拉起，前后由终端钩子离开 / 重进 alt 屏（见 #70）。
         "sleep" => {
             app.push_line(
                 "`sleep` blocks the TUI event loop; run it in the REPL, not the TUI.".to_string(),
@@ -3288,11 +3296,14 @@ mod tests {
 
     #[test]
     fn repl_only_commands_are_intercepted_in_tui() {
-        for cmd in ["banner", "train", "editor", "sleep"] {
+        for cmd in ["banner", "train", "sleep"] {
             let mut app = App::new();
             assert!(try_builtin(&mut app, &[cmd.to_string()]), "{cmd} should be intercepted");
             assert!(app.log.iter().any(|l| l.text.contains("REPL")), "{cmd} should hint REPL");
         }
+        // 编辑器经后台 worker 拉起，前后由终端钩子切换全屏，不在本地拦截。
+        let mut app = App::new();
+        assert!(!try_builtin(&mut app, &["editor".to_string()]));
     }
 
     #[test]

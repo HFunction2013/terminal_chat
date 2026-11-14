@@ -152,8 +152,17 @@ pub fn switch_modes() -> io::Result<Size> {
         // Get the original terminal modes so we can disable raw mode on exit.
         let mut termios = MaybeUninit::<libc::termios>::uninit();
         libc::tcgetattr(libc::STDOUT_FILENO, termios.as_mut_ptr()).check()?;
+        STATE.stdout_initial_termios = Some(termios.assume_init());
+    }
+    apply_raw()
+}
+
+/// 套上 raw 模式并配置 SIGWINCH / 非阻塞 stdin；不覆盖保存的初始 termios。
+fn apply_raw() -> io::Result<Size> {
+    unsafe {
+        let mut termios = MaybeUninit::<libc::termios>::uninit();
+        libc::tcgetattr(libc::STDOUT_FILENO, termios.as_mut_ptr()).check()?;
         let mut termios = termios.assume_init();
-        STATE.stdout_initial_termios = Some(termios);
 
         termios.c_iflag &= !(
             // When neither IGNBRK...
@@ -230,6 +239,30 @@ pub fn switch_modes() -> io::Result<Size> {
         // setting up the signal handler to avoid missing an update.
         get_window_size()
     }
+}
+
+/// 离开 alternate screen 并把终端恢复到进入 TUI 前的原始态，交给外部 TUI 子进程。
+/// 保留保存的初始 termios，供 [`resume_terminal`] 复用。
+pub fn suspend_terminal() {
+    unsafe {
+        #[allow(static_mut_refs)]
+        if let Some(termios) = STATE.stdout_initial_termios.as_ref() {
+            _ = termios_setattr(libc::STDOUT_FILENO, termios);
+        }
+        if STATE.stdin_flags != -1 {
+            libc::fcntl(STATE.stdin, libc::F_SETFL, STATE.stdin_flags);
+        }
+    }
+    // 退出 alt 屏、关闭鼠标跟踪、恢复光标；子进程在原终端上接管。
+    write_stdout("\x1b[0 q\x1b[?25h\x1b]0;\x07\x1b[?1000;1002;1006;2004l\x1b[?1049l");
+}
+
+/// 外部 TUI 子进程退出后：重切 raw 模式并重新进入 alternate screen。
+pub fn resume_terminal() -> io::Result<Size> {
+    let size = apply_raw()?;
+    // 重进 alt 屏、恢复鼠标跟踪与括号粘贴。
+    write_stdout("\x1b[?1049h\x1b[?1000;1002;1006;2004h\x1b[?1036h");
+    Ok(size)
 }
 
 fn termios_setattr(fd: c_int, termios: &libc::termios) -> io::Result<()> {

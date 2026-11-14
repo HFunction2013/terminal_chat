@@ -63,6 +63,49 @@ fn get_cli_core() -> &'static Library {
 /// cli-core 导出：取走异步推送队列（safer_ffi Vec<String>，C ABI）。
 type PushDrainFn = unsafe extern "C" fn() -> safer_ffi::Vec<safer_ffi::String>;
 
+/// cli-core 导出：注册终端挂起 / 恢复钩子（参数为函数地址，0 表示未注册）。
+type SetHooksFn = extern "C" fn(i64, i64);
+
+/// 注册终端挂起 / 恢复钩子到 cli-core；符号缺失（旧核心）时静默回退。
+fn register_terminal_hooks(suspend: *const (), resume: *const ()) {
+    let lib = get_cli_core();
+    if let Ok(set_hooks) = unsafe { lib.get::<SetHooksFn>(b"tc_cli_set_terminal_hooks") } {
+        set_hooks(suspend as i64, resume as i64);
+    }
+}
+
+/// TUI 挂起：离开 alt 屏并恢复进入 TUI 前的原始终端态，交给外部子进程。
+extern "C" fn tui_terminal_suspend() -> cli_core_types::Result {
+    edit_tui::sys::suspend_terminal();
+    cli_core_types::Result::success()
+}
+
+/// TUI 恢复：重切 raw 模式并重进 alt 屏；下一帧由事件循环整屏重绘。
+extern "C" fn tui_terminal_resume() -> cli_core_types::Result {
+    let _ = edit_tui::sys::resume_terminal();
+    cli_core_types::Result::success()
+}
+
+/// REPL 挂起：离开 alt 屏并显示光标，把终端交给外部子进程。
+extern "C" fn repl_terminal_suspend() -> cli_core_types::Result {
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = execute!(stdout(), LeaveAlternateScreen);
+    }
+    let _ = execute!(stdout(), Show);
+    cli_core_types::Result::success()
+}
+
+/// REPL 恢复：重进 alt 屏并隐藏光标。
+extern "C" fn repl_terminal_resume() -> cli_core_types::Result {
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = execute!(stdout(), EnterAlternateScreen);
+    }
+    let _ = execute!(stdout(), Hide);
+    cli_core_types::Result::success()
+}
+
 /// cli-core 导出：阻塞等待推送队列非空（毫秒超时），返回 1 有待取项 / 0 超时。
 type PushWaitFn = unsafe extern "C" fn(u32) -> i32;
 
@@ -467,6 +510,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let set_interrupted: Option<Symbol<SetInterruptedFn>> =
             unsafe { core_lib.get(b"set_interrupted") }.ok();
         let set_interrupted_ref: Option<&SetInterruptedFn> = set_interrupted.as_deref();
+        // 终端占用查询为可选符号：缺失时视为空闲，TUI 照常渲染。
+        let terminal_busy: Option<Symbol<tui::TerminalBusyFn>> =
+            unsafe { core_lib.get(b"tc_cli_terminal_is_busy") }.ok();
+        let terminal_busy_ref: Option<&tui::TerminalBusyFn> = terminal_busy.as_deref();
+        register_terminal_hooks(
+            tui_terminal_suspend as *const (),
+            tui_terminal_resume as *const (),
+        );
         return tui::run(
             &run_command,
             &take_pushes,
@@ -478,6 +529,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             is_connected_ref,
             registered_options_ref,
             set_interrupted_ref,
+            terminal_busy_ref,
         )
         .map_err(|e| e.into());
     }
@@ -485,6 +537,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(debug_assertions))]
     execute!(stdout(), EnterAlternateScreen)?;
     execute!(stdout(), Hide)?;
+    register_terminal_hooks(repl_terminal_suspend as *const (), repl_terminal_resume as *const ());
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
 

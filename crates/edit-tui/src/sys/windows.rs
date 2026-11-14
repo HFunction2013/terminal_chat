@@ -225,7 +225,15 @@ pub fn switch_modes() -> io::Result<Size> {
 
         check_bool_return(Console::GetConsoleMode(STATE.stdin, &raw mut STATE.stdin_mode_old))?;
         check_bool_return(Console::GetConsoleMode(STATE.stdout, &raw mut STATE.stdout_mode_old))?;
+        STATE.stdin_cp_old = Console::GetConsoleCP();
+        STATE.stdout_cp_old = Console::GetConsoleOutputCP();
+    }
+    apply_raw()
+}
 
+/// 把控制台切到 TUI raw 模式（虚拟终端输入/输出、UTF-8 代码页）；不覆盖保存的旧态。
+fn apply_raw() -> io::Result<Size> {
+    unsafe {
         match check_bool_return(Console::SetConsoleMode(
             STATE.stdin,
             Console::ENABLE_WINDOW_INPUT
@@ -247,14 +255,38 @@ pub fn switch_modes() -> io::Result<Size> {
 
         check_bool_return(Console::SetConsoleCtrlHandler(Some(console_ctrl_handler), 1))?;
 
-        STATE.stdin_cp_old = Console::GetConsoleCP();
-        STATE.stdout_cp_old = Console::GetConsoleOutputCP();
-
         check_bool_return(Console::SetConsoleCP(Globalization::CP_UTF8))?;
         check_bool_return(Console::SetConsoleOutputCP(Globalization::CP_UTF8))?;
 
         get_window_size()
     }
+}
+
+/// 离开 alternate screen 并把控制台恢复到进入 TUI 前的旧态，交给外部 TUI 子进程。
+/// 保留保存的旧态，供 [`resume_terminal`] 复用。
+pub fn suspend_terminal() {
+    unsafe {
+        if STATE.stdin_cp_old != 0 {
+            Console::SetConsoleCP(STATE.stdin_cp_old);
+        }
+        if STATE.stdout_cp_old != 0 {
+            Console::SetConsoleOutputCP(STATE.stdout_cp_old);
+        }
+        if STATE.stdin_mode_old != INVALID_CONSOLE_MODE {
+            Console::SetConsoleMode(STATE.stdin, STATE.stdin_mode_old);
+        }
+        if STATE.stdout_mode_old != INVALID_CONSOLE_MODE {
+            Console::SetConsoleMode(STATE.stdout, STATE.stdout_mode_old);
+        }
+    }
+    write_stdout("\x1b[?1000;1002;1006;2004l\x1b[?1049l");
+}
+
+/// 外部 TUI 子进程退出后：重切 raw 模式并重新进入 alternate screen。
+pub fn resume_terminal() -> io::Result<Size> {
+    let size = apply_raw()?;
+    write_stdout("\x1b[?1049h\x1b[?1000;1002;1006;2004h");
+    Ok(size)
 }
 
 pub struct Deinit;

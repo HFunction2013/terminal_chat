@@ -33,6 +33,7 @@ mod connection;
 pub mod editor;
 pub mod local;
 mod session;
+mod terminal;
 mod command {
     use std::sync::LazyLock;
 
