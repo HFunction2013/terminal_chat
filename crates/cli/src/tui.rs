@@ -182,6 +182,8 @@ enum FieldKind {
     LocalPath,
     /// 已注册选项 key（set/setg/get/getg/unset/unsetg 的参数位置）。
     OptionKey,
+    /// 复合命令的第二词子命令名（workspace/show/load/... 后）。
+    Subcommand,
 }
 
 /// 一个待提交命令的表单规格（静态）。
@@ -817,6 +819,38 @@ const COMMAND_NAMES: &[&str] = &[
     "workspace",
 ];
 
+/// 复合命令 → 第二词子命令名表（对齐 `cli-standard/commands/` 下各子命令 executor）。
+const SUBCOMMANDS: &[(&str, &[&str])] = &[
+    (
+        "workspace",
+        &["clone", "delete", "export", "import", "list", "new", "rename", "show", "switch"],
+    ),
+    (
+        "show",
+        &[
+            "active_freqs",
+            "active_users",
+            "globals",
+            "locals",
+            "moderators",
+            "options",
+            "plugins",
+            "variables",
+        ],
+    ),
+    ("load", &["namespace", "plugin"]),
+    ("unload", &["namespace", "plugin"]),
+    ("create", &["alias", "macro"]),
+    ("delete", &["alias", "macro"]),
+    ("proxy", &["off", "on"]),
+    ("tcpm", &["download", "install", "list", "search", "show", "uninstall", "update"]),
+];
+
+/// 查复合命令的子命令名表；非复合命令返回 `None`。
+fn subcommands_of(cmd: &str) -> Option<&'static [&'static str]> {
+    SUBCOMMANDS.iter().find(|(c, _)| *c == cmd).map(|(_, subs)| *subs)
+}
+
 /// 菜单定义：按 GUI 软件的大功能分组。
 fn menu_groups() -> Vec<MenuGroup> {
     vec![
@@ -1279,28 +1313,45 @@ impl App {
         if self.dialog.is_some() { self.dialog_buffer() } else { Some(&mut self.input) }
     }
 
-    /// 判定当前活动缓冲的补全类别与前缀。
-    fn completion_context(&self) -> (FieldKind, String) {
+    /// 判定当前活动缓冲的补全类别、前缀与首词命令（表单首词为空）。
+    fn completion_context(&self) -> (FieldKind, String, String) {
         if let Some(Dialog::Form(form)) = &self.dialog {
             let kind = form.spec.fields[form.focus].kind;
-            return (kind, form.values[form.focus].clone());
+            return (kind, form.values[form.focus].clone(), String::new());
         }
         let parts: Vec<&str> = self.input.split_whitespace().collect();
         match parts.as_slice() {
-            [] => (FieldKind::Plain, String::new()),
-            [first] => (FieldKind::Plain, (*first).to_string()),
+            [] => (FieldKind::Plain, String::new(), String::new()),
+            [first] => {
+                let cmd = (*first).to_string();
+                // 首词后已敲空格：处于第一参数位置（尾空格被 split 丢弃，需按原始输入判断）。
+                if self.input.ends_with(' ') {
+                    let kind = if subcommands_of(&cmd).is_some() {
+                        FieldKind::Subcommand
+                    } else {
+                        kind_for_command_arg(&cmd, 1)
+                    };
+                    (kind, String::new(), cmd)
+                } else {
+                    (FieldKind::Plain, cmd.clone(), cmd)
+                }
+            }
             _ => {
-                let cmd = parts[0];
+                let cmd = parts[0].to_string();
                 let arg_index = parts.len() - 1; // 命令后第几个参数（1 起）
-                let kind = kind_for_command_arg(cmd, arg_index);
-                (kind, parts[parts.len() - 1].to_string())
+                let kind = if arg_index == 1 && subcommands_of(&cmd).is_some() {
+                    FieldKind::Subcommand
+                } else {
+                    kind_for_command_arg(&cmd, arg_index)
+                };
+                (kind, parts[parts.len() - 1].to_string(), cmd)
             }
         }
     }
 
     /// 依据当前类别刷新补全候选：命令名 / 成员名 / 远端路径 / 本地路径。
     fn refresh_completions(&mut self) {
-        let (kind, prefix) = self.completion_context();
+        let (kind, prefix, cmd) = self.completion_context();
         let cands: Vec<String> = match kind {
             FieldKind::Plain => {
                 // 表单内自由文本不补全；主命令行首词匹配命令名。
@@ -1315,6 +1366,13 @@ impl App {
                         .collect()
                 }
             }
+            FieldKind::Subcommand => subcommands_of(&cmd)
+                .unwrap_or(&[])
+                .iter()
+                .copied()
+                .filter(|s| s.starts_with(&prefix))
+                .map(String::from)
+                .collect(),
             FieldKind::Member => {
                 self.members.iter().filter(|m| m.starts_with(&prefix)).cloned().collect()
             }
@@ -1380,20 +1438,31 @@ impl App {
     }
 
     /// 接受当前高亮候选：替换活动缓冲的末词（路径候选已含父目录前缀）。
+    /// 主命令行下非目录候选接受后补一个空格，进入下一参数位置并刷新该位置补全；
+    /// 表单字段为单值，不追加分隔空格。
     fn accept_completion(&mut self) {
         let Some(cand) = self.completions.get(self.comp_idx).cloned() else {
             return;
         };
+        let in_dialog = self.dialog.is_some();
         let Some(buf) = self.active_buffer() else {
             return;
         };
-        let mut parts: Vec<&str> = buf.split_whitespace().collect();
-        if parts.len() <= 1 {
-            *buf = cand;
+        let trimmed = buf.trim_end().to_string();
+        let mut parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if trimmed.is_empty() {
+            *buf = cand.clone();
         } else {
-            parts.pop();
+            // 末尾为空格时末词为空（已被 split 丢弃），parts 全是已确认前缀，直接追加；
+            // 否则替换正在输入的末词。
+            if !buf.ends_with(' ') {
+                parts.pop();
+            }
             parts.push(cand.as_str());
             *buf = parts.join(" ");
+        }
+        if !in_dialog && !cand.ends_with('/') {
+            buf.push(' ');
         }
         self.completion_active = false;
         self.refresh_completions();
@@ -3123,7 +3192,42 @@ mod tests {
         app.refresh_completions();
         let first = app.completions[0].clone();
         app.accept_completion();
-        assert_eq!(app.input, first);
+        // 主命令行接受首词候选后补空格，进入第一参数位置。
+        assert_eq!(app.input, format!("{first} "));
+    }
+
+    #[test]
+    fn completes_subcommand_after_compound_prefix() {
+        let mut app = App::new();
+        app.input = "workspace l".into();
+        app.refresh_completions();
+        assert!(app.completions.iter().any(|c| c == "list"));
+        // 第二词位置不应回退到成员名补全。
+        assert!(!app.completions.iter().any(|c| c == "alice"));
+    }
+
+    #[test]
+    fn completes_all_subcommands_after_trailing_space() {
+        let mut app = App::new();
+        app.input = "show ".into();
+        app.refresh_completions();
+        assert!(app.completions.iter().any(|c| c == "active_users"));
+        assert!(app.completions.iter().any(|c| c == "options"));
+        assert_eq!(
+            app.completions,
+            subcommands_of("show").unwrap().iter().map(|s| s.to_string()).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn accept_subcommand_advances_past_separator() {
+        let mut app = App::new();
+        app.input = "workspace ".into();
+        app.refresh_completions();
+        let sub = app.completions[0].clone();
+        app.accept_completion();
+        // 接受子命令后保留分隔空格，光标进入子命令之后的参数位置。
+        assert_eq!(app.input, format!("workspace {sub} "));
     }
 
     #[test]
