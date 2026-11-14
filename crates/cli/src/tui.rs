@@ -20,7 +20,7 @@
 
 use anyhow::Result;
 use cli_core_types::plugin_fn_types::ListRemoteDirFn;
-use cli_core_types::{IsConnectedFn, RunCommandFn};
+use cli_core_types::{IsConnectedFn, RunCommandFn, SetInterruptedFn};
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::mem::ManuallyDrop;
@@ -1015,6 +1015,8 @@ struct App {
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
     is_connected: Option<IsConnectedFn>,
+    /// 设置命令中断标志的回调（cli-core `set_interrupted`）；缺失时 Ctrl+C 不中断。
+    set_interrupted: Option<SetInterruptedFn>,
     /// 已注册选项列举回调（cli-core `get_registered_options`）；缺失时选项 key 不补全。
     list_registered_options: Option<GetRegisteredOptionsFn>,
     /// 已注册选项 key 缓存（供选项参数位置补全）。
@@ -1062,6 +1064,7 @@ impl App {
             members: Vec::new(),
             remote_list_dir: None,
             is_connected: None,
+            set_interrupted: None,
             list_registered_options: None,
             registered_options: Vec::new(),
             username: String::new(),
@@ -1081,6 +1084,27 @@ impl App {
         for line in text.lines() {
             self.log.push(ChatLine { text: line.to_string(), kind });
         }
+    }
+
+    /// Ctrl+C：中断正在运行的后台命令，返回是否消费了该按键。
+    ///
+    /// 无命令运行时返回 `false`（不退出；退出仍走 Ctrl+Q）。中断标志由命令轮询
+    /// 读取，worker 完成后结果照常回流，界面回到可输入态。
+    fn interrupt_command(&mut self) -> bool {
+        let running = self.worker.as_ref().map(|w| w.is_running()).unwrap_or(false);
+        if !running {
+            return false;
+        }
+        self.fire_interrupt();
+        true
+    }
+
+    /// 置中断标志并在聊天记录提示中断（running 判断之外的副作用，便于测试）。
+    fn fire_interrupt(&mut self) {
+        if let Some(set_int) = self.set_interrupted {
+            let _ = set_int(true);
+        }
+        self.push_line("^C Interrupting current command.".to_string(), LineKind::System);
     }
 
     /// 从一条推送文本中收集成员名，并更新当前会话快照。
@@ -1674,6 +1698,7 @@ pub fn run(
     remote_list_dir: Option<&ListRemoteDirFn>,
     is_connected: Option<&IsConnectedFn>,
     registered_options: Option<&GetRegisteredOptionsFn>,
+    set_interrupted: Option<&SetInterruptedFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -1719,6 +1744,7 @@ pub fn run(
     app.menubar_fg = menubar_fg;
     app.remote_list_dir = remote_list_dir.copied();
     app.is_connected = is_connected.copied();
+    app.set_interrupted = set_interrupted.copied();
     app.list_registered_options = registered_options.copied();
 
     // 启动后台命令 worker：命令在独立线程串行执行，UI 线程不被阻塞命令卡住；
@@ -1878,6 +1904,11 @@ fn draw(
         if key == kbmod::CTRL | vk::Q {
             app.exit = true;
             ctx.set_input_consumed();
+        } else if key == kbmod::CTRL | vk::C {
+            // 仅中断正在运行的后台命令；无命令运行时不退出（退出仍走 Ctrl+Q）。
+            if app.interrupt_command() {
+                ctx.set_input_consumed();
+            }
         } else if app.dialog.is_none() && key == vk::PRIOR {
             // PgUp：聊天记录向上回看一页。
             let page = (ctx.size().height - 3).max(1).max(0) as usize;
@@ -2872,6 +2903,13 @@ mod tests {
     const STUB_RUN: RunCommandFn = stub_run;
     const STUB_DRAIN: OutputDrainFn = stub_drain;
     const STUB_CONNECTED: IsConnectedFn = stub_connected;
+
+    static INTERRUPT_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    extern "C" fn stub_set_interrupted(_: bool) -> cli_core_types::Result {
+        INTERRUPT_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        cli_core_types::Result::success()
+    }
+    const STUB_SET_INT: SetInterruptedFn = stub_set_interrupted;
 
     static SESSION_OPT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
     static GLOBAL_OPT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
@@ -3877,5 +3915,31 @@ mod tests {
         apply_job_result(&mut app, job);
         assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
         assert!(app.worker_output.is_empty());
+    }
+
+    #[test]
+    fn ctrlc_without_running_command_does_not_interrupt_or_quit() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        INTERRUPT_CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+        let mut app = App::new();
+        app.set_interrupted = Some(STUB_SET_INT);
+
+        // 无后台命令在跑：Ctrl+C 不置中断标志，也不退出（退出仍走 Ctrl+Q）。
+        assert!(!app.interrupt_command());
+        assert!(!app.exit);
+        assert_eq!(INTERRUPT_CALLS.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert!(app.log.iter().all(|l| !l.text.contains("Interrupting")));
+    }
+
+    #[test]
+    fn fire_interrupt_signals_core_and_notifies() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        INTERRUPT_CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+        let mut app = App::new();
+        app.set_interrupted = Some(STUB_SET_INT);
+
+        app.fire_interrupt();
+        assert_eq!(INTERRUPT_CALLS.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert!(app.log.iter().any(|l| l.text.contains("Interrupting current command")));
     }
 }

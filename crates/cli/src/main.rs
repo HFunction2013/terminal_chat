@@ -460,6 +460,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             unsafe { core_lib.get(b"get_registered_options") }.ok();
         let registered_options_ref: Option<&tui::GetRegisteredOptionsFn> =
             registered_options.as_deref();
+        // 命令中断标志为可选符号：缺失时 TUI Ctrl+C 不中断命令。
+        let set_interrupted: Option<Symbol<SetInterruptedFn>> =
+            unsafe { core_lib.get(b"set_interrupted") }.ok();
+        let set_interrupted_ref: Option<&SetInterruptedFn> = set_interrupted.as_deref();
         return tui::run(
             &run_command,
             &take_pushes,
@@ -470,6 +474,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             remote_list_dir_ref,
             is_connected_ref,
             registered_options_ref,
+            set_interrupted_ref,
         )
         .map_err(|e| e.into());
     }
