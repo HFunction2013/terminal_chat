@@ -9,7 +9,7 @@ use cli_core_types::{
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{
-    cursor::{Hide, Show},
+    cursor::{Hide, MoveTo, Show},
     execute,
 };
 use figlet_rs::FIGlet;
@@ -18,6 +18,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use libc::{SIGTSTP, signal};
 use libloading::{Library, Symbol};
 use lolcat::{Config, Printer, choose_color_mode, initial_offset};
+use rand::Rng;
 use rustyline::{
     Context, Editor, ExternalPrinter, Helper,
     completion::{Completer, Pair},
@@ -34,7 +35,7 @@ use std::{
     io::{self, IsTerminal, stdout},
     mem::ManuallyDrop,
     path::Path,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
     sync::{Arc, Mutex, OnceLock},
     thread,
     time::Duration,
@@ -361,6 +362,12 @@ fn prepare_startup() -> String {
 
     let total_target: u64 = tasks.iter().map(|(_, t)| t).sum();
 
+    let running = Arc::new(AtomicBool::new(true));
+    let running_anim = running.clone();
+
+    let progress = Arc::new(AtomicU64::new(0));
+    let progress_pb = progress.clone();
+
     let pb = Arc::new(ProgressBar::new(total_target));
     pb.set_style(
         ProgressStyle::default_bar()
@@ -369,36 +376,73 @@ fn prepare_startup() -> String {
             .progress_chars("█▓▒░"),
     );
 
-    // 后台只计算一次彩色 figlet art 写入内存；启动期间不向终端打印，
-    // 避免与进度条并发写同一 stdout 造成行/光标错乱。
     let colored = Arc::new(Mutex::new(String::new()));
-    let colored_bg = colored.clone();
-    let art_handle = thread::spawn(move || {
-        let font = match FIGlet::standard() {
-            Ok(font) => font,
-            Err(_) => return,
-        };
-        let Some(art) = font.convert("Terminal Chat") else {
-            return;
-        };
-        let cfg = Config { speed: 4000.0, ..Default::default() };
-        if let Ok(result) = colorize_string(&cfg, &art.as_str()) {
-            *colored_bg.lock().unwrap() = result;
+    let colored_anim = colored.clone();
+    let pb_anim = pb.clone();
+    let pb_task = pb;
+
+    let anim_handle = thread::spawn(move || {
+        let Ok(font) = FIGlet::standard() else { return };
+        let Some(art) = font.convert("Terminal Chat") else { return };
+        let mut rng = rand::thread_rng();
+        let mut i: u64 = rng.r#gen();
+        let freq = 10;
+        let note = String::from("Terminal Chat Starting");
+        let mut cfg = Config { speed: 4000.0, ..Default::default() };
+        let mut display = note.clone();
+
+        while running_anim.load(Ordering::SeqCst) {
+            cfg.seed = i;
+            pb_anim.suspend(|| {
+                let _ = execute!(stdout(), MoveTo(0, 0));
+                if let Ok(result) = colorize_string(&cfg, &art.as_str()) {
+                    *colored_anim.lock().unwrap() = result.clone();
+                    println!("{result}");
+                }
+            });
+
+            pb_anim.set_position(progress_pb.load(Ordering::Relaxed));
+
+            thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
+            i = i.wrapping_add(1);
+
+            if i.is_multiple_of(freq) {
+                let pos = ((i / freq) as usize) % note.len();
+                let mut chars: Vec<char> = note.chars().collect();
+                if let Some(c) = chars.get_mut(pos)
+                    && c.is_ascii_alphabetic()
+                {
+                    *c = if c.is_ascii_uppercase() {
+                        c.to_ascii_lowercase()
+                    } else {
+                        c.to_ascii_uppercase()
+                    };
+                }
+                display = chars.into_iter().collect();
+            }
+            println!("{display}");
         }
     });
 
-    for (name, target) in tasks {
-        pb.set_message(name);
-        // TODO: run task stub.
-        for _ in 0..target {
-            thread::sleep(Duration::from_millis(50));
-            pb.inc(1);
+    let task_handle = thread::spawn(move || {
+        for (name, target) in tasks {
+            pb_task.set_message(name);
+
+            // TODO: run task stub.
+            for _ in 0..target {
+                thread::sleep(Duration::from_millis(50));
+                progress.fetch_add(1, Ordering::SeqCst);
+                pb_task.inc(1);
+            }
         }
-    }
 
-    pb.finish_with_message("All systems ready!");
+        pb_task.finish_with_message("All systems ready!");
+        running.store(false, Ordering::SeqCst);
+    });
 
-    art_handle.join().unwrap();
+    task_handle.join().unwrap();
+    anim_handle.join().unwrap();
+
     colored.lock().unwrap().clone()
 }
 
