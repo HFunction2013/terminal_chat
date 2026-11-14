@@ -36,6 +36,13 @@ pub static CONNECTION: LazyLock<Mutex<Option<TcpStream>>> = LazyLock::new(|| Mut
 pub static RESP_QUEUE: LazyLock<Mutex<VecDeque<protos::models::packet::Packet>>> =
     LazyLock::new(|| Mutex::new(VecDeque::new()));
 
+/// 丢弃当前连接与残留响应队列：对端断开 / 写失败后调用，避免误报“已连接”、
+/// 向死连接写帧，或上一条死连接的残留响应污染下次重连后的请求匹配。
+fn drop_connection() {
+    CONNECTION.lock().unwrap().take();
+    RESP_QUEUE.lock().unwrap().clear();
+}
+
 const DEFAULT_PORT: &str = "50051";
 
 /// 帧消息类型（帧头第 1 字节；避免空消息被误判为其它消息类型）。
@@ -179,14 +186,16 @@ pub fn connect_now() -> Result<()> {
                 }
                 Err(e) => {
                     eprintln!("[cli-standard] reader error: {e}");
-                    // 对端断开/读出错：清掉存储的连接，避免后续误报“已连接”并向死连接写帧。
-                    CONNECTION.lock().unwrap().take();
+                    // 对端断开/读出错：清掉存储的连接与残留响应，避免后续误报“已连接”并向死连接写帧。
+                    drop_connection();
                     break;
                 }
             }
         }
     });
 
+    // 清掉上一条连接遗留的响应帧，避免旧 seq 帧混入新会话的匹配。
+    RESP_QUEUE.lock().unwrap().clear();
     *CONNECTION.lock().unwrap() = Some(stream);
     print_content(&format!("Connected to {addr}.").into());
     Ok(())
@@ -256,8 +265,8 @@ pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
     };
     if let Err(e) = write_frame(stream, frame_type::PACKET, &req.encode_to_vec()) {
         drop(guard);
-        // 写失败通常意味着对端已断开：清掉死连接，下次可重新 `connect`。
-        CONNECTION.lock().unwrap().take();
+        // 写失败通常意味着对端已断开：清掉死连接与残留队列，下次可重新 `connect`。
+        drop_connection();
         return Err(e.into());
     }
     drop(guard); // 读由后台线程负责，释放连接锁避免与读线程无关的等待。
@@ -267,6 +276,13 @@ pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
     loop {
         if std::time::Instant::now() > deadline {
             return Err(anyhow!("timeout waiting for response to `{channel}`"));
+        }
+        // 读线程已判定对端断开并清掉连接：不再干等超时，立即报错走重连。
+        if CONNECTION.lock().unwrap().is_none() {
+            RESP_QUEUE.lock().unwrap().clear();
+            return Err(anyhow!(
+                "connection closed by the server while waiting for response to `{channel}`"
+            ));
         }
         let resp = {
             let mut q = RESP_QUEUE.lock().unwrap();
@@ -376,5 +392,21 @@ mod tests {
         assert_eq!(split_host_port("127.0.0.1"), ("127.0.0.1".to_string(), None));
         // 末段非数字：不视为端口。
         assert_eq!(split_host_port("host:http"), ("host:http".to_string(), None));
+    }
+
+    #[test]
+    fn drop_connection_clears_stale_state() {
+        use super::{CONNECTION, RESP_QUEUE, drop_connection};
+        // 塞一条上一条死连接遗留的响应帧。
+        RESP_QUEUE.lock().unwrap().push_back(protos::models::packet::Packet {
+            channel: "stale".to_string(),
+            sender: "x".to_string(),
+            payload: String::new(),
+            timestamp: 0,
+            seq: 1,
+        });
+        drop_connection();
+        assert!(CONNECTION.lock().unwrap().is_none());
+        assert!(RESP_QUEUE.lock().unwrap().is_empty());
     }
 }
