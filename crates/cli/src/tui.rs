@@ -1507,6 +1507,10 @@ impl App {
         }
         self.completion_active = false;
         self.refresh_completions();
+        // 接受后下一帧把焦点交回输入框；弹窗表单内的补全不抢焦点到主输入框。
+        if !in_dialog {
+            self.refocus_input = true;
+        }
     }
 
     /// 在候选列表中循环切换高亮下标。
@@ -2317,8 +2321,6 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
             ListSelection::Activated => {
                 app.comp_idx = idx;
                 app.accept_completion();
-                // 鼠标点击先把焦点给到候选项；接受后下一帧交回输入框。
-                app.refocus_input = true;
             }
             ListSelection::Selected => {
                 app.comp_idx = idx;
@@ -4433,6 +4435,201 @@ mod tests {
         let cmd = tui.testing_find("cmd");
         assert!(!cmd.is_empty(), "input box rendered");
         assert!(cmd.iter().any(|n| n.focused), "focus returned to the input box");
+    }
+
+    /// A real two-click mouse accept on a suggestion must leave focus on the
+    /// input box, not on the suggestion item.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn mouse_click_accept_completion_returns_focus_to_input() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.input = "se".to_string();
+        app.completions = vec!["server".to_string()];
+        app.comp_idx = 0;
+        app.completion_active = true;
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        let item = tui.testing_find("item");
+        assert!(!item.is_empty(), "suggestion rendered");
+        let center = Point { x: item[0].x + item[0].width / 2, y: item[0].y + item[0].height / 2 };
+        let mouse = |state: input::InputMouseState| input::InputMouse {
+            state,
+            modifiers: kbmod::NONE,
+            position: center,
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+
+        // First click selects the item; second click activates it.
+        for _ in 0..2 {
+            draw(
+                &mut tui,
+                Some(Input::Mouse(mouse(input::InputMouseState::Left))),
+                &mut app,
+                &STUB_RUN,
+                &STUB_DRAIN,
+                &groups,
+            );
+            while tui.needs_settling() {
+                draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+            }
+            draw(
+                &mut tui,
+                Some(Input::Mouse(mouse(input::InputMouseState::None))),
+                &mut app,
+                &STUB_RUN,
+                &STUB_DRAIN,
+                &groups,
+            );
+            while tui.needs_settling() {
+                draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+            }
+        }
+
+        let cmd = tui.testing_find("cmd");
+        assert!(!cmd.is_empty(), "input box rendered");
+        assert!(
+            cmd.iter().any(|n| n.focused),
+            "focus returned to the input box after mouse accept"
+        );
+    }
+
+    /// Accepting a completion with Tab must keep focus in the input box.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn tab_accept_completion_keeps_focus_in_input() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.input = "se".to_string();
+        app.completions = vec!["server".to_string()];
+        app.comp_idx = 0;
+        app.completion_active = true;
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        draw(&mut tui, Some(Input::Keyboard(vk::TAB)), &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        assert_eq!(app.input, "sessions ", "Tab accepted the completion");
+        let cmd = tui.testing_find("cmd");
+        assert!(!cmd.is_empty(), "input box rendered");
+        assert!(cmd.iter().any(|n| n.focused), "focus stays in the input box");
+    }
+
+    /// After the mouse selects a suggestion (focus moves to the item),
+    /// pressing Enter to accept it must return focus to the input box.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn enter_on_selected_suggestion_returns_focus_to_input() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.input = "se".to_string();
+        app.completions = vec!["sessions".to_string()];
+        app.comp_idx = 0;
+        app.completion_active = true;
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        let item = tui.testing_find("item");
+        assert!(!item.is_empty(), "suggestion rendered");
+        let center = Point { x: item[0].x + item[0].width / 2, y: item[0].y + item[0].height / 2 };
+        let mouse = |state: input::InputMouseState| input::InputMouse {
+            state,
+            modifiers: kbmod::NONE,
+            position: center,
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+        // Click once to select the item and move focus onto it.
+        draw(
+            &mut tui,
+            Some(Input::Mouse(mouse(input::InputMouseState::Left))),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        draw(
+            &mut tui,
+            Some(Input::Mouse(mouse(input::InputMouseState::None))),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        // Enter activates the focused suggestion.
+        draw(
+            &mut tui,
+            Some(Input::Keyboard(vk::RETURN)),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        assert_eq!(app.input, "sessions ", "Enter accepted the completion");
+        let cmd = tui.testing_find("cmd");
+        assert!(!cmd.is_empty(), "input box rendered");
+        assert!(
+            cmd.iter().any(|n| n.focused),
+            "focus returned to the input box after Enter accept"
+        );
     }
 
     /// Pressing Enter on the focused Confirm button must confirm the dialog.
