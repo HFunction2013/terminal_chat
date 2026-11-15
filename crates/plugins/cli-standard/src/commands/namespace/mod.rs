@@ -16,11 +16,12 @@ impl CommandExecutor for NamespaceCommand {
     }
 }
 
+pub mod list;
 pub mod load;
 pub mod unload;
 
 pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
-    vec![Arc::new(load::LoadCommand), Arc::new(unload::UnloadCommand)]
+    vec![Arc::new(list::ListCommand), Arc::new(load::LoadCommand), Arc::new(unload::UnloadCommand)]
 }
 
 pub fn dispatch(matches: &ArgMatches) -> Result<()> {

@@ -858,7 +858,7 @@ const SUBCOMMANDS: &[(&str, &[&str])] = &[
     ),
     ("load", &["namespace", "plugin"]),
     ("unload", &["namespace", "plugin"]),
-    ("namespace", &["load", "unload"]),
+    ("namespace", &["list", "load", "unload"]),
     ("plugin", &["list", "load", "unload"]),
     ("create", &["alias", "macro"]),
     ("delete", &["alias", "macro"]),
@@ -1390,6 +1390,18 @@ impl App {
     /// 打开内置信息展示弹窗（帮助 / 关于 / 版权 / 许可）。
     fn open_info(&mut self, title: String, lines: Vec<String>) {
         self.dialog = Some(Dialog::Info { title, lines });
+    }
+
+    /// 展示内置信息：命令行偏好开启时直接落到终端输出区，否则弹 Info 窗。
+    fn present_info(&mut self, title: String, lines: Vec<String>) {
+        if self.prefer_cli {
+            self.push_line(title, LineKind::Result);
+            for line in lines {
+                self.push_line(line, LineKind::Result);
+            }
+        } else {
+            self.open_info(title, lines);
+        }
     }
 
     /// 返回弹窗当前阶段正在编辑的文本缓冲。
@@ -2095,6 +2107,7 @@ fn event_loop(
                     run_command,
                     output_drain,
                     &["show".to_string(), "active_users".to_string()],
+                    true,
                 );
             }
         }
@@ -2110,6 +2123,7 @@ fn event_loop(
                     run_command,
                     output_drain,
                     &["sessions".to_string(), "-l".to_string()],
+                    true,
                 );
             }
         }
@@ -2125,6 +2139,7 @@ fn event_loop(
                     run_command,
                     output_drain,
                     &["plugin".to_string(), "list".to_string()],
+                    true,
                 );
             }
         }
@@ -2749,7 +2764,7 @@ fn execute_or_dialog(
         app.open_confirm(confirm_message(cmd, argv), argv.to_vec());
         return;
     }
-    run_argv(app, run_command, output_drain, argv);
+    run_argv(app, run_command, output_drain, argv, false);
 }
 
 /// REPL 同款内置命令在 TUI 内的本地分发。
@@ -2768,12 +2783,12 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         }
         "version" => {
             let lines = crate::welcome_text(false).lines().map(String::from).collect();
-            app.open_info("About".to_string(), lines);
+            app.present_info("About".to_string(), lines);
             true
         }
         "build_info" => {
             let lines = crate::build_info_text().lines().map(String::from).collect();
-            app.open_info("Build Info".to_string(), lines);
+            app.present_info("Build Info".to_string(), lines);
             true
         }
         "about" => {
@@ -2781,16 +2796,16 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
                 crate::welcome_text(false).lines().map(String::from).collect();
             lines.push(String::new());
             lines.extend(crate::build_info_text().lines().map(String::from));
-            app.open_info("About".to_string(), lines);
+            app.present_info("About".to_string(), lines);
             true
         }
         "copyright" => {
-            app.open_info("Copyright".to_string(), vec![crate::copyright_text()]);
+            app.present_info("Copyright".to_string(), vec![crate::copyright_text()]);
             true
         }
         "license" => {
             let lines: Vec<String> = crate::license_text().lines().map(String::from).collect();
-            app.open_info("License".to_string(), lines);
+            app.present_info("License".to_string(), lines);
             true
         }
         "coffee" => {
@@ -2809,7 +2824,7 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         },
         "help" => {
             let lines: Vec<String> = builtin_help_lines().into_iter().map(String::from).collect();
-            app.open_info("Help".to_string(), lines);
+            app.present_info("Help".to_string(), lines);
             true
         }
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
@@ -2889,7 +2904,7 @@ fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &Outp
 fn finish_confirm(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let Some(Dialog::Confirm { argv, .. }) = app.dialog.take() else { return };
     app.note_command(&argv);
-    run_argv(app, run_command, output_drain, &argv);
+    run_argv(app, run_command, output_drain, &argv, false);
 }
 
 /// 生成 `hf` + 两位随机小写字母的调试昵称（如 `hfqx`）。
@@ -2930,7 +2945,7 @@ fn debug_seed_autoconnect(
     let server = opt_get_effective(get_session, get_option, "SERVER");
     let username = opt_get_effective(get_session, get_option, "USERNAME");
     for argv in debug_seed_argv(&server, &username) {
-        run_argv(app, run_command, output_drain, &argv);
+        run_argv(app, run_command, output_drain, &argv, false);
     }
 }
 
@@ -2949,10 +2964,17 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
                 run_command,
                 output_drain,
                 &["setg".to_string(), "SERVER".to_string(), host],
+                false,
             );
         }
         if let Some(p) = port {
-            run_argv(app, run_command, output_drain, &["setg".to_string(), "PORT".to_string(), p]);
+            run_argv(
+                app,
+                run_command,
+                output_drain,
+                &["setg".to_string(), "PORT".to_string(), p],
+                false,
+            );
         }
     }
     if !username.is_empty() {
@@ -2961,9 +2983,10 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
             run_command,
             output_drain,
             &["setg".to_string(), "USERNAME".to_string(), username],
+            false,
         );
     }
-    run_argv(app, run_command, output_drain, &["connect".to_string()]);
+    run_argv(app, run_command, output_drain, &["connect".to_string()], false);
 }
 
 /// 按命令名把表单字段值组装成 argv（纯函数，便于单测）。
@@ -3162,7 +3185,7 @@ fn finish_form(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputD
         return;
     }
     app.note_command(&argv);
-    run_argv(app, run_command, output_drain, &argv);
+    run_argv(app, run_command, output_drain, &argv, false);
 }
 
 /// 提交输入框内容为命令。
@@ -3186,8 +3209,11 @@ fn run_argv(
     run_command: &RunCommandFn,
     output_drain: &OutputDrainFn,
     argv: &[String],
+    background: bool,
 ) {
-    let silent = is_silent_refresh(argv);
+    // 静默只作用于后台自动回填投递；用户主动敲入的命令（即使是列表查询）
+    // 仍正常回显到输出区。
+    let silent = background && is_silent_refresh(argv);
     app.silent_refresh = silent;
     if !silent {
         let display = argv.join(" ");
@@ -3213,7 +3239,7 @@ fn run_argv(
     }
 
     // 无 worker（测试桩 / 回退路径）：保持旧的同步执行。
-    run_argv_sync(app, run_command, output_drain, argv);
+    run_argv_sync(app, run_command, output_drain, argv, silent);
 }
 
 /// 同步执行命令（worker 缺失时的回退路径，行为与历史一致）。
@@ -3222,6 +3248,7 @@ fn run_argv_sync(
     run_command: &RunCommandFn,
     output_drain: &OutputDrainFn,
     argv: &[String],
+    silent: bool,
 ) {
     let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
         argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
@@ -3231,7 +3258,6 @@ fn run_argv_sync(
     let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
     let drained: Vec<String> = drained.iter().map(|s| s.to_string()).collect();
     let drained_text = drained.join("\n");
-    let silent = is_silent_refresh(argv);
 
     if result.code != 0 {
         if !silent {
@@ -3803,26 +3829,29 @@ mod tests {
     }
 
     #[test]
-    fn silent_refresh_commands_do_not_echo_to_output_log() {
+    fn background_refresh_stays_silent_but_typed_command_echoes() {
         let mut app = App::new();
-        let before = app.log.len();
-        for argv in [
+        let refresh = [
             vec!["show".to_string(), "active_users".to_string()],
             vec!["show".to_string(), "plugins".to_string()],
             vec!["plugin".to_string(), "list".to_string()],
             vec!["sessions".to_string(), "-l".to_string()],
-        ] {
-            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &argv);
+        ];
+        // 后台自动投递：静默，不写输出区。
+        let before = app.log.len();
+        for argv in &refresh {
+            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, argv, true);
         }
-        assert_eq!(
-            app.log.len(),
-            before,
-            "silent roster/refresh commands must not append to the output log"
-        );
+        assert_eq!(app.log.len(), before, "background refreshes must stay out of the output log");
 
-        // 普通命令仍回显命令行到输出区。
-        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["status".to_string()]);
-        assert!(app.log.iter().any(|l| l.text.starts_with("tc>")));
+        // 用户主动敲入同一条命令：正常回显命令行到输出区。
+        for argv in &refresh {
+            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, argv, false);
+        }
+        assert!(
+            app.log.iter().any(|l| l.text.starts_with("tc> plugin list")),
+            "a typed refresh command must echo its command line"
+        );
     }
 
     #[test]
@@ -4072,6 +4101,22 @@ mod tests {
         execute_or_dialog(&mut app, &STUB_RUN, &STUB_DRAIN, &["upload".to_string()]);
         assert!(app.dialog.is_none());
         assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before + 1);
+    }
+
+    #[test]
+    fn info_command_prints_to_log_when_prefer_cli_and_pops_dialog_otherwise() {
+        // 命令行偏好：help/license 等信息命令直接落输出区，不弹 Info 窗。
+        let mut app = App::new();
+        app.prefer_cli = true;
+        assert!(try_builtin(&mut app, &["help".to_string()]));
+        assert!(app.dialog.is_none());
+        assert!(app.log.iter().any(|l| l.text == "Help"));
+        assert!(app.log.iter().any(|l| l.text.contains("Built-in:")));
+
+        // 默认偏好：弹出 Info 窗。
+        let mut app = App::new();
+        assert!(try_builtin(&mut app, &["help".to_string()]));
+        assert!(matches!(app.dialog, Some(Dialog::Info { .. })));
     }
 
     #[test]
@@ -4759,7 +4804,13 @@ mod tests {
         app.worker = Some(CommandWorker::spawn(STUB_RUN));
         let worker = app.worker.clone().unwrap();
 
-        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["sleep".to_string(), "1ms".to_string()]);
+        run_argv(
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &["sleep".to_string(), "1ms".to_string()],
+            false,
+        );
         // 命令回显行先落到聊天记录（UI 线程不等待执行完成）。
         assert!(app.log.iter().any(|l| l.text.starts_with("tc> sleep")));
 

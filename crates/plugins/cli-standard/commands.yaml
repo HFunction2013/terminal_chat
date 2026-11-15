@@ -220,6 +220,8 @@ commands:
   - name: namespace
     about: Manage plugin namespaces
     subcommands:
+      - name: list
+        about: List all loaded namespaces
       - name: load
         about: Load a namespace
         args:
