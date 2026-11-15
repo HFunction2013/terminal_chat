@@ -2157,19 +2157,20 @@ impl<'a> Context<'a, '_> {
     /// Creates a button with the given text.
     /// Returns true if the button was activated.
     pub fn button(&mut self, classname: &'static str, text: &str, style: ButtonStyle) -> bool {
-        // The button gets its own focusable container so the focus/reverse highlight
-        // and mouse hit-test cover only the button label, not the whole parent row.
-        // The label is a child of this container; after `button_label` returns the
-        // stack is back on the container, so activation is evaluated before `block_end`.
-        self.block_begin(classname);
+        // The focusable leaf is the label text node itself (the same pattern as
+        // checkbox/textarea), so focus, reverse-video and mouse hit-test cover
+        // only the intrinsic label width. The label is centered in its row; the
+        // activation check must run while the stack still sits on that leaf,
+        // before `styled_label_end` pops back to the parent.
+        self.button_label_begin(classname, text, style);
         self.attr_position(Position::Center);
+        self.attr_focusable();
         self.focus_on_first_present();
         if self.is_focused() {
             self.attr_reverse();
         }
-        self.button_label(classname, text, style);
         let activated = self.button_activated();
-        self.block_end();
+        self.styled_label_end();
         activated
     }
 
@@ -3480,7 +3481,7 @@ impl<'a> Context<'a, '_> {
 
     /// Renders a button label with an optional accelerator character
     /// May also renders a checkbox or square brackets for inline buttons
-    fn button_label(&mut self, classname: &'static str, text: &str, style: ButtonStyle) {
+    fn button_label_begin(&mut self, classname: &'static str, text: &str, style: ButtonStyle) {
         // Label prefix
         self.styled_label_begin(classname);
         if style.bracketed {
@@ -3535,6 +3536,10 @@ impl<'a> Context<'a, '_> {
         if style.bracketed {
             self.styled_label_add_text("]");
         }
+    }
+
+    fn button_label(&mut self, classname: &'static str, text: &str, style: ButtonStyle) {
+        self.button_label_begin(classname, text, style);
         self.styled_label_end();
     }
 
@@ -4220,7 +4225,7 @@ impl<'a> Node<'a> {
                 let mut content = self.children.first.unwrap().borrow_mut();
 
                 // content available viewport size (-1 for the track)
-                let sx = self.inner.right - self.inner.left;
+                let sx = self.inner.right - self.inner.left - 1;
                 let sy = self.inner.bottom - self.inner.top;
                 // actual content size
                 let cx = sx;

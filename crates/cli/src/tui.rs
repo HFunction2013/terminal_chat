@@ -1042,6 +1042,8 @@ struct App {
     comp_scroll: usize,
     /// 候选浮层是否处于激活锁定态：激活后 Up/Down 在候选间移动，否则翻历史。
     completion_active: bool,
+    /// 鼠标点选候选后，下一帧把焦点交回输入框（点击会先把焦点给到候选项）。
+    refocus_input: bool,
     /// 激活中的配置弹窗；`None` 表示无弹窗。
     dialog: Option<Dialog>,
     /// 侧栏快照：当前会话 freq。
@@ -1098,6 +1100,7 @@ impl App {
             comp_idx: 0,
             comp_scroll: 0,
             completion_active: false,
+            refocus_input: false,
             dialog: None,
             current_freq: None,
             members: Vec::new(),
@@ -2141,6 +2144,11 @@ fn draw_input(
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
     // 首帧把焦点交给输入框；之后不抢，菜单展开时焦点留在菜单。
     ctx.focus_on_first_present();
+    // 鼠标点选候选后，焦点曾被候选项抢走；这里交回输入框行容器。
+    if app.refocus_input {
+        app.refocus_input = false;
+        ctx.steal_focus();
+    }
 
     // 依据当前输入刷新补全候选。
     app.refresh_completions();
@@ -2219,6 +2227,8 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
             ListSelection::Activated => {
                 app.comp_idx = idx;
                 app.accept_completion();
+                // 鼠标点击先把焦点给到候选项；接受后下一帧交回输入框。
+                app.refocus_input = true;
             }
             ListSelection::Selected => {
                 app.comp_idx = idx;
@@ -3982,19 +3992,56 @@ mod tests {
         }
 
         let buttons = tui.testing_find("info-close");
-        let container = buttons.iter().find(|n| n.text.is_empty()).expect("button container");
-        let label = buttons.iter().find(|n| n.text == "[Close]").expect("button label");
-        assert!(container.focused, "button container owns focus, not the parent row");
+        let button = buttons.iter().find(|n| n.text == "[Close]").expect("button label leaf");
+        assert!(button.focused, "button leaf owns focus, not the parent row");
         assert_eq!(
-            container.width,
+            button.width,
             "[Close]".chars().count() as CoordType,
             "highlight covers only the label width"
         );
         let contents: Vec<_> = tui.testing_find("content");
         let content = contents.last().expect("dialog content");
-        let expected_x = content.x + (content.width - container.width) / 2;
-        assert_eq!(container.x, expected_x, "button centered horizontally");
-        assert_eq!(label.x, container.x);
+        let expected_x = content.x + (content.width - button.width) / 2;
+        assert_eq!(button.x, expected_x, "button centered horizontally");
+    }
+
+    /// Pressing Enter on the focused Info Close button must close the dialog.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn enter_on_info_button_closes_dialog() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.open_info("Info".into(), vec!["hello world".into()], false);
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(app.dialog.is_some(), "dialog rendered");
+
+        draw(
+            &mut tui,
+            Some(Input::Keyboard(vk::RETURN)),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(app.dialog.is_none(), "Enter activated the Close button");
     }
 
     /// Open a confirm dialog, pump Esc straight through the kernel, then read the
@@ -4164,5 +4211,38 @@ mod tests {
         app.fire_interrupt();
         assert_eq!(INTERRUPT_CALLS.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert!(app.log.iter().any(|l| l.text.contains("Interrupting current command")));
+    }
+
+    /// After a mouse-selected completion, focus must return to the input box
+    /// instead of staying on the suggestion item.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn refocus_after_accept_returns_focus_to_input() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.completions = vec!["server".to_string()];
+        app.comp_idx = 0;
+        app.completion_active = true;
+        app.refocus_input = true;
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(!app.refocus_input, "refocus flag consumed");
+        let cmd = tui.testing_find("cmd");
+        assert!(!cmd.is_empty(), "input box rendered");
+        assert!(cmd.iter().any(|n| n.focused), "focus returned to the input box");
     }
 }
