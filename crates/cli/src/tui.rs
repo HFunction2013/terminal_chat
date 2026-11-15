@@ -1056,6 +1056,10 @@ struct App {
     sessions: Vec<SessionEntry>,
     /// 待拉取一次会话列表；空闲时投递 `sessions -l`。
     pending_sessions: bool,
+    /// 侧栏 Sessions 栏目是否展开。
+    sessions_open: bool,
+    /// 侧栏 Members 栏目是否展开。
+    members_open: bool,
     /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
@@ -1112,6 +1116,8 @@ impl App {
             members: Vec::new(),
             sessions: Vec::new(),
             pending_sessions: false,
+            sessions_open: true,
+            members_open: true,
             remote_list_dir: None,
             is_connected: None,
             set_interrupted: None,
@@ -1650,6 +1656,15 @@ fn confirm_message(cmd: &str, argv: &[String]) -> String {
     }
 }
 
+/// 侧栏栏目标题行文本：左标题、右侧状态符号，空格补到侧栏内宽。
+/// 侧栏宽 26，左右各 1 格内边距，内宽 24。
+fn section_header_text(title: &str, glyph: &str) -> String {
+    const SIDEBAR_INNER: usize = 24;
+    let used = title.chars().count() + glyph.chars().count();
+    let pad = SIDEBAR_INNER.saturating_sub(used).max(1);
+    format!("{title}{:pad$}{glyph}", "")
+}
+
 /// 按命令名与参数位置判定主命令行该位置的补全类别。
 fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
     match cmd {
@@ -2150,7 +2165,7 @@ fn chat_offset(total: usize, view: usize, follow: bool, scroll_y: usize) -> usiz
     if follow { base } else { base.saturating_sub(scroll_y) }
 }
 
-fn draw_body(ctx: &mut Context, app: &App) {
+fn draw_body(ctx: &mut Context, app: &mut App) {
     // 内部纵向：菜单栏(1) + 主体 + 输入框(1) + 状态栏(1)。
     let body_height = (ctx.size().height - 3).max(1);
 
@@ -2159,40 +2174,61 @@ fn draw_body(ctx: &mut Context, app: &App) {
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: body_height });
     ctx.table_next_row();
 
-    // 左侧：会话 / 成员。
+    // 左侧：会话 / 成员。整个侧栏共用一个滚动区，栏目各自可折叠。
     ctx.block_begin("sidebar");
     ctx.attr_padding(Rect::two(0, 1));
     ctx.attr_intrinsic_size(Size { width: 26, height: body_height });
 
-    ctx.label("sec-freq", "Session");
-    if app.sessions.is_empty() {
-        let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
-        ctx.label("freq", &format!("  {freq}"));
-    } else {
-        for (i, s) in app.sessions.iter().enumerate() {
-            ctx.next_block_id_mixin(i as u64);
-            if s.current {
-                // 当前会话：前缀 `*` 并整行绿色标注。
-                ctx.styled_label_begin("session-current");
-                ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
-                ctx.styled_label_add_text(&format!("* {}", s.name));
-                ctx.styled_label_end();
-            } else {
-                ctx.label("session-bg", &format!("  {}", s.name));
+    ctx.scrollarea_begin("sidebar-scroll", Size { width: 26, height: body_height });
+
+    let sessions_glyph = if app.sessions_open { "#" } else { ">" };
+    if ctx.row_button(
+        "sec-freq",
+        &section_header_text("Session", sessions_glyph),
+        ctx.indexed(IndexedColor::Blue),
+    ) {
+        app.sessions_open = !app.sessions_open;
+    }
+    if app.sessions_open {
+        if app.sessions.is_empty() {
+            let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
+            ctx.label("freq", &format!("  {freq}"));
+        } else {
+            for (i, s) in app.sessions.iter().enumerate() {
+                ctx.next_block_id_mixin(i as u64);
+                if s.current {
+                    // 当前会话：前缀 `*` 并整行绿色标注。
+                    ctx.styled_label_begin("session-current");
+                    ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
+                    ctx.styled_label_add_text(&format!("* {}", s.name));
+                    ctx.styled_label_end();
+                } else {
+                    ctx.label("session-bg", &format!("  {}", s.name));
+                }
             }
         }
     }
-    ctx.label("blank", "");
 
-    ctx.label("sec-members", "Members");
-    if app.members.is_empty() {
-        ctx.label("none", "  (none)");
-    } else {
-        for (i, m) in app.members.iter().enumerate() {
-            ctx.next_block_id_mixin(i as u64);
-            ctx.label("member", &format!("  • {m}"));
+    let members_glyph = if app.members_open { "#" } else { ">" };
+    if ctx.row_button(
+        "sec-members",
+        &section_header_text("Members", members_glyph),
+        ctx.indexed(IndexedColor::Blue),
+    ) {
+        app.members_open = !app.members_open;
+    }
+    if app.members_open {
+        if app.members.is_empty() {
+            ctx.label("none", "  (none)");
+        } else {
+            for (i, m) in app.members.iter().enumerate() {
+                ctx.next_block_id_mixin(i as u64);
+                ctx.label("member", &format!("  • {m}"));
+            }
         }
     }
+
+    ctx.scrollarea_end();
     ctx.block_end();
 
     // 右侧：聊天记录滚动区。全量喂入，由框架 scrollarea 处理滚轮 / 滚动条 /
@@ -4107,6 +4143,111 @@ mod tests {
         );
         assert!(!tui.testing_find("sec-members").is_empty());
         assert!(!tui.testing_nodes().is_empty());
+    }
+
+    /// Clicking a sidebar section header toggles it: the glyph switches
+    /// between `#` (expanded) and `>` (collapsed), and the section list is
+    /// hidden when collapsed. The sidebar has one shared scrollarea.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn sidebar_section_header_collapses_and_expands_on_click() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.sessions = vec![SessionEntry { name: "1.0".to_string(), current: true }];
+        app.members = vec!["alice".to_string(), "bob".to_string()];
+
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        // One shared scrollarea wraps the whole sidebar.
+        assert!(!tui.testing_find("sidebar-scroll").is_empty());
+
+        let click_at =
+            |tui: &mut Tui, app: &mut App, center: Point, state: input::InputMouseState| {
+                let mouse = input::InputMouse {
+                    state,
+                    modifiers: kbmod::NONE,
+                    position: center,
+                    scroll: Point { x: 0, y: 0 },
+                    drag: false,
+                };
+                draw(tui, Some(Input::Mouse(mouse)), app, &STUB_RUN, &STUB_DRAIN, &groups);
+                while tui.needs_settling() {
+                    draw(tui, None, app, &STUB_RUN, &STUB_DRAIN, &groups);
+                }
+            };
+        let row_center = |node: &edit_tui::tui::NodeSnapshot| Point {
+            x: node.x + node.width / 2,
+            y: node.y + node.height / 2,
+        };
+
+        // Default: both sections expanded, glyph `#`, lists rendered.
+        let sec_freq = tui.testing_find("sec-freq");
+        assert!(sec_freq[0].text.contains('#'), "session header expanded: {:?}", sec_freq[0].text);
+        assert!(
+            sec_freq[0].width >= 20,
+            "header row stretches across the sidebar: width {}",
+            sec_freq[0].width
+        );
+        assert!(!tui.testing_find("session-current").is_empty(), "session list shown");
+        assert!(!tui.testing_find("member").is_empty(), "member list shown");
+
+        // Click the Session header row to collapse it.
+        let center = row_center(&sec_freq[0]);
+        click_at(&mut tui, &mut app, center, input::InputMouseState::Left);
+        click_at(&mut tui, &mut app, center, input::InputMouseState::None);
+
+        let sec_freq = tui.testing_find("sec-freq");
+        assert!(sec_freq[0].text.contains('>'), "session header collapsed: {:?}", sec_freq[0].text);
+        assert!(
+            tui.testing_find("session-current").is_empty(),
+            "session list hidden after collapse"
+        );
+        // Members section is untouched and still expanded.
+        assert!(!tui.testing_find("member").is_empty(), "member list still shown");
+
+        // Click again to re-expand.
+        let center = row_center(&sec_freq[0]);
+        click_at(&mut tui, &mut app, center, input::InputMouseState::Left);
+        click_at(&mut tui, &mut app, center, input::InputMouseState::None);
+
+        let sec_freq = tui.testing_find("sec-freq");
+        assert!(
+            sec_freq[0].text.contains('#'),
+            "session header re-expanded: {:?}",
+            sec_freq[0].text
+        );
+        assert!(!tui.testing_find("session-current").is_empty(), "session list restored");
+
+        // The Members header toggles independently.
+        let sec_members = tui.testing_find("sec-members");
+        let center = row_center(&sec_members[0]);
+        click_at(&mut tui, &mut app, center, input::InputMouseState::Left);
+        click_at(&mut tui, &mut app, center, input::InputMouseState::None);
+
+        let sec_members = tui.testing_find("sec-members");
+        assert!(
+            sec_members[0].text.contains('>'),
+            "members header collapsed: {:?}",
+            sec_members[0].text
+        );
+        assert!(tui.testing_find("member").is_empty(), "member list hidden after collapse");
+        assert!(!tui.testing_find("session-current").is_empty(), "session list still shown");
     }
 
     /// The Info dialog's Close button owns the focus, sizes to its label (no full-row

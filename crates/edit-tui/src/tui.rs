@@ -2187,6 +2187,26 @@ impl<'a> Context<'a, '_> {
         activated
     }
 
+    /// A full-width focusable row that acts as a button.
+    ///
+    /// Unlike [`button`], the row stretches to fill the parent width, so the
+    /// whole row is hit-testable (not just the intrinsic label text). The row
+    /// is filled with `bg`; `text` is laid out left-aligned within it. Returns
+    /// true when activated by a mouse click, Enter, or Space.
+    pub fn row_button(&mut self, classname: &'static str, text: &str, bg: StraightRgba) -> bool {
+        self.styled_label_begin(classname);
+        self.attr_position(Position::Stretch);
+        self.attr_focusable();
+        self.attr_background_rgba(bg);
+        if self.is_focused() {
+            self.attr_reverse();
+        }
+        self.styled_label_add_text(text);
+        let activated = self.button_activated();
+        self.styled_label_end();
+        activated
+    }
+
     /// Creates a checkbox with the given text.
     /// Returns true if the checkbox was activated.
     pub fn checkbox(&mut self, classname: &'static str, text: &str, checked: &mut bool) -> bool {
