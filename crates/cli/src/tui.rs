@@ -2185,7 +2185,8 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
     if ctx.row_button(
         "sec-freq",
         &section_header_text("Session", sessions_glyph),
-        ctx.indexed(IndexedColor::Blue),
+        app.menubar_bg,
+        app.menubar_fg,
     ) {
         app.sessions_open = !app.sessions_open;
     }
@@ -2213,7 +2214,8 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
     if ctx.row_button(
         "sec-members",
         &section_header_text("Members", members_glyph),
-        ctx.indexed(IndexedColor::Blue),
+        app.menubar_bg,
+        app.menubar_fg,
     ) {
         app.members_open = !app.members_open;
     }

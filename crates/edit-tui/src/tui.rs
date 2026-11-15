@@ -2191,16 +2191,22 @@ impl<'a> Context<'a, '_> {
     ///
     /// Unlike [`button`], the row stretches to fill the parent width, so the
     /// whole row is hit-testable (not just the intrinsic label text). The row
-    /// is filled with `bg`; `text` is laid out left-aligned within it. Returns
+    /// is filled with `bg` and painted in `fg`; `text` is laid out left-aligned
+    /// within it. Focus does not reverse-video the row: the background and
+    /// foreground stay constant whether the row is focused or not. Returns
     /// true when activated by a mouse click, Enter, or Space.
-    pub fn row_button(&mut self, classname: &'static str, text: &str, bg: StraightRgba) -> bool {
+    pub fn row_button(
+        &mut self,
+        classname: &'static str,
+        text: &str,
+        bg: StraightRgba,
+        fg: StraightRgba,
+    ) -> bool {
         self.styled_label_begin(classname);
         self.attr_position(Position::Stretch);
         self.attr_focusable();
         self.attr_background_rgba(bg);
-        if self.is_focused() {
-            self.attr_reverse();
-        }
+        self.attr_foreground_rgba(fg);
         self.styled_label_add_text(text);
         let activated = self.button_activated();
         self.styled_label_end();
