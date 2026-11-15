@@ -198,6 +198,10 @@ enum FieldKind {
     OptionKey,
     /// 复合命令的第二词子命令名（workspace/show/load/... 后）。
     Subcommand,
+    /// 已加载插件名（plugin/load/unload 相关参数位置）。
+    Plugin,
+    /// 已加载插件的命令命名空间（namespace/load/unload 相关参数位置）。
+    Namespace,
     /// 该位置没有可补全的来源：不弹出任何候选。
     NoCompletion,
 }
@@ -1101,6 +1105,9 @@ struct App {
     worker: Option<CommandWorker>,
     /// 累积当前后台命令的实时输出文本，命令完成后供成员列表回填。
     worker_output: String,
+    /// 当前/最近作业是否为回填型静默刷新（成员/会话/插件列表）：结果只更新侧栏快照，
+    /// 不在输出区回显命令行、实时输出或结果消息。
+    silent_refresh: bool,
     /// join/create（或重连）成功后待拉取一次当前成员 roster；空闲时投递 `active_users`。
     pending_roster: bool,
     /// 退出标志。
@@ -1153,6 +1160,7 @@ impl App {
             prefer_cli: false,
             worker: None,
             worker_output: String::new(),
+            silent_refresh: false,
             pending_roster: false,
             exit: false,
             menubar_bg: StraightRgba::zero(),
@@ -1437,7 +1445,7 @@ impl App {
                 let kind = if arg_index == 1 && subcommands_of(&cmd).is_some() {
                     FieldKind::Subcommand
                 } else {
-                    kind_for_command_arg(&cmd, arg_index)
+                    kind_for_command_parts(&parts)
                 };
                 (kind, parts[parts.len() - 1].to_string(), cmd)
             }
@@ -1471,6 +1479,18 @@ impl App {
             FieldKind::Member => {
                 self.members.iter().filter(|m| m.starts_with(&prefix)).cloned().collect()
             }
+            FieldKind::Plugin => self
+                .plugins
+                .iter()
+                .filter(|p| p.name.starts_with(&prefix))
+                .map(|p| p.name.clone())
+                .collect(),
+            FieldKind::Namespace => self
+                .plugins
+                .iter()
+                .filter(|p| p.namespace.starts_with(&prefix))
+                .map(|p| p.namespace.clone())
+                .collect(),
             FieldKind::RemotePath => {
                 let (parent, base) = split_path_prefix(&prefix);
                 self.remote_candidates(parent, base)
@@ -1725,6 +1745,25 @@ fn section_header_text(title: &str, glyph: &str) -> String {
     let used = title.chars().count() + glyph.chars().count();
     let pad = SIDEBAR_INNER.saturating_sub(used).max(1);
     format!("{title}{:pad$}{glyph}", "")
+}
+
+/// 按完整命令词序列判定补全类别；识别二级子命令之后的插件名 / 命名空间参数位置。
+fn kind_for_command_parts(parts: &[&str]) -> FieldKind {
+    if parts.len() >= 3 {
+        match (parts[0], parts[1]) {
+            ("plugin", "load")
+            | ("plugin", "unload")
+            | ("load", "plugin")
+            | ("unload", "plugin") => FieldKind::Plugin,
+            ("namespace", "load")
+            | ("namespace", "unload")
+            | ("load", "namespace")
+            | ("unload", "namespace") => FieldKind::Namespace,
+            _ => kind_for_command_arg(parts[0], parts.len() - 1),
+        }
+    } else {
+        kind_for_command_arg(parts[0], parts.len() - 1)
+    }
 }
 
 /// 按命令名与参数位置判定主命令行该位置的补全类别。
@@ -2032,7 +2071,9 @@ fn event_loop(
         let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
         for d in drained {
             let text = d.to_string();
-            app.push_line(text.clone(), LineKind::Result);
+            if !app.silent_refresh {
+                app.push_line(text.clone(), LineKind::Result);
+            }
             app.worker_output.push_str(&text);
             app.worker_output.push('\n');
         }
@@ -3146,17 +3187,23 @@ fn run_argv(
     output_drain: &OutputDrainFn,
     argv: &[String],
 ) {
-    let display = argv.join(" ");
-    app.push_line(format!("tc> {display}"), LineKind::Cmd);
+    let silent = is_silent_refresh(argv);
+    app.silent_refresh = silent;
+    if !silent {
+        let display = argv.join(" ");
+        app.push_line(format!("tc> {display}"), LineKind::Cmd);
+    }
 
     // 有后台 worker：投递到 worker 线程串行执行，不阻塞 UI；实时输出由事件循环
     // 每帧 drain 回流，完成结果在事件循环里取回（见 `apply_job_result`）。
     if let Some(worker) = &app.worker {
         if worker.is_running() {
-            app.push_line(
-                "A command is still running; wait for it to finish.".to_string(),
-                LineKind::System,
-            );
+            if !silent {
+                app.push_line(
+                    "A command is still running; wait for it to finish.".to_string(),
+                    LineKind::System,
+                );
+            }
             return;
         }
         app.worker_output.clear();
@@ -3184,27 +3231,44 @@ fn run_argv_sync(
     let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
     let drained: Vec<String> = drained.iter().map(|s| s.to_string()).collect();
     let drained_text = drained.join("\n");
+    let silent = is_silent_refresh(argv);
 
     if result.code != 0 {
-        if !result.message.is_empty() {
-            app.push_line(result.message.to_string(), LineKind::Result);
-        }
-        for line in &drained {
-            app.push_line(line.clone(), LineKind::Result);
+        if !silent {
+            if !result.message.is_empty() {
+                app.push_line(result.message.to_string(), LineKind::Result);
+            }
+            for line in &drained {
+                app.push_line(line.clone(), LineKind::Result);
+            }
         }
         app.follow_latest();
         return;
     }
 
-    for line in &drained {
-        app.push_line(line.clone(), LineKind::Result);
-    }
-    if !result.message.is_empty() {
-        app.push_line(result.message.to_string(), LineKind::Result);
+    if !silent {
+        for line in &drained {
+            app.push_line(line.clone(), LineKind::Result);
+        }
+        if !result.message.is_empty() {
+            app.push_line(result.message.to_string(), LineKind::Result);
+        }
     }
 
     apply_member_side_effects(app, argv, &drained_text, result.code == 0);
     app.follow_latest();
+}
+
+/// 判断命令是否为回填型后台刷新：结果已由对应侧栏栏目展示，不在输出区重复回显
+/// 命令行、实时输出或结果消息（输出仍累积到 `worker_output` 供快照回填）。
+fn is_silent_refresh(argv: &[String]) -> bool {
+    let mut parts = argv.iter().map(|s| s.as_str());
+    match parts.next() {
+        Some("show") => matches!(parts.next(), Some("active_users") | Some("plugins")),
+        Some("plugin") => parts.next() == Some("list"),
+        Some("sessions") => argv.iter().any(|a| a == "-l" || a == "--list" || a == "list"),
+        _ => false,
+    }
 }
 
 /// 命令完成后对成员侧栏的本地回填/清空（同步路径与后台完成回调共用）。
@@ -3281,15 +3345,18 @@ fn apply_job_result(app: &mut App, job: JobResult) {
     let drained_text = app.worker_output.clone();
     app.worker_output.clear();
 
-    if job.code != 0 {
-        if !job.message.is_empty() {
+    if !app.silent_refresh {
+        if job.code != 0 {
+            if !job.message.is_empty() {
+                app.push_line(job.message, LineKind::Result);
+            }
+        } else if !job.message.is_empty() {
             app.push_line(job.message, LineKind::Result);
         }
-    } else if !job.message.is_empty() {
-        app.push_line(job.message, LineKind::Result);
     }
 
     apply_member_side_effects(app, &job.argv, &drained_text, job.code == 0);
+    app.silent_refresh = false;
     app.follow_latest();
 }
 
@@ -3486,6 +3553,46 @@ mod tests {
         app.input = "msg al".into();
         app.refresh_completions();
         assert_eq!(app.completions, vec!["alice".to_string()]);
+    }
+
+    #[test]
+    fn completes_plugin_name_after_plugin_load_or_unload() {
+        let mut app = App::new();
+        app.plugins = vec![
+            PluginEntry { name: "cli-standard".into(), namespace: "std".into() },
+            PluginEntry { name: "extra".into(), namespace: "xns".into() },
+        ];
+        app.input = "plugin load cl".into();
+        app.refresh_completions();
+        assert_eq!(app.completions, vec!["cli-standard".to_string()]);
+
+        app.input = "plugin unload ex".into();
+        app.refresh_completions();
+        assert_eq!(app.completions, vec!["extra".to_string()]);
+    }
+
+    #[test]
+    fn completes_namespace_after_namespace_load_or_unload() {
+        let mut app = App::new();
+        app.plugins = vec![
+            PluginEntry { name: "cli-standard".into(), namespace: "std".into() },
+            PluginEntry { name: "extra".into(), namespace: "xns".into() },
+        ];
+        app.input = "namespace load x".into();
+        app.refresh_completions();
+        assert_eq!(app.completions, vec!["xns".to_string()]);
+
+        app.input = "namespace unload st".into();
+        app.refresh_completions();
+        assert_eq!(app.completions, vec!["std".to_string()]);
+    }
+
+    #[test]
+    fn legacy_load_unload_arg_classifies_plugin_or_namespace() {
+        assert_eq!(kind_for_command_parts(&["load", "plugin", "x"]), FieldKind::Plugin);
+        assert_eq!(kind_for_command_parts(&["unload", "plugin", "x"]), FieldKind::Plugin);
+        assert_eq!(kind_for_command_parts(&["load", "namespace", "x"]), FieldKind::Namespace);
+        assert_eq!(kind_for_command_parts(&["unload", "namespace", "x"]), FieldKind::Namespace);
     }
 
     #[test]
@@ -3693,6 +3800,29 @@ mod tests {
         assert!(app.exit);
         assert!(try_builtin(&mut app, &["q".to_string()]));
         assert!(app.exit);
+    }
+
+    #[test]
+    fn silent_refresh_commands_do_not_echo_to_output_log() {
+        let mut app = App::new();
+        let before = app.log.len();
+        for argv in [
+            vec!["show".to_string(), "active_users".to_string()],
+            vec!["show".to_string(), "plugins".to_string()],
+            vec!["plugin".to_string(), "list".to_string()],
+            vec!["sessions".to_string(), "-l".to_string()],
+        ] {
+            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &argv);
+        }
+        assert_eq!(
+            app.log.len(),
+            before,
+            "silent roster/refresh commands must not append to the output log"
+        );
+
+        // 普通命令仍回显命令行到输出区。
+        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["status".to_string()]);
+        assert!(app.log.iter().any(|l| l.text.starts_with("tc>")));
     }
 
     #[test]
