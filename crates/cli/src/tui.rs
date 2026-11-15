@@ -190,6 +190,8 @@ enum FieldKind {
     OptionKey,
     /// 复合命令的第二词子命令名（workspace/show/load/... 后）。
     Subcommand,
+    /// 该位置没有可补全的来源：不弹出任何候选。
+    NoCompletion,
 }
 
 /// 一个待提交命令的表单规格（静态）。
@@ -1439,6 +1441,7 @@ impl App {
                     .cloned()
                     .collect()
             }
+            FieldKind::NoCompletion => Vec::new(),
         };
         // 仅当候选集合实际变化时才回到首项并退出选择态；重绘帧保留当前
         // 高亮与视口位置，否则方向键移动高亮后下一帧会被刷回顶部。
@@ -1695,7 +1698,7 @@ fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
             if arg_index == 1 {
                 FieldKind::OptionKey
             } else {
-                FieldKind::Plain
+                FieldKind::NoCompletion
             }
         }
         // 成员命令：第 1 参为用户名/昵称。
@@ -1706,11 +1709,11 @@ fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
             if arg_index == 1 {
                 FieldKind::Member
             } else {
-                FieldKind::Plain
+                FieldKind::NoCompletion
             }
         }
         // 其余命令的参数为状态词 / 主机端口 / 自由文本或无参，不补全成员名。
-        _ => FieldKind::Plain,
+        _ => FieldKind::NoCompletion,
     }
 }
 
@@ -3316,9 +3319,42 @@ mod tests {
         assert_eq!(kind_for_command_arg("setg", 1), FieldKind::OptionKey);
         assert_eq!(kind_for_command_arg("get", 1), FieldKind::OptionKey);
         assert_eq!(kind_for_command_arg("unsetg", 1), FieldKind::OptionKey);
-        // 第 2 参（值）不按选项 key 补全；普通命令参数仍归成员名。
-        assert_eq!(kind_for_command_arg("set", 2), FieldKind::Plain);
+        // 第 2 参（值）与自由文本消息没有可补全来源，不弹候选。
+        assert_eq!(kind_for_command_arg("set", 2), FieldKind::NoCompletion);
         assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
+        assert_eq!(kind_for_command_arg("msg", 2), FieldKind::NoCompletion);
+    }
+
+    #[test]
+    fn no_command_names_after_command_without_arg_source() {
+        let mut app = App::new();
+        app.input = "status ".into();
+        app.refresh_completions();
+        assert!(
+            app.completions.is_empty(),
+            "no command names after a no-arg command: {:?}",
+            app.completions
+        );
+
+        app.input = "route ".into();
+        app.refresh_completions();
+        assert!(app.completions.is_empty());
+    }
+
+    #[test]
+    fn command_name_completion_only_at_first_word() {
+        let mut app = App::new();
+        app.input = "sta".into();
+        app.refresh_completions();
+        assert!(app.completions.iter().any(|c| c == "status"));
+    }
+
+    #[test]
+    fn unload_is_in_first_word_command_completion() {
+        let mut app = App::new();
+        app.input = "un".into();
+        app.refresh_completions();
+        assert!(app.completions.iter().any(|c| c == "unload"));
     }
 
     #[test]
@@ -3957,12 +3993,12 @@ mod tests {
         assert_eq!(kind_for_command_arg("download", 2), FieldKind::LocalPath);
         assert_eq!(kind_for_command_arg("lcd", 1), FieldKind::LocalPath);
         assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
-        assert_eq!(kind_for_command_arg("msg", 2), FieldKind::Plain);
+        assert_eq!(kind_for_command_arg("msg", 2), FieldKind::NoCompletion);
         assert_eq!(kind_for_command_arg("kick", 1), FieldKind::Member);
         // 状态词 / 自由文本 / 无参命令不得补全成员名。
-        assert_eq!(kind_for_command_arg("away", 1), FieldKind::Plain);
-        assert_eq!(kind_for_command_arg("reply", 1), FieldKind::Plain);
-        assert_eq!(kind_for_command_arg("status", 1), FieldKind::Plain);
+        assert_eq!(kind_for_command_arg("away", 1), FieldKind::NoCompletion);
+        assert_eq!(kind_for_command_arg("reply", 1), FieldKind::NoCompletion);
+        assert_eq!(kind_for_command_arg("status", 1), FieldKind::NoCompletion);
     }
 
     #[test]
