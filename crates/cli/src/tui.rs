@@ -2992,6 +2992,20 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
         app.members.clear();
         app.pending_roster = false;
     }
+    // `sessions -i <freq>` 切换到后台频点：清掉上一个频点的残留成员，成功后
+    // 重拉目标频点 roster；不清空会在侧栏留下旧频点成员。
+    if cmd == "sessions" {
+        let switching = argv.windows(2).any(|w| matches!(w[0].as_str(), "-i" | "--interact"));
+        if switching && success {
+            app.members.clear();
+            app.pending_roster = true;
+        }
+    }
+    // 改成员集合 / 权限标记的管理命令成功后重拉 roster：被踢 / 被封者从侧栏
+    // 移除，op/deop/trop 的权限标记同步刷新。mute/ignore 不改成员集合，不拉。
+    if success && matches!(cmd, "kick" | "ban" | "unban" | "op" | "deop" | "trop") {
+        app.pending_roster = true;
+    }
 }
 
 /// 后台命令完成：取回结果消息并落地成员侧栏副作用。
@@ -4196,6 +4210,54 @@ mod tests {
             argv: vec!["join_freq".to_string(), "1.0".to_string()],
         };
         apply_job_result(&mut app, job);
+        assert!(!app.pending_roster);
+    }
+
+    #[test]
+    fn session_switch_success_clears_old_members_and_refetches() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        app.members = vec!["old-a".into(), "old-b".into()];
+        apply_member_side_effects(
+            &mut app,
+            &["sessions".into(), "-i".into(), "1.0".into()],
+            "",
+            true,
+        );
+        assert!(app.members.is_empty(), "switch drops the previous roster");
+        assert!(app.pending_roster, "switch refetches the target roster");
+    }
+
+    #[test]
+    fn session_switch_failure_keeps_members() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        app.members = vec!["old-a".into()];
+        apply_member_side_effects(
+            &mut app,
+            &["sessions".into(), "--interact".into(), "1.0".into()],
+            "",
+            false,
+        );
+        assert_eq!(app.members, vec!["old-a".to_string()]);
+        assert!(!app.pending_roster);
+    }
+
+    #[test]
+    fn moderation_success_schedules_roster_refresh() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        for cmd in ["kick", "ban", "unban", "op", "deop", "trop"] {
+            let mut app = App::new();
+            apply_member_side_effects(&mut app, &[cmd.to_string(), "alice".to_string()], "", true);
+            assert!(app.pending_roster, "{cmd} should refetch the roster");
+        }
+    }
+
+    #[test]
+    fn mute_success_does_not_schedule_roster_refresh() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        apply_member_side_effects(&mut app, &["mute".into(), "alice".into()], "", true);
         assert!(!app.pending_roster);
     }
 
