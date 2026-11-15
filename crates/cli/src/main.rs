@@ -559,6 +559,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let terminal_busy: Option<Symbol<tui::TerminalBusyFn>> =
             unsafe { core_lib.get(b"tc_cli_terminal_is_busy") }.ok();
         let terminal_busy_ref: Option<&tui::TerminalBusyFn> = terminal_busy.as_deref();
+        // 注册表菜单 / 表单查询为可选符号：缺失或为空时 TUI 回退内置硬编码菜单。
+        let get_menu_items: Option<Symbol<ui_registry::GetMenuItemsFn>> =
+            unsafe { core_lib.get(b"get_menu_items") }.ok();
+        let get_menu_items_ref: Option<&ui_registry::GetMenuItemsFn> = get_menu_items.as_deref();
+        let get_form_spec: Option<Symbol<ui_registry::GetFormSpecFn>> =
+            unsafe { core_lib.get(b"get_form_spec") }.ok();
+        let get_form_spec_ref: Option<&ui_registry::GetFormSpecFn> = get_form_spec.as_deref();
         register_terminal_hooks(
             tui_terminal_suspend as *const (),
             tui_terminal_resume as *const (),
@@ -575,6 +582,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             registered_options_ref,
             set_interrupted_ref,
             terminal_busy_ref,
+            get_menu_items_ref,
+            get_form_spec_ref,
         )
         .map_err(|e| e.into());
     }

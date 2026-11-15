@@ -18,6 +18,7 @@
 //! 交互：菜单可用鼠标点击，或 `F10`/`Alt+助记符` 展开；输入框 `Enter` 执行；
 //! `Ctrl+Q` 退出。
 
+use crate::ui_registry;
 use anyhow::Result;
 use cli_core_types::plugin_fn_types::ListRemoteDirFn;
 use cli_core_types::{IsConnectedFn, RunCommandFn, SetInterruptedFn};
@@ -234,13 +235,13 @@ static JOIN_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "join_freq ".to_string(),
     fields: vec![
         FormField {
-            label: "Frequency ID:".to_string().to_string(),
+            label: "Frequency ID:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
         },
         FormField {
-            label: "Password (optional):".to_string().to_string(),
+            label: "Password (optional):".to_string(),
             required: false,
             secret: true,
             kind: FieldKind::Plain,
@@ -254,7 +255,7 @@ static SWITCH_WS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "workspace switch".to_string(),
     prefill: "workspace switch ".to_string(),
     fields: vec![FormField {
-        label: "Workspace name:".to_string().to_string(),
+        label: "Workspace name:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -267,7 +268,7 @@ static NEW_WS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "workspace new".to_string(),
     prefill: "workspace new ".to_string(),
     fields: vec![FormField {
-        label: "Workspace name (optional):".to_string().to_string(),
+        label: "Workspace name (optional):".to_string(),
         required: false,
         secret: false,
         kind: FieldKind::Plain,
@@ -281,13 +282,13 @@ static CREATE_FREQ_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "create_freq ".to_string(),
     fields: vec![
         FormField {
-            label: "Frequency ID:".to_string().to_string(),
+            label: "Frequency ID:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
         },
         FormField {
-            label: "Password (optional):".to_string().to_string(),
+            label: "Password (optional):".to_string(),
             required: false,
             secret: true,
             kind: FieldKind::Plain,
@@ -302,13 +303,13 @@ static MSG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "msg -m ".to_string(),
     fields: vec![
         FormField {
-            label: "Users (optional):".to_string().to_string(),
+            label: "Users (optional):".to_string(),
             required: false,
             secret: false,
             kind: FieldKind::Member,
         },
         FormField {
-            label: "Message:".to_string().to_string(),
+            label: "Message:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
@@ -322,7 +323,7 @@ static REPLY_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "reply".to_string(),
     prefill: "reply ".to_string(),
     fields: vec![FormField {
-        label: "Message:".to_string().to_string(),
+        label: "Message:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -335,7 +336,7 @@ static CALL_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "call".to_string(),
     prefill: "call ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -348,7 +349,7 @@ static MUTE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "mute".to_string(),
     prefill: "mute ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -359,7 +360,7 @@ static UNMUTE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unmute".to_string(),
     prefill: "unmute ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -370,7 +371,7 @@ static IGNORE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "ignore".to_string(),
     prefill: "ignore ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -381,7 +382,7 @@ static KICK_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "kick".to_string(),
     prefill: "kick ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -392,7 +393,7 @@ static BAN_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "ban".to_string(),
     prefill: "ban ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -405,7 +406,7 @@ static LS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "ls".to_string(),
     prefill: "ls ".to_string(),
     fields: vec![FormField {
-        label: "Directory (optional):".to_string().to_string(),
+        label: "Directory (optional):".to_string(),
         required: false,
         secret: false,
         kind: FieldKind::RemotePath,
@@ -419,13 +420,13 @@ static UPLOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "upload ".to_string(),
     fields: vec![
         FormField {
-            label: "Local path:".to_string().to_string(),
+            label: "Local path:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::LocalPath,
         },
         FormField {
-            label: "Remote path (optional):".to_string().to_string(),
+            label: "Remote path (optional):".to_string(),
             required: false,
             secret: false,
             kind: FieldKind::RemotePath,
@@ -440,13 +441,13 @@ static DOWNLOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "download ".to_string(),
     fields: vec![
         FormField {
-            label: "Remote path:".to_string().to_string(),
+            label: "Remote path:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::RemotePath,
         },
         FormField {
-            label: "Local path (optional):".to_string().to_string(),
+            label: "Local path (optional):".to_string(),
             required: false,
             secret: false,
             kind: FieldKind::LocalPath,
@@ -460,7 +461,7 @@ static RM_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "rm".to_string(),
     prefill: "rm ".to_string(),
     fields: vec![FormField {
-        label: "Remote path:".to_string().to_string(),
+        label: "Remote path:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::RemotePath,
@@ -474,13 +475,13 @@ static MV_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "mv ".to_string(),
     fields: vec![
         FormField {
-            label: "From:".to_string().to_string(),
+            label: "From:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::RemotePath,
         },
         FormField {
-            label: "To:".to_string().to_string(),
+            label: "To:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::RemotePath,
@@ -495,13 +496,13 @@ static CP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "cp ".to_string(),
     fields: vec![
         FormField {
-            label: "From:".to_string().to_string(),
+            label: "From:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::RemotePath,
         },
         FormField {
-            label: "To:".to_string().to_string(),
+            label: "To:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::RemotePath,
@@ -515,7 +516,7 @@ static LOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "load".to_string(),
     prefill: "load ".to_string(),
     fields: vec![FormField {
-        label: "Plugin:".to_string().to_string(),
+        label: "Plugin:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -528,7 +529,7 @@ static UNLOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unload".to_string(),
     prefill: "unload ".to_string(),
     fields: vec![FormField {
-        label: "Plugin name:".to_string().to_string(),
+        label: "Plugin name:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -541,7 +542,7 @@ static SHELL_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "shell".to_string(),
     prefill: "shell ".to_string(),
     fields: vec![FormField {
-        label: "Command:".to_string().to_string(),
+        label: "Command:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -554,7 +555,7 @@ static UNBAN_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unban".to_string(),
     prefill: "unban ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -565,7 +566,7 @@ static UNIGNORE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unignore".to_string(),
     prefill: "unignore ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -576,7 +577,7 @@ static OP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "op".to_string(),
     prefill: "op ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -587,7 +588,7 @@ static DEOP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "deop".to_string(),
     prefill: "deop ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -598,7 +599,7 @@ static TROP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "trop".to_string(),
     prefill: "trop ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -609,7 +610,7 @@ static USER_INFO_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "user_info".to_string(),
     prefill: "user_info ".to_string(),
     fields: vec![FormField {
-        label: "User:".to_string().to_string(),
+        label: "User:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Member,
@@ -622,7 +623,7 @@ static MKDIR_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "mkdir".to_string(),
     prefill: "mkdir ".to_string(),
     fields: vec![FormField {
-        label: "Directory:".to_string().to_string(),
+        label: "Directory:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::RemotePath,
@@ -633,7 +634,7 @@ static CD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "cd".to_string(),
     prefill: "cd ".to_string(),
     fields: vec![FormField {
-        label: "Directory:".to_string().to_string(),
+        label: "Directory:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::RemotePath,
@@ -644,7 +645,7 @@ static CHECKSUM_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "checksum".to_string(),
     prefill: "checksum ".to_string(),
     fields: vec![FormField {
-        label: "File:".to_string().to_string(),
+        label: "File:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::RemotePath,
@@ -655,7 +656,7 @@ static FILE_INFO_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "file_info".to_string(),
     prefill: "file_info ".to_string(),
     fields: vec![FormField {
-        label: "File:".to_string().to_string(),
+        label: "File:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::RemotePath,
@@ -669,19 +670,19 @@ static SCHEDULE_MSG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "schedule_msg ".to_string(),
     fields: vec![
         FormField {
-            label: "Time (+30s / HH:MM):".to_string().to_string(),
+            label: "Time (+30s / HH:MM):".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
         },
         FormField {
-            label: "Message:".to_string().to_string(),
+            label: "Message:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
         },
         FormField {
-            label: "Users (optional):".to_string().to_string(),
+            label: "Users (optional):".to_string(),
             required: false,
             secret: false,
             kind: FieldKind::Member,
@@ -693,7 +694,7 @@ static CANCEL_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "cancel".to_string(),
     prefill: "cancel ".to_string(),
     fields: vec![FormField {
-        label: "Task ID:".to_string().to_string(),
+        label: "Task ID:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -706,7 +707,7 @@ static LOAD_NS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "load namespace".to_string(),
     prefill: "load namespace ".to_string(),
     fields: vec![FormField {
-        label: "Namespace:".to_string().to_string(),
+        label: "Namespace:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -717,7 +718,7 @@ static UNLOAD_NS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unload namespace".to_string(),
     prefill: "unload namespace ".to_string(),
     fields: vec![FormField {
-        label: "Namespace:".to_string().to_string(),
+        label: "Namespace:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -731,13 +732,13 @@ static SET_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "set ".to_string(),
     fields: vec![
         FormField {
-            label: "Key:".to_string().to_string(),
+            label: "Key:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
         },
         FormField {
-            label: "Value:".to_string().to_string(),
+            label: "Value:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
@@ -749,7 +750,7 @@ static GET_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "get".to_string(),
     prefill: "get ".to_string(),
     fields: vec![FormField {
-        label: "Key:".to_string().to_string(),
+        label: "Key:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -761,13 +762,13 @@ static SETG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     prefill: "setg ".to_string(),
     fields: vec![
         FormField {
-            label: "Key:".to_string().to_string(),
+            label: "Key:".to_string(),
             required: true,
             secret: false,
             kind: FieldKind::Plain,
         },
         FormField {
-            label: "Value (optional):".to_string().to_string(),
+            label: "Value (optional):".to_string(),
             required: false,
             secret: false,
             kind: FieldKind::Plain,
@@ -779,7 +780,7 @@ static GETG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "getg".to_string(),
     prefill: "getg ".to_string(),
     fields: vec![FormField {
-        label: "Key:".to_string().to_string(),
+        label: "Key:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -790,7 +791,7 @@ static UNSET_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unset".to_string(),
     prefill: "unset ".to_string(),
     fields: vec![FormField {
-        label: "Key:".to_string().to_string(),
+        label: "Key:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -801,7 +802,7 @@ static UNSETG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "unsetg".to_string(),
     prefill: "unsetg ".to_string(),
     fields: vec![FormField {
-        label: "Key:".to_string().to_string(),
+        label: "Key:".to_string(),
         required: true,
         secret: false,
         kind: FieldKind::Plain,
@@ -814,7 +815,7 @@ static FREQ_INFO_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
     cmd: "freq_info".to_string(),
     prefill: "freq_info ".to_string(),
     fields: vec![FormField {
-        label: "Frequency (optional):".to_string().to_string(),
+        label: "Frequency (optional):".to_string(),
         required: false,
         secret: false,
         kind: FieldKind::Plain,
@@ -1024,11 +1025,11 @@ fn subcommands_of(cmd: &str) -> Option<&'static [&'static str]> {
 fn menu_groups() -> Vec<MenuGroup> {
     vec![
         MenuGroup {
-            name: "File".to_string().to_string(),
+            name: "File".to_string(),
             accel: 'E',
             items: vec![MenuItem {
-                label: "Exit".to_string().to_string(),
-                action: Action::Run(vec!["exit".to_string().to_string()]),
+                label: "Exit".to_string(),
+                action: Action::Run(vec!["exit".to_string()]),
             }],
         },
         MenuGroup {
@@ -1036,28 +1037,28 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'C',
             items: vec![
                 MenuItem {
-                    label: "Connect".to_string().to_string(),
-                    action: Action::Run(vec!["connect".to_string().to_string()]),
+                    label: "Connect".to_string(),
+                    action: Action::Run(vec!["connect".to_string()]),
                 },
                 MenuItem {
                     label: "Reconnect".to_string(),
-                    action: Action::Run(vec!["reconnect".to_string().to_string()]),
+                    action: Action::Run(vec!["reconnect".to_string()]),
                 },
                 MenuItem {
                     label: "Disconnect".to_string(),
-                    action: Action::Run(vec!["disconnect".to_string().to_string()]),
+                    action: Action::Run(vec!["disconnect".to_string()]),
                 },
                 MenuItem {
                     label: "Whoami".to_string(),
-                    action: Action::Run(vec!["whoami".to_string().to_string()]),
+                    action: Action::Run(vec!["whoami".to_string()]),
                 },
                 MenuItem {
                     label: "Status".to_string(),
-                    action: Action::Run(vec!["status".to_string().to_string()]),
+                    action: Action::Run(vec!["status".to_string()]),
                 },
                 MenuItem {
                     label: "Route".to_string(),
-                    action: Action::Run(vec!["route".to_string().to_string()]),
+                    action: Action::Run(vec!["route".to_string()]),
                 },
             ],
         },
@@ -1066,11 +1067,8 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'W',
             items: vec![
                 MenuItem {
-                    label: "List".to_string().to_string(),
-                    action: Action::Run(vec![
-                        "workspace".to_string().to_string(),
-                        "list".to_string().to_string(),
-                    ]),
+                    label: "List".to_string(),
+                    action: Action::Run(vec!["workspace".to_string(), "list".to_string()]),
                 },
                 MenuItem {
                     label: "Switch...".to_string(),
@@ -1082,10 +1080,7 @@ fn menu_groups() -> Vec<MenuGroup> {
                 },
                 MenuItem {
                     label: "Show".to_string(),
-                    action: Action::Run(vec![
-                        "workspace".to_string().to_string(),
-                        "show".to_string().to_string(),
-                    ]),
+                    action: Action::Run(vec!["workspace".to_string(), "show".to_string()]),
                 },
             ],
         },
@@ -1094,16 +1089,16 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'F',
             items: vec![
                 MenuItem {
-                    label: "Join...".to_string().to_string(),
+                    label: "Join...".to_string(),
                     action: Action::Form(Box::new((&*JOIN_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Create...".to_string().to_string(),
+                    label: "Create...".to_string(),
                     action: Action::Form(Box::new((&*CREATE_FREQ_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Leave".to_string().to_string(),
-                    action: Action::Run(vec!["leave_freq".to_string().to_string()]),
+                    label: "Leave".to_string(),
+                    action: Action::Run(vec!["leave_freq".to_string()]),
                 },
                 MenuItem {
                     label: "Info...".to_string(),
@@ -1111,44 +1106,35 @@ fn menu_groups() -> Vec<MenuGroup> {
                 },
                 MenuItem {
                     label: "Background".to_string(),
-                    action: Action::Run(vec!["background".to_string().to_string()]),
+                    action: Action::Run(vec!["background".to_string()]),
                 },
                 MenuItem {
                     label: "Foreground".to_string(),
-                    action: Action::Run(vec!["foreground".to_string().to_string()]),
+                    action: Action::Run(vec!["foreground".to_string()]),
                 },
                 MenuItem {
                     label: "Away".to_string(),
-                    action: Action::Run(vec!["away".to_string().to_string()]),
+                    action: Action::Run(vec!["away".to_string()]),
                 },
                 MenuItem {
                     label: "Notifications".to_string(),
-                    action: Action::Run(vec!["notifications".to_string().to_string()]),
+                    action: Action::Run(vec!["notifications".to_string()]),
                 },
                 MenuItem {
                     label: "Sessions".to_string(),
-                    action: Action::Run(vec![
-                        "sessions".to_string().to_string(),
-                        "-l".to_string().to_string(),
-                    ]),
+                    action: Action::Run(vec!["sessions".to_string(), "-l".to_string()]),
                 },
                 MenuItem {
                     label: "Disband...".to_string(),
-                    action: Action::Run(vec!["disband".to_string().to_string()]),
+                    action: Action::Run(vec!["disband".to_string()]),
                 },
                 MenuItem {
                     label: "Active freqs".to_string(),
-                    action: Action::Run(vec![
-                        "show".to_string().to_string(),
-                        "active_freqs".to_string().to_string(),
-                    ]),
+                    action: Action::Run(vec!["show".to_string(), "active_freqs".to_string()]),
                 },
                 MenuItem {
                     label: "Active users".to_string(),
-                    action: Action::Run(vec![
-                        "show".to_string().to_string(),
-                        "active_users".to_string().to_string(),
-                    ]),
+                    action: Action::Run(vec!["show".to_string(), "active_users".to_string()]),
                 },
             ],
         },
@@ -1157,23 +1143,23 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'M',
             items: vec![
                 MenuItem {
-                    label: "Send...".to_string().to_string(),
+                    label: "Send...".to_string(),
                     action: Action::Form(Box::new((&*MSG_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Reply...".to_string().to_string(),
+                    label: "Reply...".to_string(),
                     action: Action::Form(Box::new((&*REPLY_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Call...".to_string().to_string(),
+                    label: "Call...".to_string(),
                     action: Action::Form(Box::new((&*CALL_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Schedule...".to_string().to_string(),
+                    label: "Schedule...".to_string(),
                     action: Action::Form(Box::new((&*SCHEDULE_MSG_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Cancel Task...".to_string().to_string(),
+                    label: "Cancel Task...".to_string(),
                     action: Action::Form(Box::new((&*CANCEL_FORM).clone())),
                 },
             ],
@@ -1183,47 +1169,47 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'O',
             items: vec![
                 MenuItem {
-                    label: "Mute...".to_string().to_string(),
+                    label: "Mute...".to_string(),
                     action: Action::Form(Box::new((&*MUTE_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Unmute...".to_string().to_string(),
+                    label: "Unmute...".to_string(),
                     action: Action::Form(Box::new((&*UNMUTE_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Ignore...".to_string().to_string(),
+                    label: "Ignore...".to_string(),
                     action: Action::Form(Box::new((&*IGNORE_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Kick...".to_string().to_string(),
+                    label: "Kick...".to_string(),
                     action: Action::Form(Box::new((&*KICK_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Ban...".to_string().to_string(),
+                    label: "Ban...".to_string(),
                     action: Action::Form(Box::new((&*BAN_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Unban...".to_string().to_string(),
+                    label: "Unban...".to_string(),
                     action: Action::Form(Box::new((&*UNBAN_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Unignore...".to_string().to_string(),
+                    label: "Unignore...".to_string(),
                     action: Action::Form(Box::new((&*UNIGNORE_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Op...".to_string().to_string(),
+                    label: "Op...".to_string(),
                     action: Action::Form(Box::new((&*OP_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Deop...".to_string().to_string(),
+                    label: "Deop...".to_string(),
                     action: Action::Form(Box::new((&*DEOP_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Trop...".to_string().to_string(),
+                    label: "Trop...".to_string(),
                     action: Action::Form(Box::new((&*TROP_FORM).clone())),
                 },
                 MenuItem {
-                    label: "User Info...".to_string().to_string(),
+                    label: "User Info...".to_string(),
                     action: Action::Form(Box::new((&*USER_INFO_FORM).clone())),
                 },
             ],
@@ -1233,20 +1219,20 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'L',
             items: vec![
                 MenuItem {
-                    label: "List...".to_string().to_string(),
+                    label: "List...".to_string(),
                     action: Action::Form(Box::new((&*LS_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Upload...".to_string().to_string(),
+                    label: "Upload...".to_string(),
                     action: Action::Form(Box::new((&*UPLOAD_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Download...".to_string().to_string(),
+                    label: "Download...".to_string(),
                     action: Action::Form(Box::new((&*DOWNLOAD_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Tree".to_string().to_string(),
-                    action: Action::Run(vec!["tree".to_string().to_string()]),
+                    label: "Tree".to_string(),
+                    action: Action::Run(vec!["tree".to_string()]),
                 },
                 MenuItem {
                     label: "Remove...".to_string(),
@@ -1278,19 +1264,19 @@ fn menu_groups() -> Vec<MenuGroup> {
                 },
                 MenuItem {
                     label: "Pwd (remote)".to_string(),
-                    action: Action::Run(vec!["pwd".to_string().to_string()]),
+                    action: Action::Run(vec!["pwd".to_string()]),
                 },
                 MenuItem {
                     label: "Local Pwd".to_string(),
-                    action: Action::Run(vec!["lpwd".to_string().to_string()]),
+                    action: Action::Run(vec!["lpwd".to_string()]),
                 },
                 MenuItem {
                     label: "Local List".to_string(),
-                    action: Action::Run(vec!["lls".to_string().to_string()]),
+                    action: Action::Run(vec!["lls".to_string()]),
                 },
                 MenuItem {
                     label: "Local Cd...".to_string(),
-                    action: Action::Run(vec!["lcd".to_string().to_string()]),
+                    action: Action::Run(vec!["lcd".to_string()]),
                 },
             ],
         },
@@ -1299,11 +1285,8 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'P',
             items: vec![
                 MenuItem {
-                    label: "Show".to_string().to_string(),
-                    action: Action::Run(vec![
-                        "show".to_string().to_string(),
-                        "plugins".to_string().to_string(),
-                    ]),
+                    label: "Show".to_string(),
+                    action: Action::Run(vec!["show".to_string(), "plugins".to_string()]),
                 },
                 MenuItem {
                     label: "Load...".to_string(),
@@ -1332,42 +1315,36 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'S',
             items: vec![
                 MenuItem {
-                    label: "Set...".to_string().to_string(),
+                    label: "Set...".to_string(),
                     action: Action::Form(Box::new((&*SET_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Get...".to_string().to_string(),
+                    label: "Get...".to_string(),
                     action: Action::Form(Box::new((&*GET_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Set Global...".to_string().to_string(),
+                    label: "Set Global...".to_string(),
                     action: Action::Form(Box::new((&*SETG_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Get Global...".to_string().to_string(),
+                    label: "Get Global...".to_string(),
                     action: Action::Form(Box::new((&*GETG_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Unset...".to_string().to_string(),
+                    label: "Unset...".to_string(),
                     action: Action::Form(Box::new((&*UNSET_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Unset Global...".to_string().to_string(),
+                    label: "Unset Global...".to_string(),
                     action: Action::Form(Box::new((&*UNSETG_FORM).clone())),
                 },
                 MenuItem {
-                    label: "Options".to_string().to_string(),
-                    action: Action::Run(vec![
-                        "show".to_string().to_string(),
-                        "options".to_string().to_string(),
-                    ]),
+                    label: "Options".to_string(),
+                    action: Action::Run(vec!["show".to_string(), "options".to_string()]),
                 },
                 MenuItem {
                     label: "Locals".to_string(),
-                    action: Action::Run(vec![
-                        "show".to_string().to_string(),
-                        "locals".to_string().to_string(),
-                    ]),
+                    action: Action::Run(vec!["show".to_string(), "locals".to_string()]),
                 },
             ],
         },
@@ -1376,24 +1353,108 @@ fn menu_groups() -> Vec<MenuGroup> {
             accel: 'H',
             items: vec![
                 MenuItem {
-                    label: "About".to_string().to_string(),
-                    action: Action::Run(vec!["about".to_string().to_string()]),
+                    label: "About".to_string(),
+                    action: Action::Run(vec!["about".to_string()]),
                 },
                 MenuItem {
                     label: "Copyright".to_string(),
-                    action: Action::Run(vec!["copyright".to_string().to_string()]),
+                    action: Action::Run(vec!["copyright".to_string()]),
                 },
                 MenuItem {
                     label: "License".to_string(),
-                    action: Action::Run(vec!["license".to_string().to_string()]),
+                    action: Action::Run(vec!["license".to_string()]),
                 },
                 MenuItem {
                     label: "Help".to_string(),
-                    action: Action::Run(vec!["help".to_string().to_string()]),
+                    action: Action::Run(vec!["help".to_string()]),
                 },
             ],
         },
     ]
+}
+
+/// 注册表字段类别序号 → 宿主补全类别。
+fn reg_field_kind(kind: i32) -> FieldKind {
+    use cli_core_types::ui::ui_field_kind as k;
+    match kind {
+        k::MEMBER => FieldKind::Member,
+        k::REMOTE_PATH => FieldKind::RemotePath,
+        k::LOCAL_PATH => FieldKind::LocalPath,
+        k::OPTION_KEY => FieldKind::OptionKey,
+        k::SUBCOMMAND => FieldKind::Subcommand,
+        k::PLUGIN => FieldKind::Plugin,
+        k::NAMESPACE => FieldKind::Namespace,
+        k::NO_COMPLETION => FieldKind::NoCompletion,
+        _ => FieldKind::Plain,
+    }
+}
+
+/// 注册表表单规格 → 宿主表单规格。
+fn reg_spec_to_spec(rs: ui_registry::RegFormSpec) -> FormSpec {
+    FormSpec {
+        title: rs.title,
+        cmd: rs.cmd,
+        prefill: rs.prefill,
+        fields: rs
+            .fields
+            .into_iter()
+            .map(|f| FormField {
+                label: f.label,
+                required: f.required,
+                secret: f.secret,
+                kind: reg_field_kind(f.kind),
+            })
+            .collect(),
+    }
+}
+
+/// 注册表菜单动作 → 宿主动作；表单动作按需经查询钩子补全规格。
+fn reg_action_to_action(
+    action: ui_registry::RegMenuAction,
+    form_fn: Option<&ui_registry::GetFormSpecFn>,
+) -> Action {
+    match action {
+        ui_registry::RegMenuAction::Run(argv) => Action::Run(argv),
+        ui_registry::RegMenuAction::FormCmd(cmd) => {
+            match ui_registry::fetch_form_spec(&cmd, form_fn).map(reg_spec_to_spec) {
+                // 规格缺失时降级为直接执行命令，避免菜单条目无响应。
+                Some(spec) => Action::Form(Box::new(spec)),
+                None => Action::Run(vec![cmd]),
+            }
+        }
+        ui_registry::RegMenuAction::Form(rs) => Action::Form(Box::new(reg_spec_to_spec(rs))),
+    }
+}
+
+/// 注册表菜单组 → 宿主菜单组。
+fn reg_groups_to_groups(
+    groups: Vec<ui_registry::RegMenuGroup>,
+    form_fn: Option<&ui_registry::GetFormSpecFn>,
+) -> Vec<MenuGroup> {
+    groups
+        .into_iter()
+        .map(|g| MenuGroup {
+            name: g.name,
+            accel: g.accel.chars().next().unwrap_or('\0'),
+            items: g
+                .items
+                .into_iter()
+                .map(|item| MenuItem {
+                    label: item.label,
+                    action: reg_action_to_action(item.action, form_fn),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// 解析当前生效菜单：注册表非空时用注册表条目，否则回退内置硬编码菜单。
+fn resolve_groups(
+    menu_fn: Option<&ui_registry::GetMenuItemsFn>,
+    form_fn: Option<&ui_registry::GetFormSpecFn>,
+) -> Vec<MenuGroup> {
+    let registered = ui_registry::fetch_menu_items(menu_fn);
+    if registered.is_empty() { menu_groups() } else { reg_groups_to_groups(registered, form_fn) }
 }
 
 /// `connect` 缺配置时的弹窗询问阶段。
@@ -2356,6 +2417,8 @@ pub fn run(
     registered_options: Option<&GetRegisteredOptionsFn>,
     set_interrupted: Option<&SetInterruptedFn>,
     terminal_busy: Option<&TerminalBusyFn>,
+    get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
+    get_form_spec: Option<&ui_registry::GetFormSpecFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -2423,6 +2486,8 @@ pub fn run(
         get_session,
         output_drain,
         terminal_busy,
+        get_menu_items,
+        get_form_spec,
     );
 
     res
@@ -2439,8 +2504,10 @@ fn event_loop(
     get_session: Option<&GetOptionFn>,
     output_drain: &OutputDrainFn,
     terminal_busy: Option<&TerminalBusyFn>,
+    get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
+    get_form_spec: Option<&ui_registry::GetFormSpecFn>,
 ) -> Result<()> {
-    let groups = menu_groups();
+    let groups = resolve_groups(get_menu_items, get_form_spec);
     let mut was_busy = false;
 
     loop {
@@ -3386,7 +3453,7 @@ fn form_argv(spec: &FormSpec, vals: &[String]) -> Vec<String> {
 
     match spec.cmd.as_str() {
         "join_freq" => {
-            let mut argv = vec!["join_freq".to_string().to_string()];
+            let mut argv = vec!["join_freq".to_string()];
             if let Some(freq) = opt(0) {
                 argv.push(freq);
             }
@@ -3856,10 +3923,7 @@ mod tests {
         app.reconcile_members(
             "Freq:    test\nCreator: alice (1.2.3.4)\nMembers: 2/inf\nPassword: no\n  - bob (5.6.7.8)",
         );
-        assert_eq!(
-            app.members,
-            vec!["alice".to_string().to_string(), "bob".to_string().to_string()]
-        );
+        assert_eq!(app.members, vec!["alice".to_string(), "bob".to_string()]);
     }
 
     #[test]
@@ -3868,10 +3932,7 @@ mod tests {
         app.reconcile_members(
             "  alice   AliceA  @+\n  bob     BobB    away\n2 user(s) in freq `test`",
         );
-        assert_eq!(
-            app.members,
-            vec!["AliceA".to_string().to_string(), "BobB".to_string().to_string()]
-        );
+        assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
     }
 
     #[test]
@@ -3990,7 +4051,7 @@ mod tests {
         app.members = vec!["alice".to_string().into(), "bob".to_string().into()];
         app.input = "msg al".into();
         app.refresh_completions();
-        assert_eq!(app.completions, vec!["alice".to_string().to_string()]);
+        assert_eq!(app.completions, vec!["alice".to_string()]);
     }
 
     #[test]
@@ -4005,11 +4066,11 @@ mod tests {
         ];
         app.input = "plugin load cl".into();
         app.refresh_completions();
-        assert_eq!(app.completions, vec!["cli-standard".to_string().to_string()]);
+        assert_eq!(app.completions, vec!["cli-standard".to_string()]);
 
         app.input = "plugin unload ex".into();
         app.refresh_completions();
-        assert_eq!(app.completions, vec!["extra".to_string().to_string()]);
+        assert_eq!(app.completions, vec!["extra".to_string()]);
     }
 
     #[test]
@@ -4024,11 +4085,11 @@ mod tests {
         ];
         app.input = "namespace load x".into();
         app.refresh_completions();
-        assert_eq!(app.completions, vec!["xns".to_string().to_string()]);
+        assert_eq!(app.completions, vec!["xns".to_string()]);
 
         app.input = "namespace unload st".into();
         app.refresh_completions();
-        assert_eq!(app.completions, vec!["std".to_string().to_string()]);
+        assert_eq!(app.completions, vec!["std".to_string()]);
     }
 
     #[test]
@@ -4093,7 +4154,7 @@ mod tests {
         ];
         app.input = "set pre".into();
         app.refresh_completions();
-        assert_eq!(app.completions, vec!["PREFER_COMMAND_LINE".to_string().to_string()]);
+        assert_eq!(app.completions, vec!["PREFER_COMMAND_LINE".to_string()]);
     }
 
     #[test]
@@ -4263,10 +4324,10 @@ mod tests {
     fn background_refresh_stays_silent_but_typed_command_echoes() {
         let mut app = App::new();
         let refresh = [
-            vec!["show".to_string().to_string(), "active_users".to_string().to_string()],
-            vec!["show".to_string().to_string(), "plugins".to_string().to_string()],
-            vec!["plugin".to_string().to_string(), "list".to_string().to_string()],
-            vec!["sessions".to_string().to_string(), "-l".to_string().to_string()],
+            vec!["show".to_string(), "active_users".to_string()],
+            vec!["show".to_string(), "plugins".to_string()],
+            vec!["plugin".to_string(), "list".to_string()],
+            vec!["sessions".to_string(), "-l".to_string()],
         ];
         // 后台自动投递：静默，不写输出区。
         let before = app.log.len();
@@ -4378,24 +4439,13 @@ mod tests {
         let cmds = debug_seed_argv("", "");
         assert_eq!(
             cmds[0],
-            vec![
-                "setg".to_string().to_string(),
-                "SERVER".to_string().to_string(),
-                "127.0.0.1".to_string().to_string()
-            ]
+            vec!["setg".to_string(), "SERVER".to_string(), "127.0.0.1".to_string()]
         );
-        assert_eq!(
-            cmds[1],
-            vec![
-                "setg".to_string().to_string(),
-                "PORT".to_string().to_string(),
-                "50051".to_string().to_string()
-            ]
-        );
+        assert_eq!(cmds[1], vec!["setg".to_string(), "PORT".to_string(), "50051".to_string()]);
         assert_eq!(cmds[2][0], "setg");
         assert_eq!(cmds[2][1], "USERNAME");
         assert!(cmds[2][2].starts_with("hf") && cmds[2][2].len() == 4);
-        assert_eq!(cmds.last().unwrap(), &vec!["connect".to_string().to_string()]);
+        assert_eq!(cmds.last().unwrap(), &vec!["connect".to_string()]);
     }
 
     #[cfg(debug_assertions)]
@@ -4403,7 +4453,7 @@ mod tests {
     fn debug_seed_argv_keeps_explicit_config() {
         let cmds = debug_seed_argv("10.0.0.2", "alice");
         assert!(cmds.iter().all(|c| c[0] != "setg"));
-        assert_eq!(cmds, vec![vec!["connect".to_string().to_string()]]);
+        assert_eq!(cmds, vec![vec!["connect".to_string()]]);
     }
 
     #[test]
@@ -4516,17 +4566,17 @@ mod tests {
 
     #[test]
     fn form_spec_for_matches_single_and_compound_commands() {
-        let upload = vec!["upload".to_string().to_string()];
+        let upload = vec!["upload".to_string()];
         assert_eq!(form_spec_for(&upload).unwrap().cmd, "upload");
 
-        let switch_ws = vec!["workspace".to_string().to_string(), "switch".to_string().to_string()];
+        let switch_ws = vec!["workspace".to_string(), "switch".to_string()];
         assert_eq!(form_spec_for(&switch_ws).unwrap().cmd, "workspace switch");
 
         // 只有复合命令的首 token 时不应误匹配。
-        let ws_only = vec!["workspace".to_string().to_string()];
+        let ws_only = vec!["workspace".to_string()];
         assert!(form_spec_for(&ws_only).is_none());
 
-        let bogus = vec!["definitely_not_a_command".to_string().to_string()];
+        let bogus = vec!["definitely_not_a_command".to_string()];
         assert!(form_spec_for(&bogus).is_none());
     }
 
@@ -4934,7 +4984,7 @@ mod tests {
         let Some(Dialog::Confirm { message, argv }) = &app.dialog else {
             panic!("expected confirm dialog");
         };
-        assert_eq!(argv, &vec!["kick".to_string().to_string(), "alice".to_string().to_string()]);
+        assert_eq!(argv, &vec!["kick".to_string(), "alice".to_string()]);
         assert!(message.contains("alice"));
         assert!(!has_cmd_line(&app, "kick alice"));
     }
@@ -4960,7 +5010,7 @@ mod tests {
         let Some(Dialog::Confirm { argv, .. }) = &app.dialog else {
             panic!("expected confirm dialog after kick form");
         };
-        assert_eq!(argv, &vec!["kick".to_string().to_string(), "alice".to_string().to_string()]);
+        assert_eq!(argv, &vec!["kick".to_string(), "alice".to_string()]);
         assert!(!has_cmd_line(&app, "kick alice"));
     }
 
@@ -4968,16 +5018,11 @@ mod tests {
     fn disband_menu_opens_confirm_when_connected() {
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
-        run_action(
-            &mut app,
-            &STUB_RUN,
-            &STUB_DRAIN,
-            &Action::Run(vec!["disband".to_string().to_string()]),
-        );
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Run(vec!["disband".to_string()]));
         let Some(Dialog::Confirm { argv, .. }) = &app.dialog else {
             panic!("expected confirm dialog for disband");
         };
-        assert_eq!(argv, &vec!["disband".to_string().to_string()]);
+        assert_eq!(argv, &vec!["disband".to_string()]);
         assert!(!has_cmd_line(&app, "disband"));
     }
 
@@ -5087,8 +5132,8 @@ mod tests {
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
         let groups = menu_groups();
-        app.sessions = vec![SessionEntry { name: "1.0".to_string().to_string(), current: true }];
-        app.members = vec!["alice".to_string().to_string(), "bob".to_string().to_string()];
+        app.sessions = vec![SessionEntry { name: "1.0".to_string(), current: true }];
+        app.members = vec!["alice".to_string(), "bob".to_string()];
 
         draw(
             &mut tui,
@@ -5379,14 +5424,11 @@ mod tests {
         let job = JobResult {
             code: 0,
             message: String::new(),
-            argv: vec!["active_users".to_string().to_string()],
+            argv: vec!["active_users".to_string()],
             silent: false,
         };
         apply_job_result(&mut app, job);
-        assert_eq!(
-            app.members,
-            vec!["AliceA".to_string().to_string(), "BobB".to_string().to_string()]
-        );
+        assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
         assert!(app.worker_output.is_empty());
     }
 
@@ -5398,7 +5440,7 @@ mod tests {
         let job = JobResult {
             code: 0,
             message: String::new(),
-            argv: vec!["join_freq".to_string().to_string(), "1.0".to_string().to_string()],
+            argv: vec!["join_freq".to_string(), "1.0".to_string()],
             silent: false,
         };
         apply_job_result(&mut app, job);
@@ -5413,7 +5455,7 @@ mod tests {
         let job = JobResult {
             code: 1,
             message: "join failed".into(),
-            argv: vec!["join_freq".to_string().to_string(), "1.0".to_string().to_string()],
+            argv: vec!["join_freq".to_string(), "1.0".to_string()],
             silent: false,
         };
         apply_job_result(&mut app, job);
@@ -5446,7 +5488,7 @@ mod tests {
             "",
             false,
         );
-        assert_eq!(app.members, vec!["old-a".to_string().to_string()]);
+        assert_eq!(app.members, vec!["old-a".to_string()]);
         assert!(!app.pending_roster);
     }
 
@@ -5554,7 +5596,7 @@ mod tests {
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
         let groups = menu_groups();
-        app.completions = vec!["server".to_string().to_string()];
+        app.completions = vec!["server".to_string()];
         app.comp_idx = 0;
         app.completion_active = true;
         app.refocus_input = true;
@@ -5588,7 +5630,7 @@ mod tests {
         let mut app = App::new();
         let groups = menu_groups();
         app.input = "se".to_string();
-        app.completions = vec!["server".to_string().to_string()];
+        app.completions = vec!["server".to_string()];
         app.comp_idx = 0;
         app.completion_active = true;
         draw(
@@ -5660,7 +5702,7 @@ mod tests {
         let mut app = App::new();
         let groups = menu_groups();
         app.input = "se".to_string();
-        app.completions = vec!["server".to_string().to_string()];
+        app.completions = vec!["server".to_string()];
         app.comp_idx = 0;
         app.completion_active = true;
         draw(
@@ -5699,7 +5741,7 @@ mod tests {
         let mut app = App::new();
         let groups = menu_groups();
         app.input = "se".to_string();
-        app.completions = vec!["sessions".to_string().to_string()];
+        app.completions = vec!["sessions".to_string()];
         app.comp_idx = 0;
         app.completion_active = true;
         draw(
