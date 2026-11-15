@@ -149,6 +149,12 @@ struct ChatLine {
     kind: LineKind,
 }
 
+/// 侧栏会话快照：一条当前或后台 freq 会话。
+struct SessionEntry {
+    name: String,
+    current: bool,
+}
+
 /// 菜单项动作。
 enum Action {
     /// 直接执行 argv。
@@ -889,7 +895,7 @@ fn menu_groups() -> Vec<MenuGroup> {
                 MenuItem { label: "Foreground", action: Action::Run(vec!["foreground"]) },
                 MenuItem { label: "Away", action: Action::Run(vec!["away"]) },
                 MenuItem { label: "Notifications", action: Action::Run(vec!["notifications"]) },
-                MenuItem { label: "Sessions", action: Action::Run(vec!["sessions", "list"]) },
+                MenuItem { label: "Sessions", action: Action::Run(vec!["sessions", "-l"]) },
                 MenuItem { label: "Disband...", action: Action::Run(vec!["disband"]) },
                 MenuItem {
                     label: "Active freqs",
@@ -1046,6 +1052,10 @@ struct App {
     current_freq: Option<String>,
     /// 侧栏快照：收集到的成员名。
     members: Vec<String>,
+    /// 侧栏快照：当前 + 后台会话列表（来自 `sessions -l` 输出）。
+    sessions: Vec<SessionEntry>,
+    /// 待拉取一次会话列表；空闲时投递 `sessions -l`。
+    pending_sessions: bool,
     /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
@@ -1100,6 +1110,8 @@ impl App {
             dialog: None,
             current_freq: None,
             members: Vec::new(),
+            sessions: Vec::new(),
+            pending_sessions: false,
             remote_list_dir: None,
             is_connected: None,
             set_interrupted: None,
@@ -1210,6 +1222,36 @@ impl App {
         }
         if !names.is_empty() {
             self.members = names;
+        }
+    }
+
+    /// 用 `sessions -l` 输出回填侧栏会话列表快照。
+    ///
+    /// 支持行格式：
+    /// - `  [0] session \`{freq}\` (current)`
+    /// - `  [1] session \`{freq}\` (background)`
+    /// - `  [0] main console (no freq session)`
+    fn reconcile_sessions(&mut self, text: &str) {
+        let mut entries: Vec<SessionEntry> = Vec::new();
+        for line in text.lines() {
+            let t = line.trim();
+            if t.is_empty() {
+                continue;
+            }
+            let current = t.contains("(current)");
+            // 反引号内为 freq 名；main console 行无反引号，用固定名占位。
+            let name = t
+                .split('`')
+                .nth(1)
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "main console".to_string());
+            if name.is_empty() {
+                continue;
+            }
+            entries.push(SessionEntry { name, current });
+        }
+        if !entries.is_empty() {
+            self.sessions = entries;
         }
     }
 
@@ -1934,6 +1976,21 @@ fn event_loop(
             }
         }
 
+        // 会话集合变化后拉取一次会话列表，刷新侧栏当前 / 后台会话标注；
+        // worker 仍忙则保留标志，下一帧空闲时再投递。
+        if app.pending_sessions {
+            let idle = app.worker.as_ref().map(|w| !w.is_running()).unwrap_or(true);
+            if idle {
+                app.pending_sessions = false;
+                run_argv(
+                    app,
+                    run_command,
+                    output_drain,
+                    &["sessions".to_string(), "-l".to_string()],
+                );
+            }
+        }
+
         // 外部 TUI 子进程占用终端期间：不读按键、不画帧、不写终端输出，
         // 把终端完全交给子进程；busy 复位后下一帧整屏重绘。
         let busy = terminal_busy.map(|f| unsafe { f() != 0 }).unwrap_or(false);
@@ -2104,8 +2161,23 @@ fn draw_body(ctx: &mut Context, app: &App) {
     ctx.attr_intrinsic_size(Size { width: 26, height: body_height });
 
     ctx.label("sec-freq", "Session");
-    let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
-    ctx.label("freq", &format!("  {freq}"));
+    if app.sessions.is_empty() {
+        let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
+        ctx.label("freq", &format!("  {freq}"));
+    } else {
+        for (i, s) in app.sessions.iter().enumerate() {
+            ctx.next_block_id_mixin(i as u64);
+            if s.current {
+                // 当前会话：前缀 `*` 并整行绿色标注。
+                ctx.styled_label_begin("session-current");
+                ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
+                ctx.styled_label_add_text(&format!("* {}", s.name));
+                ctx.styled_label_end();
+            } else {
+                ctx.label("session-bg", &format!("  {}", s.name));
+            }
+        }
+    }
     ctx.label("blank", "");
 
     ctx.label("sec-members", "Members");
@@ -2972,6 +3044,12 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
     if argv.iter().any(|a| a == "freq_info" || a == "active_users") {
         app.reconcile_members(drained_text);
     }
+    let has_interact = argv.windows(2).any(|w| matches!(w[0].as_str(), "-i" | "--interact"));
+    let has_kill = argv.windows(2).any(|w| matches!(w[0].as_str(), "-k" | "--kill"));
+    // `sessions -l` 返回会话列表，回填侧栏会话快照（切换 / 丢弃子命令不回填）。
+    if cmd == "sessions" && !has_interact && !has_kill {
+        app.reconcile_sessions(drained_text);
+    }
     // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
     if matches!(cmd, "join_freq" | "create_freq") {
         let me = app.username.clone();
@@ -2981,25 +3059,34 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
         // 成功后再拉取一次当前 roster，补齐加入前已在频点的成员（不只靠后续推送）。
         if success {
             app.pending_roster = true;
+            app.pending_sessions = true;
         }
     }
     // 重连成功后同样拉取一次 roster，恢复此前所在频点的成员快照。
     if success && cmd == "connect" {
         app.pending_roster = true;
+        app.pending_sessions = true;
     }
-    // 离开 / 解散频点后清空成员列表。
+    // 离开 / 解散频点后清空成员列表，并刷新会话列表。
     if matches!(cmd, "leave_freq" | "disband") {
         app.members.clear();
         app.pending_roster = false;
+        app.pending_sessions = true;
     }
     // `sessions -i <freq>` 切换到后台频点：清掉上一个频点的残留成员，成功后
     // 重拉目标频点 roster；不清空会在侧栏留下旧频点成员。
     if cmd == "sessions" {
-        let switching = argv.windows(2).any(|w| matches!(w[0].as_str(), "-i" | "--interact"));
-        if switching && success {
+        if has_interact && success {
             app.members.clear();
             app.pending_roster = true;
         }
+        if (has_interact || has_kill) && success {
+            app.pending_sessions = true;
+        }
+    }
+    // 挂起 / 恢复后台会话后会话集合变化，刷新会话列表。
+    if success && matches!(cmd, "background" | "foreground") {
+        app.pending_sessions = true;
     }
     // 改成员集合 / 权限标记的管理命令成功后重拉 roster：被踢 / 被封者从侧栏
     // 移除，op/deop/trop 的权限标记同步刷新。mute/ignore 不改成员集合，不拉。
@@ -3099,6 +3186,34 @@ mod tests {
             "  alice   AliceA  @+\n  bob     BobB    away\n2 user(s) in freq `test`",
         );
         assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
+    }
+
+    #[test]
+    fn reconcile_parses_session_list_current_and_background() {
+        let mut app = App::new();
+        app.reconcile_sessions("  [0] session `1.0` (current)\n  [1] session `0.1` (background)");
+        assert_eq!(app.sessions.len(), 2);
+        assert_eq!(app.sessions[0].name, "1.0");
+        assert!(app.sessions[0].current);
+        assert_eq!(app.sessions[1].name, "0.1");
+        assert!(!app.sessions[1].current);
+    }
+
+    #[test]
+    fn reconcile_parses_main_console_session() {
+        let mut app = App::new();
+        app.reconcile_sessions("  [0] main console (no freq session)");
+        assert_eq!(app.sessions.len(), 1);
+        assert_eq!(app.sessions[0].name, "main console");
+        assert!(!app.sessions[0].current);
+    }
+
+    #[test]
+    fn reconcile_sessions_empty_text_keeps_snapshot() {
+        let mut app = App::new();
+        app.reconcile_sessions("  [0] session `1.0` (current)");
+        app.reconcile_sessions("");
+        assert_eq!(app.sessions.len(), 1);
     }
 
     #[test]
