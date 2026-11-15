@@ -13,4 +13,6 @@ pub use result::*;
 pub mod init_fn_types;
 pub mod plugin_fn_types;
 pub use init_fn_types::*;
+pub mod ui;
+pub use ui::*;
 include!(concat!(env!("OUT_DIR"), "/fn_type.rs"));

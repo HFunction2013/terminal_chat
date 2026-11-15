@@ -7,6 +7,7 @@ mod plugins;
 mod print_content;
 mod push_queue;
 mod registered_options;
+mod registered_ui;
 mod run_commands;
 mod session_settings;
 mod terminal_hooks;
