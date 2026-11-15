@@ -150,9 +150,17 @@ struct ChatLine {
 }
 
 /// 侧栏会话快照：一条当前或后台 freq 会话。
+#[derive(Clone)]
 struct SessionEntry {
     name: String,
     current: bool,
+}
+
+/// 侧栏插件快照：已加载插件的插件名与其命令命名空间。
+#[derive(Clone)]
+struct PluginEntry {
+    name: String,
+    namespace: String,
 }
 
 /// 菜单项动作。
@@ -789,8 +797,10 @@ const COMMAND_NAMES: &[&str] = &[
     "msg",
     "mute",
     "mv",
+    "namespace",
     "notifications",
     "op",
+    "plugin",
     "proxy",
     "pwd",
     "reconnect",
@@ -844,6 +854,8 @@ const SUBCOMMANDS: &[(&str, &[&str])] = &[
     ),
     ("load", &["namespace", "plugin"]),
     ("unload", &["namespace", "plugin"]),
+    ("namespace", &["load", "unload"]),
+    ("plugin", &["list", "load", "unload"]),
     ("create", &["alias", "macro"]),
     ("delete", &["alias", "macro"]),
     ("proxy", &["off", "on"]),
@@ -1058,10 +1070,16 @@ struct App {
     sessions: Vec<SessionEntry>,
     /// 待拉取一次会话列表；空闲时投递 `sessions -l`。
     pending_sessions: bool,
+    /// 侧栏快照：已加载插件及其命令命名空间（来自 `plugin list` / `show plugins`）。
+    plugins: Vec<PluginEntry>,
+    /// 待拉取一次插件列表；空闲时投递 `plugin list`。
+    pending_plugins: bool,
     /// 侧栏 Sessions 栏目是否展开。
     sessions_open: bool,
     /// 侧栏 Members 栏目是否展开。
     members_open: bool,
+    /// 侧栏 Plugins 栏目是否展开。
+    plugins_open: bool,
     /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
@@ -1118,8 +1136,11 @@ impl App {
             members: Vec::new(),
             sessions: Vec::new(),
             pending_sessions: false,
+            plugins: Vec::new(),
+            pending_plugins: true,
             sessions_open: true,
             members_open: true,
+            plugins_open: true,
             remote_list_dir: None,
             is_connected: None,
             set_interrupted: None,
@@ -1260,6 +1281,31 @@ impl App {
         }
         if !entries.is_empty() {
             self.sessions = entries;
+        }
+    }
+
+    /// 用 `plugin list` / `show plugins` 输出回填侧栏插件快照。
+    ///
+    /// 行格式：`  {plugin_name} (command: {command_namespace})`；空列表行跳过。
+    fn reconcile_plugins(&mut self, text: &str) {
+        let mut entries: Vec<PluginEntry> = Vec::new();
+        for line in text.lines() {
+            let t = line.trim();
+            if t.is_empty() || t.contains("no plugins") {
+                continue;
+            }
+            let Some((name, rest)) = t.split_once("(command:") else {
+                continue;
+            };
+            let name = name.trim().to_string();
+            let namespace = rest.trim().trim_end_matches(')').trim().to_string();
+            if name.is_empty() {
+                continue;
+            }
+            entries.push(PluginEntry { name, namespace });
+        }
+        if !entries.is_empty() {
+            self.plugins = entries;
         }
     }
 
@@ -1488,6 +1534,19 @@ impl App {
     }
 
     /// 接受当前高亮候选：替换活动缓冲的末词（路径候选已含父目录前缀）。
+    /// 侧栏条目双击（或 Enter）：把名称追加到主输入框末尾，空格分隔；
+    /// 不替换正在输入的末词。弹窗表单打开时不向主输入框写入。
+    fn append_entry_to_input(&mut self, name: &str) {
+        if self.dialog.is_some() || name.is_empty() {
+            return;
+        }
+        if !self.input.is_empty() && !self.input.ends_with(' ') {
+            self.input.push(' ');
+        }
+        self.input.push_str(name);
+        self.refocus_input = true;
+    }
+
     /// 主命令行下非目录候选接受后补一个空格，进入下一参数位置并刷新该位置补全；
     /// 表单字段为单值，不追加分隔空格。
     fn accept_completion(&mut self) {
@@ -2014,6 +2073,21 @@ fn event_loop(
             }
         }
 
+        // 插件集合变化后拉取一次插件列表，刷新侧栏插件名 / 命名空间分组；
+        // worker 仍忙则保留标志，下一帧空闲时再投递。
+        if app.pending_plugins {
+            let idle = app.worker.as_ref().map(|w| !w.is_running()).unwrap_or(true);
+            if idle {
+                app.pending_plugins = false;
+                run_argv(
+                    app,
+                    run_command,
+                    output_drain,
+                    &["plugin".to_string(), "list".to_string()],
+                );
+            }
+        }
+
         // 外部 TUI 子进程占用终端期间：不读按键、不画帧、不写终端输出，
         // 把终端完全交给子进程；busy 复位后下一帧整屏重绘。
         let busy = terminal_busy.map(|f| unsafe { f() != 0 }).unwrap_or(false);
@@ -2206,18 +2280,24 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
             let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
             ctx.label("freq", &format!("  {freq}"));
         } else {
-            for (i, s) in app.sessions.iter().enumerate() {
-                ctx.next_block_id_mixin(i as u64);
-                if s.current {
+            ctx.list_begin("sidebar-sessions");
+            let sessions = app.sessions.clone();
+            for s in &sessions {
+                let name = s.name.clone();
+                let sel = if s.current {
                     // 当前会话：前缀 `*` 并整行绿色标注。
-                    ctx.styled_label_begin("session-current");
+                    ctx.styled_list_item_begin();
                     ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
-                    ctx.styled_label_add_text(&format!("* {}", s.name));
-                    ctx.styled_label_end();
+                    ctx.styled_label_add_text(&format!("* {name}"));
+                    ctx.styled_list_item_end(false)
                 } else {
-                    ctx.label("session-bg", &format!("  {}", s.name));
+                    ctx.list_item(false, &format!("  {name}"))
+                };
+                if let ListSelection::Activated = sel {
+                    app.append_entry_to_input(&name);
                 }
             }
+            ctx.list_end();
         }
     }
 
@@ -2234,10 +2314,50 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
         if app.members.is_empty() {
             ctx.label("none", "  (none)");
         } else {
-            for (i, m) in app.members.iter().enumerate() {
-                ctx.next_block_id_mixin(i as u64);
-                ctx.label("member", &format!("  • {m}"));
+            ctx.list_begin("sidebar-members");
+            let members = app.members.clone();
+            for m in &members {
+                let name = m.clone();
+                let sel = ctx.list_item(false, &format!("  • {name}"));
+                if let ListSelection::Activated = sel {
+                    app.append_entry_to_input(&name);
+                }
             }
+            ctx.list_end();
+        }
+    }
+
+    let plugins_glyph = if app.plugins_open { "#" } else { ">" };
+    if ctx.row_button(
+        "sec-plugins",
+        &section_header_text("Plugin", plugins_glyph),
+        app.menubar_bg,
+        app.menubar_fg,
+    ) {
+        app.plugins_open = !app.plugins_open;
+    }
+    if app.plugins_open {
+        if app.plugins.is_empty() {
+            ctx.label("plugin-none", "  (none)");
+        } else {
+            ctx.list_begin("sidebar-plugins");
+            let plugins = app.plugins.clone();
+            // 第一组：插件名；第二组：命令命名空间。双击分别插入对应名字。
+            for p in &plugins {
+                let name = p.name.clone();
+                let sel = ctx.list_item(false, &format!("  • {name}"));
+                if let ListSelection::Activated = sel {
+                    app.append_entry_to_input(&name);
+                }
+            }
+            for p in &plugins {
+                let ns = p.namespace.clone();
+                let sel = ctx.list_item(false, &format!("  : {ns}"));
+                if let ListSelection::Activated = sel {
+                    app.append_entry_to_input(&ns);
+                }
+            }
+            ctx.list_end();
         }
     }
 
@@ -3101,6 +3221,16 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
     if cmd == "sessions" && !has_interact && !has_kill {
         app.reconcile_sessions(drained_text);
     }
+    // `plugin list` / `show plugins` 返回插件列表，回填侧栏插件名 / 命名空间分组。
+    let is_plugin_list = (cmd == "plugin" && argv.iter().any(|a| a == "list"))
+        || (cmd == "show" && argv.iter().any(|a| a == "plugins"));
+    if is_plugin_list {
+        app.reconcile_plugins(drained_text);
+    }
+    // 插件 / 命名空间装载或卸载成功后，重拉插件列表刷新侧栏分组。
+    if success && matches!(cmd, "plugin" | "namespace" | "load" | "unload") {
+        app.pending_plugins = true;
+    }
     // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
     if matches!(cmd, "join_freq" | "create_freq") {
         let me = app.username.clone();
@@ -3265,6 +3395,43 @@ mod tests {
         app.reconcile_sessions("  [0] session `1.0` (current)");
         app.reconcile_sessions("");
         assert_eq!(app.sessions.len(), 1);
+    }
+
+    #[test]
+    fn reconcile_plugins_parses_name_and_namespace() {
+        let mut app = App::new();
+        app.reconcile_plugins("  cli-standard (command: std)\n  extra (command: xns)");
+        assert_eq!(app.plugins.len(), 2);
+        assert_eq!(app.plugins[0].name, "cli-standard");
+        assert_eq!(app.plugins[0].namespace, "std");
+        assert_eq!(app.plugins[1].name, "extra");
+        assert_eq!(app.plugins[1].namespace, "xns");
+    }
+
+    #[test]
+    fn reconcile_plugins_empty_text_keeps_snapshot() {
+        let mut app = App::new();
+        app.reconcile_plugins("  cli-standard (command: std)");
+        app.reconcile_plugins("");
+        assert_eq!(app.plugins.len(), 1);
+    }
+
+    #[test]
+    fn append_entry_to_input_adds_space_separated_name() {
+        let mut app = App::new();
+        app.append_entry_to_input("alice");
+        assert_eq!(app.input, "alice");
+        app.append_entry_to_input("bob");
+        assert_eq!(app.input, "alice bob");
+        assert!(app.refocus_input);
+    }
+
+    #[test]
+    fn append_entry_to_input_keeps_trailing_space() {
+        let mut app = App::new();
+        app.input = "kick ".to_string();
+        app.append_entry_to_input("carol");
+        assert_eq!(app.input, "kick carol");
     }
 
     #[test]
@@ -4250,8 +4417,8 @@ mod tests {
             "header row stretches across the sidebar: width {}",
             sec_freq[0].width
         );
-        assert!(!tui.testing_find("session-current").is_empty(), "session list shown");
-        assert!(!tui.testing_find("member").is_empty(), "member list shown");
+        assert!(!tui.testing_find("sidebar-sessions").is_empty(), "session list shown");
+        assert!(!tui.testing_find("sidebar-members").is_empty(), "member list shown");
 
         // Click the Session header row to collapse it.
         let center = row_center(&sec_freq[0]);
@@ -4261,11 +4428,11 @@ mod tests {
         let sec_freq = tui.testing_find("sec-freq");
         assert!(sec_freq[0].text.contains('>'), "session header collapsed: {:?}", sec_freq[0].text);
         assert!(
-            tui.testing_find("session-current").is_empty(),
+            tui.testing_find("sidebar-sessions").is_empty(),
             "session list hidden after collapse"
         );
         // Members section is untouched and still expanded.
-        assert!(!tui.testing_find("member").is_empty(), "member list still shown");
+        assert!(!tui.testing_find("sidebar-members").is_empty(), "member list still shown");
 
         // Click again to re-expand.
         let center = row_center(&sec_freq[0]);
@@ -4278,7 +4445,7 @@ mod tests {
             "session header re-expanded: {:?}",
             sec_freq[0].text
         );
-        assert!(!tui.testing_find("session-current").is_empty(), "session list restored");
+        assert!(!tui.testing_find("sidebar-sessions").is_empty(), "session list restored");
 
         // The Members header toggles independently.
         let sec_members = tui.testing_find("sec-members");
@@ -4292,8 +4459,11 @@ mod tests {
             "members header collapsed: {:?}",
             sec_members[0].text
         );
-        assert!(tui.testing_find("member").is_empty(), "member list hidden after collapse");
-        assert!(!tui.testing_find("session-current").is_empty(), "session list still shown");
+        assert!(
+            tui.testing_find("sidebar-members").is_empty(),
+            "member list hidden after collapse"
+        );
+        assert!(!tui.testing_find("sidebar-sessions").is_empty(), "session list still shown");
     }
 
     /// The Info dialog's Close button owns the focus, sizes to its label (no full-row
@@ -4563,6 +4733,54 @@ mod tests {
         let mut app = App::new();
         apply_member_side_effects(&mut app, &["mute".into(), "alice".into()], "", true);
         assert!(!app.pending_roster);
+    }
+
+    #[test]
+    fn plugin_list_backfills_sidebar_plugins() {
+        let mut app = App::new();
+        apply_member_side_effects(
+            &mut app,
+            &["plugin".into(), "list".into()],
+            "  cli-standard (command: std)",
+            true,
+        );
+        assert_eq!(app.plugins.len(), 1);
+        assert_eq!(app.plugins[0].name, "cli-standard");
+        assert_eq!(app.plugins[0].namespace, "std");
+    }
+
+    #[test]
+    fn show_plugins_backfills_sidebar_plugins() {
+        let mut app = App::new();
+        apply_member_side_effects(
+            &mut app,
+            &["show".into(), "plugins".into()],
+            "  cli-standard (command: std)",
+            true,
+        );
+        assert_eq!(app.plugins.len(), 1);
+    }
+
+    #[test]
+    fn plugin_mutation_success_schedules_plugin_refresh() {
+        for cmd in ["plugin", "namespace", "load", "unload"] {
+            let mut app = App::new();
+            apply_member_side_effects(&mut app, &[cmd.to_string(), "x".into()], "", true);
+            assert!(app.pending_plugins, "{cmd} should refetch the plugin list");
+        }
+    }
+
+    #[test]
+    fn plugin_mutation_failure_does_not_schedule_refresh() {
+        let mut app = App::new();
+        app.pending_plugins = false;
+        apply_member_side_effects(
+            &mut app,
+            &["plugin".into(), "load".into(), "x".into()],
+            "",
+            false,
+        );
+        assert!(!app.pending_plugins);
     }
 
     #[test]

@@ -198,6 +198,42 @@ commands:
             value_name: NAMESPACE_NAME
             required: true
             help: namespace to unload
+  - name: plugin
+    about: Manage loaded plugins
+    subcommands:
+      - name: list
+        about: List all loaded plugins
+      - name: load
+        about: Load a plugin
+        args:
+          - name: plugin
+            value_name: PLUGIN
+            required: true
+            help: Plugin to load
+      - name: unload
+        about: Unload a plugin
+        args:
+          - name: plugin_name
+            value_name: PLUGIN_NAME
+            required: true
+            help: Plugin to unload
+  - name: namespace
+    about: Manage plugin namespaces
+    subcommands:
+      - name: load
+        about: Load a namespace
+        args:
+          - name: namespace
+            value_name: NAMESPACE
+            required: true
+            help: Namespace to load
+      - name: unload
+        about: Unload a namespace
+        args:
+          - name: namespace_name
+            value_name: NAMESPACE_NAME
+            required: true
+            help: Namespace to unload
   - name: tcpm
     about: Terminal Chat Package Manager
     subcommands:

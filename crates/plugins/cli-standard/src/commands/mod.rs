@@ -46,8 +46,10 @@ pub mod mkdir;
 pub mod msg;
 pub mod mute;
 pub mod mv;
+pub mod namespace;
 pub mod notifications;
 pub mod op;
+pub mod plugin;
 pub mod proxy;
 pub mod pwd;
 pub mod reconnect;
@@ -94,6 +96,8 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(sessions::SessionsCommand),
         Arc::new(load::LoadCommand),
         Arc::new(unload::UnloadCommand),
+        Arc::new(plugin::PluginCommand),
+        Arc::new(namespace::NamespaceCommand),
         Arc::new(tcpm::TcpmCommand),
         Arc::new(upload::UploadCommand),
         Arc::new(download::DownloadCommand),
