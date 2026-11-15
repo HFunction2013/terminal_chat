@@ -566,6 +566,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let get_form_spec: Option<Symbol<ui_registry::GetFormSpecFn>> =
             unsafe { core_lib.get(b"get_form_spec") }.ok();
         let get_form_spec_ref: Option<&ui_registry::GetFormSpecFn> = get_form_spec.as_deref();
+        let get_bottom_fragments: Option<Symbol<ui_registry::GetBottomFragmentsFn>> =
+            unsafe { core_lib.get(b"get_bottom_fragments") }.ok();
+        let get_bottom_fragments_ref: Option<&ui_registry::GetBottomFragmentsFn> =
+            get_bottom_fragments.as_deref();
         register_terminal_hooks(
             tui_terminal_suspend as *const (),
             tui_terminal_resume as *const (),
@@ -584,6 +588,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             terminal_busy_ref,
             get_menu_items_ref,
             get_form_spec_ref,
+            get_bottom_fragments_ref,
         )
         .map_err(|e| e.into());
     }

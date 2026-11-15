@@ -1538,6 +1538,8 @@ struct App {
     list_registered_options: Option<GetRegisteredOptionsFn>,
     /// 已注册选项 key 缓存（供选项参数位置补全）。
     registered_options: Vec<String>,
+    /// 注册表追加的底部状态栏片段（插件 `on_init_plugin` 登记）；空时仅显示内置项。
+    bottom_fragments: Vec<String>,
     /// 状态栏快照（来自全局选项）。
     username: String,
     server: String,
@@ -1597,6 +1599,7 @@ impl App {
             set_interrupted: None,
             list_registered_options: None,
             registered_options: Vec::new(),
+            bottom_fragments: Vec::new(),
             username: String::new(),
             server: String::new(),
             port: String::new(),
@@ -2419,6 +2422,7 @@ pub fn run(
     terminal_busy: Option<&TerminalBusyFn>,
     get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
     get_form_spec: Option<&ui_registry::GetFormSpecFn>,
+    get_bottom_fragments: Option<&ui_registry::GetBottomFragmentsFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -2466,6 +2470,10 @@ pub fn run(
     app.is_connected = is_connected.copied();
     app.set_interrupted = set_interrupted.copied();
     app.list_registered_options = registered_options.copied();
+    app.bottom_fragments = ui_registry::fetch_bottom_fragments(get_bottom_fragments)
+        .into_iter()
+        .map(|f| f.label)
+        .collect();
 
     // 启动后台命令 worker：命令在独立线程串行执行，UI 线程不被阻塞命令卡住；
     // 输出经全局缓冲逐帧回流，完成结果由事件循环取回。
@@ -3019,7 +3027,10 @@ fn draw_status(ctx: &mut Context, app: &App) {
     };
     let freq = app.current_freq.clone().unwrap_or_else(|| "-".to_string());
     let quiet = if app.quiet { "QUIET" } else { "sound" };
-    let text = format!("{who}@{host} | freq {freq} | {quiet} | {}", now_ts());
+    let mut text = format!("{who}@{host} | freq {freq} | {quiet} | {}", now_ts());
+    for frag in &app.bottom_fragments {
+        text.push_str(&format!(" | {frag}"));
+    }
 
     ctx.table_begin("status");
     ctx.attr_focus_well();
