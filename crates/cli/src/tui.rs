@@ -67,6 +67,8 @@ struct JobResult {
     code: i32,
     message: String,
     argv: Vec<String>,
+    /// 该作业是否为后台回填型静默刷新；完成回调据此决定结果消息是否回显。
+    silent: bool,
 }
 
 /// 常驻命令 worker 的共享句柄。
@@ -75,7 +77,7 @@ struct JobResult {
 /// UI 线程只投递 argv、每帧取回实时输出与完成结果，不再被阻塞命令卡住。
 #[derive(Clone)]
 struct CommandWorker {
-    tx: Sender<Vec<String>>,
+    tx: Sender<(Vec<String>, bool)>,
     running: Arc<AtomicBool>,
     result: Arc<Mutex<Option<JobResult>>>,
 }
@@ -83,19 +85,23 @@ struct CommandWorker {
 impl CommandWorker {
     /// 启动常驻 worker 线程；`run_command` 为裸 FFI 函数指针副本（`Send`/`Copy`）。
     fn spawn(run_command: RunCommandFn) -> Self {
-        let (tx, rx) = std::sync::mpsc::channel::<Vec<String>>();
+        let (tx, rx) = std::sync::mpsc::channel::<(Vec<String>, bool)>();
         let running = Arc::new(AtomicBool::new(false));
         let result = Arc::new(Mutex::new(None));
         let running_w = running.clone();
         let result_w = result.clone();
         thread::spawn(move || {
-            while let Ok(argv) = rx.recv() {
+            while let Ok((argv, silent)) = rx.recv() {
                 running_w.store(true, Ordering::SeqCst);
                 let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
                     argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
                 let res = run_command(&args_ffi);
-                *result_w.lock().unwrap() =
-                    Some(JobResult { code: res.code, message: res.message.to_string(), argv });
+                *result_w.lock().unwrap() = Some(JobResult {
+                    code: res.code,
+                    message: res.message.to_string(),
+                    argv,
+                    silent,
+                });
                 running_w.store(false, Ordering::SeqCst);
             }
         });
@@ -106,8 +112,9 @@ impl CommandWorker {
         self.running.load(Ordering::SeqCst)
     }
 
-    fn submit(&self, argv: Vec<String>) {
-        let _ = self.tx.send(argv);
+    /// 投递待执行命令；`silent` 标记该作业是否为后台回填型刷新。
+    fn submit(&self, argv: Vec<String>, silent: bool) {
+        let _ = self.tx.send((argv, silent));
     }
 
     fn take_result(&self) -> Option<JobResult> {
@@ -150,14 +157,14 @@ struct ChatLine {
 }
 
 /// 侧栏会话快照：一条当前或后台 freq 会话。
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct SessionEntry {
     name: String,
     current: bool,
 }
 
 /// 侧栏插件快照：已加载插件的插件名与其命令命名空间。
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct PluginEntry {
     name: String,
     namespace: String,
@@ -1257,7 +1264,7 @@ impl App {
                 push_unique(&mut names, name);
             }
         }
-        if !names.is_empty() {
+        if !names.is_empty() && names != self.members {
             self.members = names;
         }
     }
@@ -1287,7 +1294,7 @@ impl App {
             }
             entries.push(SessionEntry { name, current });
         }
-        if !entries.is_empty() {
+        if !entries.is_empty() && entries != self.sessions {
             self.sessions = entries;
         }
     }
@@ -1312,7 +1319,7 @@ impl App {
             }
             entries.push(PluginEntry { name, namespace });
         }
-        if !entries.is_empty() {
+        if !entries.is_empty() && entries != self.plugins {
             self.plugins = entries;
         }
     }
@@ -3214,15 +3221,12 @@ fn run_argv(
     // 静默只作用于后台自动回填投递；用户主动敲入的命令（即使是列表查询）
     // 仍正常回显到输出区。
     let silent = background && is_silent_refresh(argv);
-    app.silent_refresh = silent;
-    if !silent {
-        let display = argv.join(" ");
-        app.push_line(format!("tc> {display}"), LineKind::Cmd);
-    }
 
     // 有后台 worker：投递到 worker 线程串行执行，不阻塞 UI；实时输出由事件循环
     // 每帧 drain 回流，完成结果在事件循环里取回（见 `apply_job_result`）。
-    if let Some(worker) = &app.worker {
+    if let Some(worker) = app.worker.clone() {
+        // worker 仍在跑上一条作业：本次投递被拒，保留在跑作业的静默归属，
+        // 不用新命令的口径覆盖全局标志。
         if worker.is_running() {
             if !silent {
                 app.push_line(
@@ -3232,13 +3236,31 @@ fn run_argv(
             }
             return;
         }
+        // 入队前清走上一条命令残留在 FFI 输出缓冲的行；残留并入回填文本，
+        // 不回显到输出区，避免跨命令帧间泄漏。
+        let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
+        let leftover: Vec<String> = drained.iter().map(|s| s.to_string()).collect();
         app.worker_output.clear();
-        worker.submit(argv.to_vec());
+        for line in &leftover {
+            app.worker_output.push_str(line);
+            app.worker_output.push('\n');
+        }
+        app.silent_refresh = silent;
+        if !silent {
+            let display = argv.join(" ");
+            app.push_line(format!("tc> {display}"), LineKind::Cmd);
+        }
+        worker.submit(argv.to_vec(), silent);
         app.follow_latest();
         return;
     }
 
     // 无 worker（测试桩 / 回退路径）：保持旧的同步执行。
+    app.silent_refresh = silent;
+    if !silent {
+        let display = argv.join(" ");
+        app.push_line(format!("tc> {display}"), LineKind::Cmd);
+    }
     run_argv_sync(app, run_command, output_drain, argv, silent);
 }
 
@@ -3371,7 +3393,8 @@ fn apply_job_result(app: &mut App, job: JobResult) {
     let drained_text = app.worker_output.clone();
     app.worker_output.clear();
 
-    if !app.silent_refresh {
+    // 结果消息是否回显以该作业自身的静默归属为准，不依赖可能被后续命令覆盖的全局标志。
+    if !job.silent {
         if job.code != 0 {
             if !job.message.is_empty() {
                 app.push_line(job.message, LineKind::Result);
@@ -4833,8 +4856,12 @@ mod tests {
         let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
         app.worker_output = "  alice   AliceA  @+\n  bob     BobB  away\n".to_string();
-        let job =
-            JobResult { code: 0, message: String::new(), argv: vec!["active_users".to_string()] };
+        let job = JobResult {
+            code: 0,
+            message: String::new(),
+            argv: vec!["active_users".to_string()],
+            silent: false,
+        };
         apply_job_result(&mut app, job);
         assert_eq!(app.members, vec!["AliceA".to_string(), "BobB".to_string()]);
         assert!(app.worker_output.is_empty());
@@ -4849,6 +4876,7 @@ mod tests {
             code: 0,
             message: String::new(),
             argv: vec!["join_freq".to_string(), "1.0".to_string()],
+            silent: false,
         };
         apply_job_result(&mut app, job);
         assert!(app.pending_roster, "successful join schedules a roster fetch");
@@ -4863,6 +4891,7 @@ mod tests {
             code: 1,
             message: "join failed".into(),
             argv: vec!["join_freq".to_string(), "1.0".to_string()],
+            silent: false,
         };
         apply_job_result(&mut app, job);
         assert!(!app.pending_roster);
