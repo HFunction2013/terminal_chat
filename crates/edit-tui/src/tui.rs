@@ -887,6 +887,13 @@ impl Tui {
         self.settling_want = (self.settling_have + 1).min(20);
     }
 
+    /// Force the next rendered frame to repaint the whole screen instead of
+    /// diffing against the previous frame. Used after returning from an external
+    /// TUI subprocess that overwrote the terminal.
+    pub fn force_full_redraw(&mut self) {
+        self.framebuffer.force_full_redraw();
+    }
+
     /// Renders the last frame into the framebuffer and returns the VT output.
     pub fn render<'a>(&mut self, arena: &'a Arena) -> BString<'a> {
         self.framebuffer.flip(self.size);
@@ -4467,5 +4474,42 @@ mod testing_harness_tests {
         assert!(on_a && !on_b, "cursor over area-a only");
         let (on_a, on_b) = hover(center_b);
         assert!(!on_a && on_b, "cursor over area-b only");
+    }
+
+    /// After returning from an external TUI subprocess the retained in-memory
+    /// frame no longer matches the terminal screen, so the next render must
+    /// repaint the whole screen instead of emitting an empty steady-state diff.
+    #[test]
+    fn force_full_redraw_emits_full_screen_output() {
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 40, height: 8 });
+
+        {
+            let mut ctx = tui.create_context(Some(Input::Resize(Size { width: 40, height: 8 })));
+            draw(&mut ctx);
+        }
+        while tui.needs_settling() {
+            let mut ctx = tui.create_context(None);
+            draw(&mut ctx);
+        }
+
+        let scratch = crate::arena::scratch_arena(None);
+        // Establish the front/back baseline frame.
+        let _first = tui.render(&scratch);
+        // Frame unchanged: steady-state diff emits almost nothing.
+        let steady = tui.render(&scratch);
+
+        tui.force_full_redraw();
+        let repaint = tui.render(&scratch);
+
+        assert!(
+            repaint.as_str().contains("H"),
+            "forced repaint repositions the cursor with a CUP sequence: {:?}",
+            repaint.as_str()
+        );
+        assert!(
+            repaint.len() > steady.len(),
+            "forced redraw emits more VT than the steady-state diff"
+        );
     }
 }

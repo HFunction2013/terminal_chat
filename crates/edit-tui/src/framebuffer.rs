@@ -114,6 +114,10 @@ pub struct Framebuffer {
     contrast_colors: [Cell<(StraightRgba, StraightRgba)>; CACHE_TABLE_SIZE],
     background_fill: StraightRgba,
     foreground_fill: StraightRgba,
+    /// The next render must repaint every cell, even if the in-memory frame is
+    /// unchanged. Set after returning from an external TUI subprocess, because
+    /// the on-screen content was overwritten while we were suspended.
+    dirty: bool,
 }
 
 impl Framebuffer {
@@ -132,6 +136,7 @@ impl Framebuffer {
                 CACHE_TABLE_SIZE],
             background_fill: DEFAULT_THEME[IndexedColor::Background as usize],
             foreground_fill: DEFAULT_THEME[IndexedColor::Foreground as usize],
+            dirty: false,
         }
     }
 
@@ -163,6 +168,16 @@ impl Framebuffer {
         }
     }
 
+    /// Mark the next render as a forced full redraw: every cell is repainted
+    /// instead of diffing against the previous frame.
+    ///
+    /// Call this after the terminal was handed to an external TUI subprocess and
+    /// we returned to our alternate screen; the on-screen content no longer
+    /// matches the retained in-memory frame.
+    pub fn force_full_redraw(&mut self) {
+        self.dirty = true;
+    }
+
     /// Begins a new frame with the given `size`.
     pub fn flip(&mut self, size: Size) {
         if size.is_empty() {
@@ -182,7 +197,16 @@ impl Framebuffer {
             front.fg_bitmap.fill(StraightRgba::from_rgba(0x01000000));
             // Trigger a cursor update as well, just to be sure.
             front.cursor = Cursor::new_invalid();
+        } else if self.dirty {
+            // Force the next render to treat every line as changed, matching the
+            // resize full-redraw hack above. The terminal screen was overwritten
+            // while an external subprocess owned it, so the diff against the old
+            // in-memory frame cannot be trusted.
+            let front = &mut self.buffers[self.frame_counter & 1];
+            front.fg_bitmap.fill(StraightRgba::from_rgba(0x01000000));
+            front.cursor = Cursor::new_invalid();
         }
+        self.dirty = false;
 
         self.frame_counter = self.frame_counter.wrapping_add(1);
 

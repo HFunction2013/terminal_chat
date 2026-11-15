@@ -1948,6 +1948,7 @@ fn event_loop(
     terminal_busy: Option<&TerminalBusyFn>,
 ) -> Result<()> {
     let groups = menu_groups();
+    let mut was_busy = false;
 
     loop {
         // 刷新状态栏快照：会话设置优先，未设置回退全局。
@@ -2016,6 +2017,13 @@ fn event_loop(
         // 外部 TUI 子进程占用终端期间：不读按键、不画帧、不写终端输出，
         // 把终端完全交给子进程；busy 复位后下一帧整屏重绘。
         let busy = terminal_busy.map(|f| unsafe { f() != 0 }).unwrap_or(false);
+
+        // 刚从外部 TUI 子进程恢复：期间终端屏被子进程覆盖，内存帧仍是挂起前的
+        // 旧帧，增量 diff 会误判整行未变而跳过输出。下一帧强制整屏重绘。
+        if was_busy && !busy {
+            tui.force_full_redraw();
+        }
+        was_busy = busy;
 
         // 读取一批输入（超时较短，便于定时拉取推送）。
         if !busy {
