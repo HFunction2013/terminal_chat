@@ -729,9 +729,6 @@ struct MenuGroup {
 /// 补全浮层最多同时可见的候选条数；超出部分靠窗口滚动跟随高亮。
 const COMPLETION_VIEW: usize = 5;
 
-/// 长文本信息弹窗（如 License）内容滚动区的可见行数。
-const INFO_SCROLL_HEIGHT: CoordType = 16;
-
 /// 输入框命令名补全候选（与 cli-standard 注册命令一致的静态子集）。
 const COMMAND_NAMES: &[&str] = &[
     "away",
@@ -1009,8 +1006,8 @@ enum Dialog {
     Form(FormDialog),
     /// 危险操作二次确认：确认后执行 `argv`，取消则丢弃。
     Confirm { message: String, argv: Vec<String> },
-    /// 内置信息展示弹窗：标题 + 多行内容 + Close；`scroll` 为真时内容区可滚动。
-    Info { title: String, lines: Vec<String>, scroll: bool },
+    /// 内置信息展示弹窗：标题 + 多行内容 + Close；内容按弹窗宽度平铺展示。
+    Info { title: String, lines: Vec<String> },
 }
 
 /// 通用命令表单弹窗状态。
@@ -1287,8 +1284,8 @@ impl App {
     }
 
     /// 打开内置信息展示弹窗（帮助 / 关于 / 版权 / 许可）。
-    fn open_info(&mut self, title: String, lines: Vec<String>, scroll: bool) {
-        self.dialog = Some(Dialog::Info { title, lines, scroll });
+    fn open_info(&mut self, title: String, lines: Vec<String>) {
+        self.dialog = Some(Dialog::Info { title, lines });
     }
 
     /// 返回弹窗当前阶段正在编辑的文本缓冲。
@@ -2299,27 +2296,17 @@ fn draw_dialog(
     }
 
     // 内置信息展示弹窗：纯文本 + Close，无文本输入。
-    if let Dialog::Info { title, lines, scroll } = app.dialog.as_ref().unwrap() {
+    if let Dialog::Info { title, lines } = app.dialog.as_ref().unwrap() {
         ctx.modal_begin("info-dialog", title);
         ctx.block_begin("content");
         ctx.inherit_focus();
         ctx.attr_padding(Rect::three(1, 2, 1));
 
-        // 长文本（如 LICENSE）包进固定高度滚动区；短文本直接逐行展示。
-        // 同一父节点下每行 classname 相同，用 `next_block_id_mixin` 区分节点 ID。
-        if *scroll {
-            ctx.scrollarea_begin("info-body", Size { width: 0, height: INFO_SCROLL_HEIGHT });
-            ctx.scrollarea_scroll_to(Point { x: 0, y: 0 });
-            for (i, line) in lines.iter().enumerate() {
-                ctx.next_block_id_mixin(i as u64);
-                ctx.label("info-line", line);
-            }
-            ctx.scrollarea_end();
-        } else {
-            for (i, line) in lines.iter().enumerate() {
-                ctx.next_block_id_mixin(i as u64);
-                ctx.label("info-line", line);
-            }
+        // 内容逐行平铺展示，不进滚动区；同一父节点下每行 classname 相同，
+        // 用 `next_block_id_mixin` 区分节点 ID。
+        for (i, line) in lines.iter().enumerate() {
+            ctx.next_block_id_mixin(i as u64);
+            ctx.label("info-line", line);
         }
 
         let closed = ctx.button("info-close", "Close", ButtonStyle::default());
@@ -2497,12 +2484,12 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         }
         "version" => {
             let lines = crate::welcome_text(false).lines().map(String::from).collect();
-            app.open_info("About".to_string(), lines, false);
+            app.open_info("About".to_string(), lines);
             true
         }
         "build_info" => {
             let lines = crate::build_info_text().lines().map(String::from).collect();
-            app.open_info("Build Info".to_string(), lines, false);
+            app.open_info("Build Info".to_string(), lines);
             true
         }
         "about" => {
@@ -2510,16 +2497,16 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
                 crate::welcome_text(false).lines().map(String::from).collect();
             lines.push(String::new());
             lines.extend(crate::build_info_text().lines().map(String::from));
-            app.open_info("About".to_string(), lines, false);
+            app.open_info("About".to_string(), lines);
             true
         }
         "copyright" => {
-            app.open_info("Copyright".to_string(), vec![crate::copyright_text()], false);
+            app.open_info("Copyright".to_string(), vec![crate::copyright_text()]);
             true
         }
         "license" => {
             let lines: Vec<String> = crate::license_text().lines().map(String::from).collect();
-            app.open_info("License".to_string(), lines, true);
+            app.open_info("License".to_string(), lines);
             true
         }
         "coffee" => {
@@ -2538,7 +2525,7 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         },
         "help" => {
             let lines: Vec<String> = builtin_help_lines().into_iter().map(String::from).collect();
-            app.open_info("Help".to_string(), lines, false);
+            app.open_info("Help".to_string(), lines);
             true
         }
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
@@ -3357,10 +3344,9 @@ mod tests {
         let before = app.log.len();
         assert!(try_builtin(&mut app, &["help".to_string()]));
         match &app.dialog {
-            Some(Dialog::Info { title, lines, scroll }) => {
+            Some(Dialog::Info { title, lines }) => {
                 assert_eq!(title, "Help");
                 assert!(!lines.is_empty());
-                assert!(!scroll);
             }
             _ => panic!("expected Info dialog"),
         }
@@ -3369,16 +3355,15 @@ mod tests {
     }
 
     #[test]
-    fn builtin_license_opens_scrollable_dialog() {
+    fn builtin_license_opens_plain_dialog() {
         let mut app = App::new();
         assert!(try_builtin(&mut app, &["license".to_string()]));
         match &app.dialog {
-            Some(Dialog::Info { title, lines, scroll }) => {
+            Some(Dialog::Info { title, lines }) => {
                 assert_eq!(title, "License");
-                assert!(*scroll, "license dialog must be scrollable");
                 assert!(!lines.is_empty());
             }
-            _ => panic!("expected scrollable Info dialog"),
+            _ => panic!("expected Info dialog"),
         }
     }
 
@@ -4005,7 +3990,7 @@ mod tests {
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
         let groups = menu_groups();
-        app.open_info("Info".into(), vec!["hello world".into()], false);
+        app.open_info("Info".into(), vec!["hello world".into()]);
         draw(
             &mut tui,
             Some(Input::Resize(Size { width: 80, height: 24 })),
@@ -4043,7 +4028,7 @@ mod tests {
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
         let groups = menu_groups();
-        app.open_info("Info".into(), vec!["hello world".into()], false);
+        app.open_info("Info".into(), vec!["hello world".into()]);
         draw(
             &mut tui,
             Some(Input::Resize(Size { width: 80, height: 24 })),
