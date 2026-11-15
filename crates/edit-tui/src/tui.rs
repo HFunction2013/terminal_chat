@@ -1858,6 +1858,19 @@ impl<'a> Context<'a, '_> {
         self.tui.was_mouse_down_on_subtree(&last_node)
     }
 
+    /// Whether the hovered node, or any ancestor on its hover path, carries the
+    /// given classname. Used to route hover-sensitive input (e.g. the wheel) to
+    /// the popup under the cursor instead of the whole window.
+    pub fn hover_in_classname(&self, classname: &str) -> bool {
+        self.tui.mouse_hover_node_path.iter().any(|&id| {
+            self.tui
+                .prev_node_map
+                .get(id)
+                .map(|n| n.borrow().classname == classname)
+                .unwrap_or(false)
+        })
+    }
+
     /// Returns whether the current node is focused.
     pub fn is_focused(&mut self) -> bool {
         let last_node = self.tree.last_node.borrow();
@@ -4374,5 +4387,59 @@ mod testing_harness_tests {
             draw(&mut ctx);
         }
         assert!(!tui.testing_nodes().is_empty());
+    }
+
+    /// `hover_in_classname` reports only the subtree under the cursor, so hover-
+    /// sensitive input (e.g. the wheel) can be routed to the popup under the mouse
+    /// instead of the whole window.
+    #[test]
+    fn hover_in_classname_follows_cursor() {
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+
+        let draw_two = |ctx: &mut Context| {
+            ctx.block_begin("area-a");
+            ctx.attr_intrinsic_size(Size { width: 80, height: 8 });
+            ctx.label("a-label", "AAAA");
+            ctx.block_end();
+            ctx.block_begin("area-b");
+            ctx.attr_intrinsic_size(Size { width: 80, height: 8 });
+            ctx.label("b-label", "BBBB");
+            ctx.block_end();
+        };
+
+        {
+            let mut ctx = tui.create_context(Some(Input::Resize(Size { width: 80, height: 24 })));
+            draw_two(&mut ctx);
+        }
+        while tui.needs_settling() {
+            let mut ctx = tui.create_context(None);
+            draw_two(&mut ctx);
+        }
+
+        let a = tui.testing_find("area-a");
+        let center_a = Point { x: a[0].x + a[0].width / 2, y: a[0].y + a[0].height / 2 };
+        let b = tui.testing_find("area-b");
+        let center_b = Point { x: b[0].x + b[0].width / 2, y: b[0].y + b[0].height / 2 };
+
+        let mut hover = |pos: Point| {
+            let mouse = InputMouse {
+                state: InputMouseState::None,
+                modifiers: kbmod::NONE,
+                position: pos,
+                scroll: Point { x: 0, y: 0 },
+                drag: false,
+            };
+            let mut ctx = tui.create_context(Some(Input::Mouse(mouse)));
+            let on_a = ctx.hover_in_classname("area-a");
+            let on_b = ctx.hover_in_classname("area-b");
+            draw_two(&mut ctx);
+            (on_a, on_b)
+        };
+
+        let (on_a, on_b) = hover(center_a);
+        assert!(on_a && !on_b, "cursor over area-a only");
+        let (on_a, on_b) = hover(center_b);
+        assert!(!on_a && on_b, "cursor over area-b only");
     }
 }

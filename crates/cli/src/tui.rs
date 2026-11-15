@@ -795,7 +795,6 @@ const COMMAND_NAMES: &[&str] = &[
     "run",
     "schedule",
     "schedule_msg",
-    "session",
     "sessions",
     "set",
     "setg",
@@ -1519,7 +1518,21 @@ impl App {
                     self.current_freq = Some(f.clone());
                 }
             }
-            "leave_freq" | "disband" => self.current_freq = None,
+            "leave_freq" | "disband" | "background" => self.current_freq = None,
+            // `sessions -i <freq>` 切换到后台频点；回填目标频点快照。
+            "sessions" => {
+                let mut it = argv.iter().skip(1);
+                while let Some(arg) = it.next() {
+                    match arg.as_str() {
+                        "-i" | "--interact" => {
+                            if let Some(f) = it.next() {
+                                self.current_freq = Some(f.clone());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -1627,8 +1640,19 @@ fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
                 FieldKind::Plain
             }
         }
-        // 其余参数按成员名补全。
-        _ => FieldKind::Member,
+        // 成员命令：第 1 参为用户名/昵称。
+        "call" | "kick" | "ban" | "unban" | "op" | "deop" | "trop" | "mute" | "unmute"
+        | "ignore" | "unignore" | "user_info" => FieldKind::Member,
+        // msg：第 1 参为接收成员列表，其后为自由文本消息。
+        "msg" => {
+            if arg_index == 1 {
+                FieldKind::Member
+            } else {
+                FieldKind::Plain
+            }
+        }
+        // 其余命令的参数为状态词 / 主机端口 / 自由文本或无参，不补全成员名。
+        _ => FieldKind::Plain,
     }
 }
 
@@ -1972,15 +1996,12 @@ fn draw(
 ) {
     let ctx = &mut tui.create_context(input);
 
-    // 滚轮必须在任何框架节点消费之前读取：否则聊天 scrollarea 会先把
-    // delta 累加进自身内部偏移并标记 consumed，这里后置读取拿到 0，App 的
-    // follow/scroll_y 不再增长；每帧 scroll_to 又覆盖内部偏移，表现为滚不动。
-    // 先消费 delta 转为 App 滚动状态，框架后续节点见到 consumed 便不再自行累加。
-    // 滚轮归属：候选浮层可见时滚动候选（无需先用方向键激活）；否则聊天记录翻页。
-    // 框架约定：`y < 0` 向上滚（高亮上移），`y > 0` 向下滚（高亮下移）。弹窗打开时
-    // 聊天记录不响应滚轮。
+    // 滚轮归属：只有鼠标悬停在候选浮层内时才滚动候选；悬停在聊天输出区则
+    // 翻聊天记录。弹窗打开时聊天记录不响应滚轮。
+    // 框架约定：`y < 0` 向上滚（高亮上移），`y > 0` 向下滚（高亮下移）。
     let wheel = ctx.scroll_delta();
-    if app.dialog.is_none() && !app.completions.is_empty() {
+    let hovering_suggestions = !app.completions.is_empty() && ctx.hover_in_classname("suggestions");
+    if app.dialog.is_none() && hovering_suggestions {
         if wheel.y < 0 {
             app.completion_active = true;
             app.cycle_completion(-1);
@@ -3782,6 +3803,12 @@ mod tests {
         assert_eq!(kind_for_command_arg("download", 2), FieldKind::LocalPath);
         assert_eq!(kind_for_command_arg("lcd", 1), FieldKind::LocalPath);
         assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
+        assert_eq!(kind_for_command_arg("msg", 2), FieldKind::Plain);
+        assert_eq!(kind_for_command_arg("kick", 1), FieldKind::Member);
+        // 状态词 / 自由文本 / 无参命令不得补全成员名。
+        assert_eq!(kind_for_command_arg("away", 1), FieldKind::Plain);
+        assert_eq!(kind_for_command_arg("reply", 1), FieldKind::Plain);
+        assert_eq!(kind_for_command_arg("status", 1), FieldKind::Plain);
     }
 
     #[test]
@@ -4244,5 +4271,96 @@ mod tests {
         let cmd = tui.testing_find("cmd");
         assert!(!cmd.is_empty(), "input box rendered");
         assert!(cmd.iter().any(|n| n.focused), "focus returned to the input box");
+    }
+
+    /// Pressing Enter on the focused Confirm button must confirm the dialog.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn enter_on_confirm_button_confirms_dialog() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.open_confirm("Really kick alice?".into(), vec!["kick".into(), "alice".into()]);
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(app.dialog.is_some(), "confirm dialog rendered");
+        let btn = tui.testing_find("confirm-ok");
+        assert!(btn.iter().any(|n| n.focused), "confirm button leaf owns focus");
+
+        draw(
+            &mut tui,
+            Some(Input::Keyboard(vk::RETURN)),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(app.dialog.is_none(), "Enter activated the Confirm button");
+    }
+
+    /// Clicking the Confirm button with the mouse must confirm the dialog.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn mouse_click_on_confirm_button_confirms_dialog() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 80, height: 24 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.open_confirm("Really kick alice?".into(), vec!["kick".into(), "alice".into()]);
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 80, height: 24 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        let btn = tui.testing_find("confirm-ok");
+        let center = Point { x: btn[0].x + btn[0].width / 2, y: btn[0].y + btn[0].height / 2 };
+        let down = input::InputMouse {
+            state: input::InputMouseState::Left,
+            modifiers: kbmod::NONE,
+            position: center,
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+        draw(&mut tui, Some(Input::Mouse(down)), &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        let up = input::InputMouse {
+            state: input::InputMouseState::None,
+            modifiers: kbmod::NONE,
+            position: center,
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+        draw(&mut tui, Some(Input::Mouse(up)), &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(app.dialog.is_none(), "mouse click activated the Confirm button");
     }
 }

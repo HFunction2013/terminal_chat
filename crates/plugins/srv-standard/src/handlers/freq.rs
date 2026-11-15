@@ -111,6 +111,8 @@ pub(crate) fn handle_join_freq(
         };
     }
     if room.members.contains_key(&sender) {
+        // 已在目标频点：校正当前频点上下文（可能因之前的挂起/切换残留漂移）。
+        state.users.get_mut(&sender).unwrap().freq = req.freq.clone();
         return JoinFreqResponse {
             status: S::FreqIdle as i32,
             message: format!("already in freq `{}`", req.freq),
@@ -119,6 +121,14 @@ pub(crate) fn handle_join_freq(
     let now = now_ts();
     let count;
     {
+        // 一个用户同时只属于一个频点：加入新频点前，先从旧频点成员列表移除，
+        // 避免旧频点成员残留导致 active_users 仍按旧频点返回。
+        if let Some(old_freq) = user_freq(&state, &sender)
+            && old_freq != req.freq
+            && let Some(old_room) = state.freqs.get_mut(&old_freq)
+        {
+            old_room.members.remove(&sender);
+        }
         let room = state.freqs.get_mut(&req.freq).expect("checked above");
         room.members.insert(
             sender.clone(),
