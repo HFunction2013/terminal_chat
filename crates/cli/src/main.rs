@@ -133,6 +133,7 @@ fn install_ctrlc_handler() {
 
 mod tasks;
 mod tui;
+mod ui_registry;
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
