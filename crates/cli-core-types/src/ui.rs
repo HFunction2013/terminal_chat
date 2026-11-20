@@ -4,6 +4,10 @@
 //! 因此注册表的条目结构保留在 cli-core 内部；跨 FFI 注册原语只传标量 / 字符串，
 //! 查询经 `Out<Vec<String>>` 出参回传扁平记录行。本模块只承载动作 / 补全类别的序号。
 
+/// 底部状态栏片段逐帧回调：返回当前帧要追加的片段文本；空串表示本帧无片段。
+/// 未注册回调的插件不参与逐帧查询，避免无谓调用。
+pub type BottomFragmentFn = unsafe extern "C" fn() -> safer_ffi::String;
+
 /// 菜单项动作类别：直接执行命令行 / 弹出参数表单。
 pub mod ui_action_kind {
     pub const RUN: i32 = 0;

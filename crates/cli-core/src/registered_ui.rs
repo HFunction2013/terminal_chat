@@ -9,6 +9,7 @@
 
 use ::safer_ffi::prelude::*;
 use cli_core_types::Result;
+use cli_core_types::ui::BottomFragmentFn;
 use hook_macro::register_hook;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -59,10 +60,11 @@ struct SideSection {
     source: String,
 }
 
-/// 侧栏小项。
+/// 侧栏小项（条目模板：归属栏目 + 前缀符号 + 内容；动态条目内容由宿主快照回填）。
 #[derive(Clone, Debug, PartialEq)]
 struct SideItem {
     section: String,
+    prefix: String,
     label: String,
 }
 
@@ -72,6 +74,9 @@ static FORM_SPECS: LazyLock<Mutex<HashMap<String, FormSpec>>> =
 static SIDE_SECTIONS: LazyLock<Mutex<Vec<SideSection>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 static SIDE_ITEMS: LazyLock<Mutex<Vec<SideItem>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 static BOTTOM_FRAGMENTS: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+/// 底部片段逐帧回调表；宿主查询时逐个调用取当前文本。
+static BOTTOM_FRAGMENT_FNS: LazyLock<Mutex<Vec<BottomFragmentFn>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
 
 /// 拆分命令行字符串为参数（空白分隔）。
 fn split_argv(argv: &str) -> Vec<String> {
@@ -168,10 +173,18 @@ fn register_side_section(
     Result::success()
 }
 
-/// 往指定大项下登记一个侧栏小项。
+/// 往指定大项下登记一个侧栏条目模板：归属栏目 + 前缀符号 + 内容占位。
 #[register_hook]
-fn register_side_item(section: &safer_ffi::String, label: &safer_ffi::String) -> Result {
-    let item = SideItem { section: section.to_string(), label: label.to_string() };
+fn register_side_item(
+    section: &safer_ffi::String,
+    prefix: &safer_ffi::String,
+    label: &safer_ffi::String,
+) -> Result {
+    let item = SideItem {
+        section: section.to_string(),
+        prefix: prefix.to_string(),
+        label: label.to_string(),
+    };
     let mut items = SIDE_ITEMS.lock().unwrap();
     if !items.iter().any(|existing| existing == &item) {
         items.push(item);
@@ -185,6 +198,17 @@ fn register_bottom(label: &safer_ffi::String) -> Result {
     let mut fragments = BOTTOM_FRAGMENTS.lock().unwrap();
     if !fragments.iter().any(|f| f == &label.to_string()) {
         fragments.push(label.to_string());
+    }
+    Result::success()
+}
+
+/// 登记一个底部片段逐帧回调；宿主查询时调用已注册回调取当前片段文本。
+/// 未注册回调的插件不参与逐帧查询。
+#[register_hook]
+fn register_bottom_callback(cb: &BottomFragmentFn) -> Result {
+    let mut fns = BOTTOM_FRAGMENT_FNS.lock().unwrap();
+    if !fns.iter().any(|existing| std::ptr::fn_addr_eq(*existing, *cb)) {
+        fns.push(*cb);
     }
     Result::success()
 }
@@ -227,23 +251,30 @@ fn get_side_sections(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Re
     Result::success()
 }
 
-/// 列出全部已注册侧栏小项；每行 `section|label`。
+/// 列出全部已注册侧栏条目模板；每行 `section|prefix|label`。
 #[register_hook]
 fn get_side_items(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result {
     let items = SIDE_ITEMS.lock().unwrap();
-    let rows: Vec<String> = items.iter().map(|i| format!("{}|{}", i.section, i.label)).collect();
+    let rows: Vec<String> =
+        items.iter().map(|i| format!("{}|{}|{}", i.section, i.prefix, i.label)).collect();
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
         rows.into_iter().map(|r| r.into()).collect::<Vec<_>>().into();
     out.write(vec);
     Result::success()
 }
 
-/// 列出全部已注册底部片段；每行 `label`。
+/// 列出全部已注册底部片段：静态登记文本 + 各逐帧回调当前返回的非空文本；每行 `label`。
 #[register_hook]
 fn get_bottom_fragments(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result {
-    let fragments = BOTTOM_FRAGMENTS.lock().unwrap();
+    let mut rows: Vec<String> = BOTTOM_FRAGMENTS.lock().unwrap().clone();
+    for cb in BOTTOM_FRAGMENT_FNS.lock().unwrap().iter() {
+        let text = unsafe { cb() }.to_string();
+        if !text.trim().is_empty() {
+            rows.push(text);
+        }
+    }
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
-        fragments.iter().map(|f| f.as_str().into()).collect::<Vec<_>>().into();
+        rows.into_iter().map(|r| r.into()).collect::<Vec<_>>().into();
     out.write(vec);
     Result::success()
 }
