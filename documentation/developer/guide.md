@@ -215,5 +215,5 @@ A server plugin does not implement `run_command`. In `on_init_plugin` it opens `
 
 - Re-read the [FFI contract](plugin-contract.md) for metadata fields and return codes.
 - Look up specific hooks in [hooks.md](hooks.md).
-- Start from `crates/plugins/example`: the smallest compilable client plugin. It registers one namespace (`example`) with a single `hello [who]` command and registers one example option in `on_init_plugin`; read it to understand the cdylib skeleton, metadata, and dispatch before opening the full reference.
+- Start from `crates/plugins/example`: the smallest compilable client plugin. It registers one namespace (`example`) with a single `hello [who]` command (declared as the custom `GREETING_NAME` type), registers one example option in `on_init_plugin`, and exports the optional `tc_complete_arg` callback that supplies candidates for that custom concept; read it to understand the cdylib skeleton, metadata, dispatch, and completion hook before opening the full reference.
 - Study `cli-standard` for a complete reference: command dispatch, forms, sidebar, status bar, remote RPC calls, and completion sources.
