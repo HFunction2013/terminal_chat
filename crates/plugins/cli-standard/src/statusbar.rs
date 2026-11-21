@@ -1,8 +1,8 @@
 //! 底部状态栏整行回调登记（#90，批次 4b）。
 //!
-//! 插件登记一个逐帧底部回调：读取选项中的用户名 / 服务器 / 端口 / 静音态，经
-//! `get_current_freq` 读取当前频点，拼成与原内置状态栏一致的整行文本返回宿主。
-//! 宿主只渲染回调文本；过渡期无回调时回退内置硬编码整行（见 #150）。
+//! 插件登记一个逐帧底部回调：会话优先读取用户名 / 服务器 / 端口 / 静音态（空串
+//! 回退全局），经 `get_current_freq` 读取当前频点，拼成与原内置状态栏一致的整行
+//! 文本返回宿主。宿主只渲染回调文本。
 
 use crate::LIB;
 use libloading::Library;
@@ -29,6 +29,27 @@ fn read_global(key: &str) -> Option<String> {
     match ManuallyDrop::into_inner(buf) {
         TaggedOption::Some(v) => Some(v.to_string()),
         TaggedOption::None => None,
+    }
+}
+
+/// 经 coreapi 读取一个会话选项；未设置或调用失败返回 `None`。
+fn read_session(key: &str) -> Option<String> {
+    let lib = LIB.get().expect("`cli-core` not initialized");
+    cli_core_macros::load_core_symbols!(lib, get_session_option);
+    let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
+        ManuallyDrop::new(TaggedOption::None);
+    let _res = get_session_option(&key.into(), Out::from(&mut buf));
+    match ManuallyDrop::into_inner(buf) {
+        TaggedOption::Some(v) => Some(v.to_string()),
+        TaggedOption::None => None,
+    }
+}
+
+/// 会话优先、空串不盖全局真值；对齐宿主 `opt_get_effective` 口径。
+fn read_effective(key: &str) -> String {
+    match read_session(key) {
+        Some(v) if !v.is_empty() => v,
+        _ => read_global(key).unwrap_or_default(),
     }
 }
 
@@ -68,10 +89,10 @@ fn compose_status_line(
 
 /// 逐帧底部回调：取当前状态拼成整行文本；空串表示本帧无片段。
 pub unsafe extern "C" fn status_bar_callback() -> safer_ffi::String {
-    let username = read_global("USERNAME").unwrap_or_default();
-    let server = read_global("SERVER").unwrap_or_default();
-    let port = read_global("PORT").unwrap_or_default();
-    let quiet = is_truthy(&read_global("QUIET").unwrap_or_default());
+    let username = read_effective("USERNAME");
+    let server = read_effective("SERVER");
+    let port = read_effective("PORT");
+    let quiet = is_truthy(&read_effective("QUIET"));
     let freq = read_freq().unwrap_or_else(|| "-".to_string());
     let ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     compose_status_line(&username, &server, &port, quiet, &freq, ts).into()

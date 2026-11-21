@@ -8,7 +8,7 @@
 //! ├──────────────┴──────────────────────────────────────┤
 //! │ > 正在输入...                                        │  ← 输入框
 //! ├──────────────────────────────────────────────────────┤
-//! │ user@server:port | freq | QUIET | ...               │  ← 状态栏
+//! │ 状态栏（整行由插件底部回调生成，宿主只渲染）            │
 //! └──────────────────────────────────────────────────────┘
 //! ```
 //!
@@ -593,11 +593,9 @@ struct App {
     side_items: Vec<ui_registry::RegSideItem>,
     /// 注册表栏目壳折叠态，按段 id 存取；缺省取段壳 `default_open`。
     side_open: HashMap<String, bool>,
-    /// 状态栏快照（来自全局选项）。
+    /// 连接态快照（来自全局 / 会话选项）。
     username: String,
     server: String,
-    port: String,
-    quiet: bool,
     /// 优先命令行：`PREFER_COMMAND_LINE` 为真值时，表单动作退回输入框预填。
     prefer_cli: bool,
     /// 后台命令 worker；`None` 时退回同步执行（测试桩 / 回退路径）。
@@ -657,8 +655,6 @@ impl App {
             side_open: HashMap::new(),
             username: String::new(),
             server: String::new(),
-            port: String::new(),
-            quiet: false,
             prefer_cli: false,
             worker: None,
             worker_output: String::new(),
@@ -1404,13 +1400,6 @@ fn looks_like_summary_line(t: &str) -> bool {
             .unwrap_or(false)
 }
 
-fn now_ts() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
 fn opt_get(get: &GetOptionFn, key: &str) -> String {
     let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
         ManuallyDrop::new(TaggedOption::None);
@@ -1447,10 +1436,6 @@ fn is_truthy(v: &str) -> bool {
         v.trim().to_lowercase().as_str(),
         "on" | "true" | "1" | "yes" | "y" | "enabled" | "enable"
     )
-}
-
-fn is_quiet(v: &str) -> bool {
-    is_truthy(v)
 }
 
 /// 终端模式恢复：退出时写回 alt screen / 鼠标 / 粘贴模式。
@@ -1586,11 +1571,9 @@ fn event_loop(
     let mut was_busy = false;
 
     loop {
-        // 刷新状态栏快照：会话设置优先，未设置回退全局。
+        // 刷新连接态快照：会话设置优先，未设置回退全局。
         app.username = opt_get_effective(get_session, get_option, "USERNAME");
         app.server = opt_get_effective(get_session, get_option, "SERVER");
-        app.port = opt_get_effective(get_session, get_option, "PORT");
-        app.quiet = is_quiet(&opt_get_effective(get_session, get_option, "QUIET"));
         app.prefer_cli =
             is_truthy(&opt_get_effective(get_session, get_option, "PREFER_COMMAND_LINE"));
         app.refresh_registered_options();
@@ -2149,23 +2132,9 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
 }
 
 fn draw_status(ctx: &mut Context, app: &App) {
-    // 插件已登记底部回调时，整行文本由插件按当前状态生成；过渡期无回调则回退
-    // 内置硬编码整行（见 #150 删硬编码）。
-    let text = if !app.bottom_fragments.is_empty() {
-        app.bottom_fragments.join(" | ")
-    } else {
-        let who = if app.username.is_empty() { "guest" } else { &app.username };
-        let host = if app.server.is_empty() {
-            "offline".to_string()
-        } else if app.port.is_empty() {
-            app.server.clone()
-        } else {
-            format!("{}:{}", app.server, app.port)
-        };
-        let freq = app.current_freq.clone().unwrap_or_else(|| "-".to_string());
-        let quiet = if app.quiet { "QUIET" } else { "sound" };
-        format!("{who}@{host} | freq {freq} | {quiet} | {}", now_ts())
-    };
+    // 整行文本由插件底部回调按当前状态生成（静态片段 + 逐帧回调返回值）；
+    // 宿主只负责拼接渲染，不再内置拼接 who@host / freq / quiet / 时间戳。
+    let text = app.bottom_fragments.join(" | ");
 
     ctx.table_begin("status");
     ctx.attr_focus_well();
@@ -3763,6 +3732,7 @@ mod tests {
 
     #[test]
     fn missing_arg_command_opens_form_when_not_prefer_cli() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         *STUB_FORM_CMDS.lock().unwrap() = vec!["upload".to_string()];
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
@@ -3780,6 +3750,7 @@ mod tests {
 
     #[test]
     fn missing_arg_command_skips_form_when_prefer_cli() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
         app.prefer_cli = true;
@@ -3809,6 +3780,7 @@ mod tests {
 
     #[test]
     fn command_with_args_does_not_open_form() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
         let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
