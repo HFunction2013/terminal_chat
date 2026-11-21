@@ -579,6 +579,8 @@ struct App {
     plugins: Vec<PluginEntry>,
     /// 待拉取一次插件列表；空闲时投递 `plugin list`。
     pending_plugins: bool,
+    /// 插件 / 命名空间装载或卸载后，待从 core 注册表重拉菜单组与侧栏栏目 / 条目模板。
+    pending_ui: bool,
     /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
@@ -652,6 +654,7 @@ impl App {
             pending_sessions: false,
             plugins: Vec::new(),
             pending_plugins: true,
+            pending_ui: false,
             remote_list_dir: None,
             is_connected: None,
             set_interrupted: None,
@@ -1575,6 +1578,8 @@ pub fn run(
         get_menu_items,
         get_form_spec,
         get_bottom_fragments,
+        get_side_sections,
+        get_side_items,
     );
 
     res
@@ -1594,8 +1599,10 @@ fn event_loop(
     get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
     get_form_spec: Option<&ui_registry::GetFormSpecFn>,
     get_bottom_fragments: Option<&ui_registry::GetBottomFragmentsFn>,
+    get_side_sections: Option<&ui_registry::GetSideSectionsFn>,
+    get_side_items: Option<&ui_registry::GetSideItemsFn>,
 ) -> Result<()> {
-    let groups = resolve_groups(get_menu_items, get_form_spec);
+    let mut groups = resolve_groups(get_menu_items, get_form_spec);
     let mut was_busy = false;
 
     loop {
@@ -1686,6 +1693,21 @@ fn event_loop(
                     &["plugin".to_string(), "list".to_string()],
                     true,
                 );
+            }
+        }
+
+        // 插件 / 命名空间装载或卸载后，重读 core 注册表：重建菜单组、重拉侧栏栏目 /
+        // 条目模板并补齐栏目默认折叠态。worker 仍忙则保留标志，下一帧空闲时再刷新。
+        if app.pending_ui {
+            let idle = app.worker.as_ref().map(|w| !w.is_running()).unwrap_or(true);
+            if idle {
+                app.pending_ui = false;
+                app.side_sections = ui_registry::fetch_side_sections(get_side_sections);
+                app.side_items = ui_registry::fetch_side_items(get_side_items);
+                for section in &app.side_sections {
+                    app.side_open.entry(section.id.clone()).or_insert(section.default_open);
+                }
+                groups = resolve_groups(get_menu_items, get_form_spec);
             }
         }
 
@@ -2930,9 +2952,11 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
     if is_plugin_list {
         app.reconcile_plugins(drained_text);
     }
-    // 插件 / 命名空间装载或卸载成功后，重拉插件列表刷新侧栏分组。
+    // 插件 / 命名空间装载或卸载成功后，重拉插件列表刷新侧栏分组，并重读 core
+    // 注册表刷新菜单组与侧栏栏目 / 条目模板（卸载插件注册项已在 core 侧注销）。
     if success && matches!(cmd, "plugin" | "namespace" | "load" | "unload") {
         app.pending_plugins = true;
+        app.pending_ui = true;
     }
     // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。
     if matches!(cmd, "join_freq" | "create_freq") {
@@ -4925,6 +4949,7 @@ mod tests {
             let mut app = App::new();
             apply_member_side_effects(&mut app, &[cmd.to_string(), "x".into()], "", true);
             assert!(app.pending_plugins, "{cmd} should refetch the plugin list");
+            assert!(app.pending_ui, "{cmd} should re-read the menu/sidebar registry");
         }
     }
 
@@ -4939,6 +4964,7 @@ mod tests {
             false,
         );
         assert!(!app.pending_plugins);
+        assert!(!app.pending_ui);
     }
 
     #[test]
