@@ -31,6 +31,7 @@ struct FormSpec {
     cmd: String,
     prefill: String,
     fields: Vec<FormField>,
+    owner: String,
 }
 
 /// 菜单项动作。
@@ -49,6 +50,7 @@ struct MenuItem {
     group: String,
     accel: String,
     action: MenuAction,
+    owner: String,
 }
 
 /// 侧栏可折叠大项（栏目壳）。
@@ -58,6 +60,7 @@ struct SideSection {
     title: String,
     default_open: bool,
     source: String,
+    owner: String,
 }
 
 /// 侧栏小项（条目模板：归属栏目 + 前缀符号 + 内容占位；动态条目内容由宿主快照回填）。
@@ -70,6 +73,7 @@ struct SideItem {
     label: String,
     highlight: bool,
     line: i32,
+    owner: String,
 }
 
 static MENU_ITEMS: LazyLock<Mutex<Vec<MenuItem>>> = LazyLock::new(|| Mutex::new(Vec::new()));
@@ -77,9 +81,10 @@ static FORM_SPECS: LazyLock<Mutex<HashMap<String, FormSpec>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static SIDE_SECTIONS: LazyLock<Mutex<Vec<SideSection>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 static SIDE_ITEMS: LazyLock<Mutex<Vec<SideItem>>> = LazyLock::new(|| Mutex::new(Vec::new()));
-static BOTTOM_FRAGMENTS: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
-/// 底部片段逐帧回调表；宿主查询时逐个调用取当前文本。
-static BOTTOM_FRAGMENT_FNS: LazyLock<Mutex<Vec<BottomFragmentFn>>> =
+static BOTTOM_FRAGMENTS: LazyLock<Mutex<Vec<(String, String)>>> =
+    LazyLock::new(|| Mutex::new(Vec::new()));
+/// 底部片段逐帧回调表：(回调, 归属插件名)；宿主查询时逐个调用取当前文本。
+static BOTTOM_FRAGMENT_FNS: LazyLock<Mutex<Vec<(BottomFragmentFn, String)>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 
 /// 拆分命令行字符串为参数（空白分隔）。
@@ -107,11 +112,13 @@ fn register_menu_item(
     } else {
         MenuAction::Run(split_argv(&argv.to_string()))
     };
+    let owner = crate::plugins::current_owner().unwrap_or_default();
     let item = MenuItem {
         label: label.to_string(),
         group: group.to_string(),
         accel: accel.to_string(),
         action,
+        owner,
     };
     let mut items = MENU_ITEMS.lock().unwrap();
     if !items.iter().any(|existing| existing == &item) {
@@ -133,6 +140,7 @@ fn register_form_spec(
     spec.title = title.to_string();
     spec.cmd = cmd.to_string();
     spec.prefill = prefill.to_string();
+    spec.owner = crate::plugins::current_owner().unwrap_or_default();
     Result::success()
 }
 
@@ -147,6 +155,9 @@ fn register_form_field(
 ) -> Result {
     let mut specs = FORM_SPECS.lock().unwrap();
     let spec = specs.entry(form_cmd.to_string()).or_default();
+    if spec.owner.is_empty() {
+        spec.owner = crate::plugins::current_owner().unwrap_or_default();
+    }
     spec.fields.push(FormField {
         label: label.to_string(),
         required: *required != 0,
@@ -169,6 +180,7 @@ fn register_side_section(
         title: title.to_string(),
         default_open: *default_open != 0,
         source: source.to_string(),
+        owner: crate::plugins::current_owner().unwrap_or_default(),
     };
     let mut sections = SIDE_SECTIONS.lock().unwrap();
     if !sections.iter().any(|s| s.id == section.id) {
@@ -193,6 +205,7 @@ fn register_side_item(
         label: label.to_string(),
         highlight: *highlight != 0,
         line: *line,
+        owner: crate::plugins::current_owner().unwrap_or_default(),
     };
     let mut items = SIDE_ITEMS.lock().unwrap();
     if !items.iter().any(|existing| existing == &item) {
@@ -204,9 +217,10 @@ fn register_side_item(
 /// 登记一个底部状态栏追加片段。
 #[register_hook]
 fn register_bottom(label: &safer_ffi::String) -> Result {
+    let owner = crate::plugins::current_owner().unwrap_or_default();
     let mut fragments = BOTTOM_FRAGMENTS.lock().unwrap();
-    if !fragments.iter().any(|f| f == &label.to_string()) {
-        fragments.push(label.to_string());
+    if !fragments.iter().any(|(f, _)| f == &label.to_string()) {
+        fragments.push((label.to_string(), owner));
     }
     Result::success()
 }
@@ -215,9 +229,10 @@ fn register_bottom(label: &safer_ffi::String) -> Result {
 /// 未注册回调的插件不参与逐帧查询。
 #[register_hook]
 fn register_bottom_callback(cb: &BottomFragmentFn) -> Result {
+    let owner = crate::plugins::current_owner().unwrap_or_default();
     let mut fns = BOTTOM_FRAGMENT_FNS.lock().unwrap();
-    if !fns.iter().any(|existing| std::ptr::fn_addr_eq(*existing, *cb)) {
-        fns.push(*cb);
+    if !fns.iter().any(|(existing, _)| std::ptr::fn_addr_eq(*existing, *cb)) {
+        fns.push((*cb, owner));
     }
     Result::success()
 }
@@ -279,8 +294,9 @@ fn get_side_items(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Resul
 /// 列出全部已注册底部片段：静态登记文本 + 各逐帧回调当前返回的非空文本；每行 `label`。
 #[register_hook]
 fn get_bottom_fragments(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result {
-    let mut rows: Vec<String> = BOTTOM_FRAGMENTS.lock().unwrap().clone();
-    for cb in BOTTOM_FRAGMENT_FNS.lock().unwrap().iter() {
+    let mut rows: Vec<String> =
+        BOTTOM_FRAGMENTS.lock().unwrap().iter().map(|(label, _)| label.clone()).collect();
+    for (cb, _) in BOTTOM_FRAGMENT_FNS.lock().unwrap().iter() {
         let text = unsafe { cb() }.to_string();
         if !text.trim().is_empty() {
             rows.push(text);
@@ -317,6 +333,26 @@ fn get_form_spec(
         rows.into_iter().map(|r| r.into()).collect::<Vec<_>>().into();
     out.write(vec);
     Result::success()
+}
+
+/// 移除归属为 `owner` 的全部 UI 注册项（卸载插件时调用）。
+pub(crate) fn unregister_by_owner(owner: &str) {
+    MENU_ITEMS.lock().unwrap().retain(|i| i.owner != owner);
+    FORM_SPECS.lock().unwrap().retain(|_, s| s.owner != owner);
+    SIDE_SECTIONS.lock().unwrap().retain(|s| s.owner != owner);
+    SIDE_ITEMS.lock().unwrap().retain(|i| i.owner != owner);
+    BOTTOM_FRAGMENTS.lock().unwrap().retain(|(_, o)| o != owner);
+    BOTTOM_FRAGMENT_FNS.lock().unwrap().retain(|(_, o)| o != owner);
+}
+
+/// 清空全部 UI 注册项（清空插件时调用）。
+pub(crate) fn clear_all() {
+    MENU_ITEMS.lock().unwrap().clear();
+    FORM_SPECS.lock().unwrap().clear();
+    SIDE_SECTIONS.lock().unwrap().clear();
+    SIDE_ITEMS.lock().unwrap().clear();
+    BOTTOM_FRAGMENTS.lock().unwrap().clear();
+    BOTTOM_FRAGMENT_FNS.lock().unwrap().clear();
 }
 
 #[cfg(test)]
@@ -406,5 +442,52 @@ mod tests {
         assert_eq!(matched.len(), 2);
         assert_eq!(matched[0], "sec-rt| • |{name}|0|0");
         assert_eq!(matched[1], "sec-rt| : |{namespace}|0|1");
+    }
+
+    #[test]
+    fn unregister_by_owner_removes_owner_ui_entries() {
+        unsafe {
+            crate::plugins::set_current_owner(Some("ui-plug-a".to_string()));
+            let _ = register_menu_item(
+                &"Owner A Menu".into(),
+                &"G".into(),
+                &"".into(),
+                &cli_core_types::ui::ui_action_kind::RUN,
+                &"connect".into(),
+                &"".into(),
+            );
+            let _ =
+                register_side_section(&"sec-owner-a".into(), &"A".into(), &1, &"plugins".into());
+            crate::plugins::set_current_owner(Some("ui-plug-b".to_string()));
+            let _ = register_menu_item(
+                &"Owner B Menu".into(),
+                &"G".into(),
+                &"".into(),
+                &cli_core_types::ui::ui_action_kind::RUN,
+                &"join".into(),
+                &"".into(),
+            );
+            crate::plugins::set_current_owner(None);
+        }
+
+        fn menu_rows() -> Vec<String> {
+            let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+                ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+            unsafe {
+                let _ = get_menu_items(Out::from(&mut buf));
+            }
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+        }
+
+        assert!(menu_rows().iter().any(|r| r.starts_with("Owner A Menu|")));
+        assert!(menu_rows().iter().any(|r| r.starts_with("Owner B Menu|")));
+
+        unregister_by_owner("ui-plug-a");
+        let rows = menu_rows();
+        assert!(!rows.iter().any(|r| r.starts_with("Owner A Menu|")));
+        assert!(rows.iter().any(|r| r.starts_with("Owner B Menu|")));
+
+        unregister_by_owner("ui-plug-b");
+        assert!(!menu_rows().iter().any(|r| r.starts_with("Owner B Menu|")));
     }
 }

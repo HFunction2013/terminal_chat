@@ -405,6 +405,8 @@ dependencies = [
  "libloading",
  "process_path",
  "safer-ffi",
+ "serde",
+ "serde_yaml",
  "shell-words",
  "which_dylib",
 ]

@@ -9,7 +9,16 @@ This page describes the contract a plugin must satisfy: the exported entry funct
 3. The host calls `get_plugin_metadata` to read the plugin's `PluginMetadata`, checks the declared host version range, then calls `on_init_plugin`.
 4. In `on_init_plugin`, the plugin opens the core library path passed in the host metadata and resolves core hook symbols; it registers its commands, options, and UI.
 5. Commands dispatched to the plugin run through `run_command` (cli) or a registered channel handler (srv).
-6. On shutdown the host calls `on_shutdown_plugin`. The library handle is kept for the process lifetime; it is not unloaded while executing.
+6. On unload the host calls `on_shutdown_plugin`, then removes the plugin's metadata, namespace, and every option/UI entry it registered. Ownership is tracked by an internal core context (no owner parameter is added to the FFI registration primitives). The library handle is kept for the process lifetime; it is not unloaded while executing.
+
+## Command routing (cli)
+
+A plugin's `command_name` is its namespace. At load, core parses the top-level command names from the plugin `command_yaml` and registers them in a global command table. On dispatch the first token is matched against:
+
+1. an explicit namespace (`command_name`), then
+2. the global command table, which resolves the owning plugin for an unqualified command.
+
+Core supplies the namespace token internally when invoking the plugin's `run_command`; the user command line is not rewritten with a hard-coded default namespace. An unresolved command reports not-found.
 
 ## Client plugin entry functions
 

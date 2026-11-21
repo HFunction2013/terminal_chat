@@ -121,10 +121,13 @@ Additional grouped hooks exist for global/session settings, aliases, and macros;
 | Hook | Signature | Purpose |
 | --- | --- | --- |
 | `register_plugin` | `fn(&PluginMetadata) -> Result` | Register plugin metadata (core-internal; standard plugins register through the load flow) |
+| `unregister_plugin` | `fn(&String) -> Result` | Call the plugin's `on_shutdown_plugin`, then remove its metadata/namespace/global-command entries and unregister every option/UI entry owned by it |
 | `get_plugin` | by name / command name | Look up a registered plugin metadata clone |
 | `get_all_plugins` | `fn(Out<Vec<PluginMetadata>>) -> Result` | List all registered plugins |
 | `load_plugin` | `fn(&String) -> PluginResult` | Locate and load a plugin by name |
 | `is_plugin_name_registered` / `is_plugin_command_name_registered` | `fn(&String) -> Result` | Existence checks for completion |
+
+Registered entries (option keys, menu items, form specs/fields, sidebar sections/items, bottom fragments and per-frame callbacks) record the owning plugin through an internal core owner context set during `on_init_plugin`; the FFI registration primitives take no owner parameter. On unload, entries matching that owner are dropped; persisted aliases are user configuration and are not removed.
 
 ## Server hooks
 

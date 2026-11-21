@@ -1,6 +1,8 @@
 use crate::aliases::alias_target;
 use crate::cmd_state::{set_in_cmd, set_interrupted};
-use crate::plugins::{command_name_registered, get_plugin_library, plugin_by_command_name};
+use crate::plugins::{
+    command_name_registered, get_plugin_library, global_plugin_by_command, plugin_by_command_name,
+};
 use ::safer_ffi::prelude::*;
 use cli_core_types::Result;
 use cli_core_types::RunCommandFn;
@@ -51,19 +53,28 @@ fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> Result {
     args = safer_ffi::Vec::from(args_vec);
 
     let first_name = args.first().unwrap().to_string();
-    if !command_name_registered(&first_name) {
-        let full_args: Vec<safer_ffi::String> =
-            std::iter::once("std".into()).chain(args.iter().cloned()).collect();
 
+    // 路由：先匹配显式 namespace（command_name）；未命中再查全局命令表，按归属插件
+    // 解析。全局命中时由 core 内部补 namespace 首词以适配插件 clap，不在用户指令
+    // 上写默认 namespace 前缀。
+    let metadata = if command_name_registered(&first_name) {
+        plugin_by_command_name(&first_name)
+    } else if let Some(meta) = global_plugin_by_command(&first_name) {
+        let ns = meta.command_name.to_string();
+        let full_args: Vec<safer_ffi::String> =
+            std::iter::once(ns.into()).chain(args.iter().cloned()).collect();
         args = safer_ffi::Vec::from(full_args);
-    }
-    let command_name = args.first().unwrap();
-    let metadata = match plugin_by_command_name(&command_name.to_string()) {
+        Some(meta)
+    } else {
+        None
+    };
+
+    let metadata = match metadata {
         Some(m) => m,
         None => {
             return Result {
                 code: 103,
-                message: "Failed to get plugin name from command name".to_string().into(),
+                message: format!("command `{first_name}` not found").to_string().into(),
             };
         }
     };

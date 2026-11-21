@@ -9,7 +9,7 @@ This guide is for everyday users. After reading it you should be able to connect
 - **Frequency / freq**: a chat and call channel, similar to a chat room. After joining one you can see the members in that frequency and speak. A frequency can have a password, a member cap, and moderators.
 - **User identity**: your full identity in the system is `username@IP` (for example `hfxd@127.0.0.1`). Commands that take a user argument (kick, mute, private message, etc.) usually expect this full identity.
 - **Session**: a connection to the server. You can park the current session in the background (`background`) and open a new one, then switch between them with `sessions`.
-- **Plugin** and **namespace**: commands and features are organized by plugin; one plugin can expose one or more namespaces. `plugin list` shows loaded plugins; `namespace list` shows loaded namespaces.
+- **Plugin** and **namespace**: commands and features are organized by plugin; one plugin can expose one or more namespaces. `plugin list` shows loaded plugins; `namespace list` shows loaded namespaces. You normally type a command directly (e.g. `connect`); core resolves it to the owning plugin through the loaded global command table. A namespace prefix (e.g. `std connect`) explicitly selects that plugin.
 - **Option**: a behavioral setting. Options split into **global options** (`setg`/`getg`, kept across sessions) and **session options** (`set`/`get`, valid only for the current connection). Common built-in options are listed below.
 - **Workspace**: an isolated set of aliases, macros, and local configuration. Use the `workspace` command to create, switch, import, and export one.
 
