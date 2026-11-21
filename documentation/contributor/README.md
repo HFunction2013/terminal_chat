@@ -23,6 +23,7 @@ Hosts parse input and own the terminal/socket lifecycle; core libraries own regi
 | `crates/srv-core-types` | Server-side ReprC types and channel/packet/session/plugin contracts |
 | `crates/cli-core-macros` | Procedural macro `load_core_symbols!` that resolves core symbols into bound function pointers in a plugin |
 | `crates/plugins/cli-standard` | Reference client plugin: standard commands, forms, menus, sidebar sections/items, status bar, completion sources |
+| `crates/plugins/example` | Minimal compilable client plugin: single `example hello [who]` command and one registered option, used as a developer scaffold reference |
 | `crates/plugins/srv-standard` | Reference server plugin: frequencies, users, messaging, calls, moderation, remote virtual filesystem, notifications |
 | `crates/plugins/ai-glm`, `translations`, `werewolf` | Optional / example plugins |
 | `crates/edit-tui` | Retained-mode TUI framework: component tree, framebuffer diff, layout, input, clipboard, unicode/ICU, color math, suspend/resume terminal state |

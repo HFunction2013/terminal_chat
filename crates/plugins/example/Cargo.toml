@@ -1,0 +1,25 @@
+[package]
+name = "example"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+clap = { workspace = true }
+anyhow = { workspace = true }
+safer-ffi = { workspace = true }
+cli-core-types = { workspace = true }
+cli-core-macros = { workspace = true }
+libloading = { workspace = true }
+
+[build-dependencies]
+yaml2cmd-build = { workspace = true }
+
+[lints]
+workspace = true

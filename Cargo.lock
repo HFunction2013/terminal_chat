@@ -710,6 +710,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
 
 [[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "cli-core-macros",
+ "cli-core-types",
+ "libloading",
+ "safer-ffi",
+ "yaml2cmd-build",
+]
+
+[[package]]
 name = "ext-trait"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

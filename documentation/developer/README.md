@@ -8,7 +8,7 @@ A plugin is a dynamic library compiled as a `cdylib`, loaded by the host through
 
 | Kind | Runs in | Responsibility | Reference implementation |
 | --- | --- | --- | --- |
-| **Client plugin (cli plugin)** | `cli` host process | Provides commands, menu/form/sidebar/status-bar registration, local and remote interaction, completion candidates | `crates/plugins/cli-standard` |
+| **Client plugin (cli plugin)** | `cli` host process | Provides commands, menu/form/sidebar/status-bar registration, local and remote interaction, completion candidates | `crates/plugins/cli-standard` (full); `crates/plugins/example` (minimal scaffold) |
 | **Server plugin (srv plugin)** | `srv` host process | Registers channels and handlers; handles chat/call/file and other server-side business | `crates/plugins/srv-standard` |
 
 ## Core concepts

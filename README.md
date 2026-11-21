@@ -72,6 +72,7 @@ cargo test -p cli
 | `crates/cli-core-types` / `srv-core-types` | ReprC types and function-pointer definitions crossing the FFI boundary |
 | `crates/cli-core-macros` | Procedural macro for plugin side to load core library symbols |
 | `crates/plugins/cli-standard` | Standard client commands and default UI registration |
+| `crates/plugins/example` | Minimal compilable example client plugin: single `example hello [who]` command, scaffold reference |
 | `crates/plugins/srv-standard` | Standard server business: frequencies, users, messages, calls, remote files |
 | `crates/plugins/` (`ai-glm`, `translations`, `werewolf`) | Optional / example plugins |
 | `crates/edit-tui` | Built-in TUI framework (retained-mode component tree, framebuffer diff, layout, input) |

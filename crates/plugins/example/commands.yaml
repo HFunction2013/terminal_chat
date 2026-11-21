@@ -1,0 +1,8 @@
+commands:
+  - name: hello
+    about: Greet someone from the example plugin
+    args:
+      - name: who
+        required: false
+        value_name: WHO
+        help: Who to greet (defaults to world)
