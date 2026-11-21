@@ -1,0 +1,99 @@
+# Contributor Workflow
+
+This page covers the build/test/CI commands, code conventions, generated-code rules, and the branch/issue workflow for changes to the framework itself.
+
+## Toolchain
+
+- Rust edition 2024, rustc 1.93+ (see root `Cargo.toml` `rust-version`).
+- Workspace lints: clippy `missing_safety_doc` is allowed; keep new code warning-free.
+- Formatting is enforced by `rustfmt` (`rustfmt.toml` at the root).
+
+## Build & check
+
+Run from the repository root:
+
+```sh
+# Format check (CI runs this)
+cargo fmt --all -- --check
+
+# Lint (CI runs this)
+cargo clippy --workspace --all-targets --locked
+
+# Type check (CI runs this)
+cargo check --workspace --all-targets --locked
+```
+
+Per-crate check:
+
+```sh
+cargo check -p cli --locked
+```
+
+## Tests
+
+```sh
+# Whole workspace
+cargo test --workspace
+
+# Single crate
+cargo test -p cli
+```
+
+Heavy or large test suites and full workspace builds should be run on a GitHub Actions runner, not the local sandbox. Keep local work to lightweight edits, checks, and targeted crate tests. If load spikes, first look for a self-inflicted busy loop or runaway process before blaming the toolchain.
+
+### Test isolation
+
+Tests that share static stub state (command stubs, call counters, registered option/global fixtures) must hold the shared test lock (`OPT_TEST_LOCK` in `crates/cli/src/tui.rs`) so parallel cases do not pollute one another. When a test passes in isolation but fails intermittently in the full suite, check for a shared static missing this lock first.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push and PR, across a matrix:
+
+- `ubuntu-latest` x86_64
+- `macos-15` aarch64
+- `macos-15-intel` x86_64
+- `windows-latest` x86_64
+
+Each job runs `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked`, and `cargo check --workspace --all-targets --locked`. Pre-commit hooks run the workspace check before each commit.
+
+### Known non-regressions
+
+Do not treat the following as failures introduced by your change:
+
+- `translations` suite: DeepL `InvalidCertificate(UnknownIssuer)` in offline environments.
+- AArch64 runners occasionally queue and cancel; re-run the job rather than reading it as a regression.
+- Pre-existing clippy warnings in auxiliary crates are not gated as errors (`-D warnings` is not set); do not add new warnings.
+
+## Generated code rules (`cmd-gen`)
+
+- Command skeletons live under `crates/plugins/<plugin>/src/commands/` and are generated from `commands.yaml` by `cmd-gen`:
+
+  ```sh
+  cargo run -p cmd-gen -- plugins/<plugin>
+  ```
+
+- Generated files carry the `// NOT-MODIFIED-TAG: …` header. **If you hand-edit a generated file, delete that tag** so the next regeneration does not overwrite your changes.
+- New command directories follow the generated layout; do not hand-write an aggregated `mod.rs`.
+- `build.rs` uses `yaml2cmd-build` to produce the clap `Command` (`command.rs` in `OUT_DIR`) from the same YAML.
+
+## Adding a crate
+
+1. Create the crate under `crates/` (or `crates/plugins/` for a plugin).
+2. Add its path to the root `Cargo.toml` `[workspace] members`.
+3. For a plugin cdylib, set `crate-type = ["cdylib"]` and wire the metadata/entry functions per the [developer contract](../developer/plugin-contract.md).
+
+## Branch and issue workflow
+
+- Open an issue before fixing a discovered problem; implement the fix, then close the corresponding issue.
+- Reference the issue number in the commit message and close-out comment so commits and closures map to specific issues.
+- Keep the working branch in sync with the base branch; push and let CI run. Per project preference, do not block on CI after pushing — review the previous run's conclusion before the next push.
+
+## Documentation updates
+
+After a code change, check whether `README.md` and the three documentation layers need to stay in sync:
+
+- `documentation/user` — concepts and usage
+- `documentation/developer` — plugin API and hooks
+- `documentation/contributor` — architecture and implementation
+
+When behavior, commands, hooks, or crate layout change, update the matching docs in the same change rather than leaving a follow-up.

@@ -7,8 +7,6 @@ SL (Steam Locomotive) runs across your terminal when you type "sl" as you meant 
 The [original version](https://github.com/mtoyoda/sl) was written in C by Toyoda Masashi (mtoyoda@acm.org).
 The original license is available in `LICENSE-ORIGINAL`.
 
-*Japanese follows English*
-
 ## Install
 
 ```shell
@@ -44,8 +42,3 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
-
-
-## 概要
-長い歴史をもつジョークソフト SL をRustに移植したものです。
-
