@@ -1,5 +1,6 @@
 mod aliases;
 mod cmd_state;
+mod freq_state;
 mod global_settings;
 mod init;
 mod macros;
