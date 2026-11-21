@@ -60,12 +60,16 @@ struct SideSection {
     source: String,
 }
 
-/// 侧栏小项（条目模板：归属栏目 + 前缀符号 + 内容；动态条目内容由宿主快照回填）。
+/// 侧栏小项（条目模板：归属栏目 + 前缀符号 + 内容占位；动态条目内容由宿主快照回填）。
+/// `highlight` 标记该模板用于当前高亮条目（如当前会话整行着色）；`line` 区分
+/// 主行（0）与次行（1，如插件名下方的命名空间行）。
 #[derive(Clone, Debug, PartialEq)]
 struct SideItem {
     section: String,
     prefix: String,
     label: String,
+    highlight: bool,
+    line: i32,
 }
 
 static MENU_ITEMS: LazyLock<Mutex<Vec<MenuItem>>> = LazyLock::new(|| Mutex::new(Vec::new()));
@@ -173,17 +177,22 @@ fn register_side_section(
     Result::success()
 }
 
-/// 往指定大项下登记一个侧栏条目模板：归属栏目 + 前缀符号 + 内容占位。
+/// 往指定大项下登记一个侧栏条目模板：归属栏目 + 前缀符号 + 内容占位；
+/// `highlight` 非 0 表示该模板用于高亮当前条目；`line` 0 为主行、1 为次行。
 #[register_hook]
 fn register_side_item(
     section: &safer_ffi::String,
     prefix: &safer_ffi::String,
     label: &safer_ffi::String,
+    highlight: &i32,
+    line: &i32,
 ) -> Result {
     let item = SideItem {
         section: section.to_string(),
         prefix: prefix.to_string(),
         label: label.to_string(),
+        highlight: *highlight != 0,
+        line: *line,
     };
     let mut items = SIDE_ITEMS.lock().unwrap();
     if !items.iter().any(|existing| existing == &item) {
@@ -251,12 +260,16 @@ fn get_side_sections(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Re
     Result::success()
 }
 
-/// 列出全部已注册侧栏条目模板；每行 `section|prefix|label`。
+/// 列出全部已注册侧栏条目模板；每行 `section|prefix|label|highlight|line`。
 #[register_hook]
 fn get_side_items(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result {
     let items = SIDE_ITEMS.lock().unwrap();
-    let rows: Vec<String> =
-        items.iter().map(|i| format!("{}|{}|{}", i.section, i.prefix, i.label)).collect();
+    let rows: Vec<String> = items
+        .iter()
+        .map(|i| {
+            format!("{}|{}|{}|{}|{}", i.section, i.prefix, i.label, i32::from(i.highlight), i.line)
+        })
+        .collect();
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
         rows.into_iter().map(|r| r.into()).collect::<Vec<_>>().into();
     out.write(vec);
@@ -371,5 +384,27 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0], "SPEC|Join Frequency|join_rt|join_rt ");
         assert_eq!(rows[1], "FIELD|Frequency ID:|1|0|0");
+    }
+
+    #[test]
+    fn side_item_templates_round_trip_via_out() {
+        unsafe {
+            let _ =
+                register_side_section(&"sec-rt".into(), &"Plugin".into(), &1, &"plugins".into());
+            let _ = register_side_item(&"sec-rt".into(), &" • ".into(), &"{name}".into(), &0, &0);
+            let _ =
+                register_side_item(&"sec-rt".into(), &" : ".into(), &"{namespace}".into(), &0, &1);
+        }
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        unsafe {
+            let _ = get_side_items(Out::from(&mut buf));
+        }
+        let rows: Vec<String> =
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+        let matched: Vec<&String> = rows.iter().filter(|r| r.starts_with("sec-rt|")).collect();
+        assert_eq!(matched.len(), 2);
+        assert_eq!(matched[0], "sec-rt| • |{name}|0|0");
+        assert_eq!(matched[1], "sec-rt| : |{namespace}|0|1");
     }
 }

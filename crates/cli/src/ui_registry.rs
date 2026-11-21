@@ -91,12 +91,14 @@ pub struct RegSideSection {
     pub source: String,
 }
 
-/// 侧栏条目模板：归属栏目 + 前缀符号 + 内容占位。
+/// 侧栏条目模板：归属栏目 + 前缀符号 + 内容占位 + 高亮标记 + 主/次行。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegSideItem {
     pub section: String,
     pub prefix: String,
     pub label: String,
+    pub highlight: bool,
+    pub line: i32,
 }
 
 /// 底部状态栏追加片段。
@@ -208,18 +210,25 @@ pub fn parse_side_section_rows(rows: &[String]) -> Vec<RegSideSection> {
         .collect()
 }
 
-/// 解析侧栏小项行：`section|prefix|label`。
+/// 解析侧栏小项行：`section|prefix|label|highlight|line`。
+/// 前缀符号的前后空格承载缩进语义，原样保留不 trim。
 pub fn parse_side_item_rows(rows: &[String]) -> Vec<RegSideItem> {
     rows.iter()
         .filter_map(|row| {
-            let p = split_row(row, 3);
+            let p = split_row(row, 5);
             let section = p[0].trim().to_string();
-            let prefix = p[1].trim().to_string();
+            let prefix = p[1].to_string();
             let label = p[2].trim().to_string();
             if section.is_empty() || label.is_empty() {
                 return None;
             }
-            Some(RegSideItem { section, prefix, label })
+            Some(RegSideItem {
+                section,
+                prefix,
+                label,
+                highlight: bool_from_i32(p[3]),
+                line: p[4].trim().parse().unwrap_or(0),
+            })
         })
         .collect()
 }
@@ -328,12 +337,16 @@ mod tests {
         assert!(sections[0].default_open);
         assert!(!sections[1].default_open);
 
-        let items =
-            parse_side_item_rows(&["sessions|* |default".to_string(), "|empty".to_string()]);
+        let items = parse_side_item_rows(&[
+            "sessions|* |default|1|0".to_string(),
+            "|empty|0|0".to_string(),
+        ]);
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].section, "sessions");
-        assert_eq!(items[0].prefix, "*");
+        assert_eq!(items[0].prefix, "* ");
         assert_eq!(items[0].label, "default");
+        assert!(items[0].highlight);
+        assert_eq!(items[0].line, 0);
 
         let bottom = parse_bottom_rows(&["user@host:port".to_string(), "".to_string()]);
         assert_eq!(bottom.len(), 1);

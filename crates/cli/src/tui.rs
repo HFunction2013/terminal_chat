@@ -5341,6 +5341,8 @@ mod tests {
             section: "members".to_string(),
             prefix: " • ".to_string(),
             label: "{member}".to_string(),
+            highlight: false,
+            line: 0,
         }];
         app.members = vec!["alice".to_string()];
 

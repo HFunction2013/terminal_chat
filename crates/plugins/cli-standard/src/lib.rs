@@ -35,6 +35,7 @@ mod forms;
 pub mod local;
 mod menu;
 mod session;
+mod sidebar;
 mod terminal;
 mod command {
     use std::sync::LazyLock;
@@ -72,6 +73,7 @@ pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
     menu::register_menu(lib);
     forms::register_forms(lib);
     forms::register_form_menu_items(lib);
+    sidebar::register_sidebar(lib);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 
