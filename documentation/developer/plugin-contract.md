@@ -55,6 +55,8 @@ The command tree in `command_yaml` may declare a completion `type` per argument.
 
 A type name core does not recognize (for example `USER`) is a **custom concept**: core keeps the raw type name, the host routes that argument position to the owning plugin's optional `tc_complete_arg` callback, and the plugin supplies candidates. Built-in types never reach this callback.
 
+Arguments declared as options (`short`/`long` present, or an `action` such as `set_true`) are flags/valued options and do not occupy a positional argument slot. The positional completion index counts only positional arguments, so placing a flag before a positional argument does not shift the positional argument's declared `type`.
+
 A command entry marked `hidden: true` is still dispatched normally by the plugin, but it is skipped when core builds the completion candidate table, so it does not appear in command or subcommand suggestions.
 
 ## Server plugin entry functions

@@ -26,6 +26,9 @@ struct ArgSpec {
     kind: i32,
     /// 插件自定义类型名；非空表示该类型 core 未内置，需走插件 `complete_arg` 回调。
     custom: String,
+    /// 是否为选项（布尔 flag 或带值 option：带 `short`/`long` 或声明 `action`）。
+    /// 选项不占用命令行位置参数序号；`arg_spec` 只在位置参数中按序号取规格。
+    option: bool,
 }
 
 /// 一条命令 / 子命令条目（内部模型）。
@@ -108,6 +111,12 @@ struct YamlArg {
     name: String,
     #[serde(default)]
     r#type: Option<String>,
+    #[serde(default)]
+    short: Option<String>,
+    #[serde(default)]
+    long: Option<String>,
+    #[serde(default)]
+    action: Option<String>,
 }
 
 impl YamlCmd {
@@ -126,7 +135,9 @@ impl YamlCmd {
                     .as_deref()
                     .map(map_type)
                     .unwrap_or((ui_field_kind::PLAIN, String::new()));
-                ArgSpec { name: a.name, kind, custom }
+                // 带短/长选项名或声明 action 的是选项（flag / 带值 option），不计入位置参数序号。
+                let option = a.short.is_some() || a.long.is_some() || a.action.is_some();
+                ArgSpec { name: a.name, kind, custom, option }
             })
             .collect();
         let name = self.name.clone();
@@ -199,6 +210,8 @@ fn list_commands(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result
     let table = TABLE.lock().unwrap();
     let mut names: Vec<String> =
         table.iter().filter(|e| e.parent.is_none()).map(|e| e.name.clone()).collect();
+    // 已加载插件的命令命名空间（command_name）同样可作为首词路由执行，并入顶层候选。
+    names.extend(crate::plugins::all_command_namespaces());
     names.sort();
     names.dedup();
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
@@ -239,10 +252,13 @@ fn arg_spec(
     let row = match locate(&table, &command_path.to_string()) {
         Some((entry, depth)) => {
             // 传入序号对应整条 committed 路径；前 depth 个词是命令层级，剩余为已填参数。
+            // 选项（flag / 带值 option）不占位置参数序号，只在位置参数中按序号取规格。
             let param_index = (*arg_index - depth as i32).max(0) as usize;
             entry
                 .args
-                .get(param_index)
+                .iter()
+                .filter(|a| !a.option)
+                .nth(param_index)
                 .map(|a| format!("{}|{}", a.kind, a.custom))
                 .unwrap_or_default()
         }
@@ -313,6 +329,31 @@ mod tests {
         });
         assert!(rows.iter().any(|c| c == "exit"));
         assert!(rows.iter().any(|c| c == "help"));
+    }
+
+    #[test]
+    fn list_commands_include_plugin_namespace() {
+        let mut meta = cli_core_types::PluginMetadata::default();
+        meta.name = "ns-plug".into();
+        meta.command_name = "nst".into();
+        meta.command_yaml = "commands:\n  - name: hello\n".into();
+        unsafe {
+            let _ = crate::plugins::register_plugin(&meta);
+        }
+        let rows = list_rows(|out| unsafe {
+            let _ = list_commands(out);
+        });
+        // 顶层命令名与可作为首词路由的命名空间都应进入候选。
+        assert!(rows.iter().any(|c| c == "hello"));
+        assert!(rows.iter().any(|c| c == "nst"));
+        unsafe {
+            let _ = crate::plugins::unregister_plugin(&"ns-plug".into());
+        }
+        let after = list_rows(|out| unsafe {
+            let _ = list_commands(out);
+        });
+        assert!(!after.iter().any(|c| c == "nst"));
+        assert!(!after.iter().any(|c| c == "hello"));
     }
 
     #[test]
@@ -391,6 +432,56 @@ commands:
         }
         assert_eq!(&*ManuallyDrop::into_inner(spec), "2|");
         unregister_by_owner("t");
+    }
+
+    #[test]
+    fn flags_do_not_occupy_positional_arg_index() {
+        register_yaml(
+            r#"
+commands:
+  - name: load
+    subcommands:
+      - name: plugin
+        args:
+          - name: load_namespace
+            long: load-namespace
+            action: set_true
+          - name: plugin
+            type: PLUGIN
+  - name: unsetg
+    args:
+      - name: key
+        type: OPTION_KEY
+      - name: all
+        long: all
+        action: set_true
+"#,
+            "flag-plug",
+        );
+        // `load plugin <plugin>`：flag 在前，位置参数 plugin 仍解析为 PLUGIN(6)。
+        let mut spec: ManuallyDrop<safer_ffi::String> =
+            ManuallyDrop::new(safer_ffi::String::from(String::new()));
+        unsafe {
+            let _ = arg_spec(&"load plugin".into(), &2, Out::from(&mut spec));
+        }
+        assert_eq!(&*ManuallyDrop::into_inner(spec), "6|");
+
+        // `unsetg <key>`：第一个位置参数为 OPTION_KEY(4)；`all` 是 flag，第二位置无规格。
+        let mut spec2: ManuallyDrop<safer_ffi::String> =
+            ManuallyDrop::new(safer_ffi::String::from(String::new()));
+        unsafe {
+            let _ = arg_spec(&"unsetg".into(), &1, Out::from(&mut spec2));
+        }
+        assert_eq!(&*ManuallyDrop::into_inner(spec2), "4|");
+
+        let mut spec3: ManuallyDrop<safer_ffi::String> =
+            ManuallyDrop::new(safer_ffi::String::from(String::new()));
+        unsafe {
+            let _ = arg_spec(&"unsetg".into(), &2, Out::from(&mut spec3));
+        }
+        assert_eq!(&*ManuallyDrop::into_inner(spec3), "");
+
+        unregister_by_owner("flag-plug");
     }
 
     #[test]

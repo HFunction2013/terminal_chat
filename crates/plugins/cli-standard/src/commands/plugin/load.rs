@@ -11,7 +11,7 @@ impl LoadCommand {
     /// `plugin` - Plugin to load, required, value_name: PLUGIN
     #[allow(unused_variables)]
     pub fn execute(&self, plugin: String) -> Result<()> {
-        crate::commands::load::plugin::PluginCommand.execute(false, plugin)
+        crate::commands::load::plugin::PluginCommand.execute(plugin)
     }
 }
 

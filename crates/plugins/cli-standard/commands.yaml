@@ -170,11 +170,6 @@ commands:
       - name: plugin
         about: load plugin
         args:
-          - name: load_namespace
-            short: l
-            long: load-namespace
-            help: load plugin's namespace while loading the plugin
-            action: set_true
           - name: plugin
             type: PLUGIN
             value_name: PLUGIN

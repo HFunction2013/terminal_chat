@@ -2873,7 +2873,8 @@ fn is_silent_refresh(argv: &[String]) -> bool {
 }
 
 /// 命令完成后对成员侧栏的本地回填/清空（同步路径与后台完成回调共用）。
-/// `success` 为命令返回码是否为 0；只有成功才触发后续 roster 拉取。
+/// `success` 为命令返回码是否为 0；成员 / 会话等 roster 拉取仅在成功时触发，
+/// 插件 / 命名空间变更则不论成败都重拉快照。
 fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str, success: bool) {
     let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
     // `freq_info` / `show active_users` 返回成员列表，回填侧栏。
@@ -2892,9 +2893,11 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
     if is_plugin_list {
         app.reconcile_plugins(drained_text);
     }
-    // 插件 / 命名空间装载或卸载成功后，重拉插件列表刷新侧栏分组，并重读 core
+    // 插件 / 命名空间装载或卸载后，重拉插件列表刷新侧栏分组，并重读 core
     // 注册表刷新菜单组与侧栏栏目 / 条目模板（卸载插件注册项已在 core 侧注销）。
-    if success && matches!(cmd, "plugin" | "namespace" | "load" | "unload") {
+    // 不论命令是否报成功都置位：namespace 卸载匹配 0 个插件时同样需要刷新快照，
+    // 否则侧栏 / 补全会残留已不存在的插件与命名空间。
+    if matches!(cmd, "plugin" | "namespace" | "load" | "unload") {
         app.pending_plugins = true;
         app.pending_ui = true;
     }
@@ -5063,27 +5066,15 @@ mod tests {
     }
 
     #[test]
-    fn plugin_mutation_success_schedules_plugin_refresh() {
+    fn plugin_mutation_always_schedules_plugin_refresh() {
         for cmd in ["plugin", "namespace", "load", "unload"] {
-            let mut app = App::new();
-            apply_member_side_effects(&mut app, &[cmd.to_string(), "x".into()], "", true);
-            assert!(app.pending_plugins, "{cmd} should refetch the plugin list");
-            assert!(app.pending_ui, "{cmd} should re-read the menu/sidebar registry");
+            for success in [true, false] {
+                let mut app = App::new();
+                apply_member_side_effects(&mut app, &[cmd.to_string(), "x".into()], "", success);
+                assert!(app.pending_plugins, "{cmd} should refetch the plugin list");
+                assert!(app.pending_ui, "{cmd} should re-read the menu/sidebar registry");
+            }
         }
-    }
-
-    #[test]
-    fn plugin_mutation_failure_does_not_schedule_refresh() {
-        let mut app = App::new();
-        app.pending_plugins = false;
-        apply_member_side_effects(
-            &mut app,
-            &["plugin".into(), "load".into(), "x".into()],
-            "",
-            false,
-        );
-        assert!(!app.pending_plugins);
-        assert!(!app.pending_ui);
     }
 
     #[test]

@@ -166,9 +166,10 @@ fn repl_echo_line(input: &str) -> String {
 /// rustyline Helper：桥接 `clap_complete`，并叠加 core 命令表 / 参数规格补全。
 struct ClapHelper {
     cli: Command,
-    /// 已注册选项 key（供 set/setg/get/... 的参数位置补全）。
+    /// 已注册选项 key 缓存（符号缺失时的回退；正常路径由 `get_registered_options` 实时拉取）。
     options: Vec<String>,
-    /// 已加载插件快照 `(name, namespace)`，供插件名 / 命名空间参数位置补全。
+    /// 已加载插件快照缓存 `(name, namespace)`（符号缺失时的回退；正常路径由
+    /// `get_all_plugins` 实时拉取，避免卸载后残留旧候选）。
     plugins: Vec<(String, String)>,
     /// core 命令表查询与自定义概念回调（可选符号，缺失时对应补全退化）。
     list_commands: Option<tui::ListCommandsFn>,
@@ -176,6 +177,10 @@ struct ClapHelper {
     arg_spec: Option<tui::ArgSpecFn>,
     complete_arg: Option<tui::CompleteArgHostFn>,
     remote_list_dir: Option<ListRemoteDirFn>,
+    /// 实时列举已加载插件（供插件名 / 命名空间参数位置补全，卸载后立即生效）。
+    get_all_plugins: Option<GetAllPluginsFn>,
+    /// 实时列举已注册选项 key（供选项参数位置补全，卸载后立即生效）。
+    get_registered_options: Option<tui::GetRegisteredOptionsFn>,
 }
 
 impl Helper for ClapHelper {}
@@ -209,21 +214,27 @@ impl Completer for ClapHelper {
         // 命令后参数序号（1 起），与 core `arg_spec` 口径一致。
         let arg_index = committed.len();
 
-        let args_os: Vec<OsString> =
-            std::iter::once("tc-cli".to_string()).chain(args.clone()).map(OsString::from).collect();
-
         let mut cli = self.cli.clone();
 
-        let candidates =
-            complete(&mut cli, args_os, arg_index, Some(Path::new("."))).unwrap_or_default();
-
-        let mut pairs: Vec<Pair> = candidates
-            .into_iter()
-            .map(|c| {
-                let value = c.get_value().to_string_lossy().to_string();
-                Pair { display: value.clone(), replacement: value }
-            })
-            .collect();
+        // 首词命令名只取 core 实时表：clap 命令树在启动时构建，卸载插件后不重建，
+        // 沿用其候选会残留已卸载插件的命令名。非首词位置仍保留 clap 的基础候选。
+        let mut pairs: Vec<Pair> = if committed.is_empty() {
+            Vec::new()
+        } else {
+            let args_os: Vec<OsString> = std::iter::once("tc-cli".to_string())
+                .chain(args.clone())
+                .map(OsString::from)
+                .collect();
+            let candidates =
+                complete(&mut cli, args_os, arg_index, Some(Path::new("."))).unwrap_or_default();
+            candidates
+                .into_iter()
+                .map(|c| {
+                    let value = c.get_value().to_string_lossy().to_string();
+                    Pair { display: value.clone(), replacement: value }
+                })
+                .collect()
+        };
 
         // 叠加 core 命令表 / 子命令 / 参数规格 / 自定义概念候选，按前缀去重。
         for extra in self.core_candidates(&committed, arg_index, &prefix) {
@@ -273,23 +284,49 @@ impl ClapHelper {
         match kind {
             k::OPTION_KEY => {
                 let needle = prefix.to_uppercase();
-                self.options
+                self.live_options()
                     .iter()
                     .filter(|o| o.to_uppercase().starts_with(&needle))
                     .cloned()
                     .collect()
             }
             k::PLUGIN => {
-                filter_prefix(self.plugins.iter().map(|(n, _)| n.clone()).collect(), prefix)
+                filter_prefix(self.live_plugins().iter().map(|(n, _)| n.clone()).collect(), prefix)
             }
-            k::NAMESPACE => {
-                filter_prefix(self.plugins.iter().map(|(_, ns)| ns.clone()).collect(), prefix)
-            }
+            k::NAMESPACE => filter_prefix(
+                self.live_plugins().iter().map(|(_, ns)| ns.clone()).collect(),
+                prefix,
+            ),
             k::LOCAL_PATH => local_path_candidates(prefix),
             k::REMOTE_PATH => self.remote_candidates(prefix),
             // REPL 无成员快照；MEMBER 暂不补全，回退 clap 基础候选。
             _ => Vec::new(),
         }
+    }
+
+    /// 实时拉取已加载插件 `(name, namespace)`；符号缺失时回退启动快照。
+    fn live_plugins(&self) -> Vec<(String, String)> {
+        let Some(list) = self.get_all_plugins else {
+            return self.plugins.clone();
+        };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = list(Out::from(&mut buf));
+        ManuallyDrop::into_inner(buf)
+            .iter()
+            .map(|p| (p.name.to_string(), p.command_name.to_string()))
+            .collect()
+    }
+
+    /// 实时拉取已注册选项 key；符号缺失时回退启动快照。
+    fn live_options(&self) -> Vec<String> {
+        let Some(list) = self.get_registered_options else {
+            return self.options.clone();
+        };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe { list(Out::from(&mut buf)) };
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
     }
 
     fn fetch_command_names(&self) -> Vec<String> {
@@ -815,10 +852,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let colored = prepare_startup();
     execute!(stdout(), Show)?;
 
-    // 拉取已注册选项 key，供 REPL 选项命令的参数位置补全；符号缺失时退化为空候选。
-    let registered_options: Vec<String> = unsafe { get_cli_core().get(b"get_registered_options") }
-        .ok()
-        .map(|sym: Symbol<tui::GetRegisteredOptionsFn>| {
+    // 拉取已注册选项 key 快照（符号缺失时的回退）；同时保留符号供补全时实时拉取。
+    let registered_options_sym: Option<Symbol<tui::GetRegisteredOptionsFn>> =
+        unsafe { get_cli_core().get(b"get_registered_options") }.ok();
+    let registered_options: Vec<String> = registered_options_sym
+        .as_deref()
+        .map(|sym| {
             let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
                 ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
             let _ = unsafe { sym(Out::from(&mut buf)) };
@@ -850,6 +889,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         arg_spec: arg_spec.as_deref().copied(),
         complete_arg: complete_arg.as_deref().copied(),
         remote_list_dir: remote_list_dir.as_deref().copied(),
+        get_all_plugins: Some(*get_all_plugins),
+        get_registered_options: registered_options_sym.as_deref().copied(),
     };
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
@@ -1132,6 +1173,8 @@ mod tests {
             arg_spec: Some(STUB_ARG_SPEC),
             complete_arg: Some(STUB_COMPLETE_ARG),
             remote_list_dir: None,
+            get_all_plugins: None,
+            get_registered_options: None,
         }
     }
 

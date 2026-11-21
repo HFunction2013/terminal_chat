@@ -17,35 +17,28 @@ impl NamespaceCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         cli_core_macros::load_core_symbols!(lib, get_all_plugins, unregister_plugin);
-        let file = crate::local::base_dir().join("namespaces.txt");
-        let content = std::fs::read_to_string(&file).unwrap_or_default();
-        let mut names: Vec<String> = Vec::new();
-        for line in content.lines() {
-            let line = line.trim();
-            if let Some((name, rest)) = line.split_once(':') {
-                if name.trim() == namespace_name {
-                    names = rest
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                }
-            }
-        }
+        // 命名空间即插件元数据的 `command_name`（与 `namespace list` 口径一致）；
+        // 直接按已加载插件的命名空间匹配卸载，不再反查 namespaces.txt 分组清单。
         let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
             ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
         let _res = get_all_plugins(Out::from(&mut buf));
         let plugins = ManuallyDrop::into_inner(buf);
         let mut unloaded = 0usize;
         for p in plugins.iter() {
-            if names.iter().any(|n| n == &p.name.to_string()) {
+            if p.command_name.to_string() == namespace_name {
                 let _ = unregister_plugin(&p.name);
                 unloaded += 1;
             }
         }
-        print_content(
-            &format!("[*] Namespace `{namespace_name}`: {unloaded} plugins unloaded.").into(),
-        );
+        if unloaded > 0 {
+            print_content(
+                &format!("[*] Namespace `{namespace_name}`: {unloaded} plugin(s) unloaded.").into(),
+            );
+        } else {
+            print_content(
+                &format!("[!] Namespace `{namespace_name}` not found among loaded plugins.").into(),
+            );
+        }
         Ok(())
     }
 }

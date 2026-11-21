@@ -131,9 +131,10 @@ Commands are grouped by usage scenario. Parameter names match the built-in help;
 | `namespace list` | List loaded namespaces |
 | `namespace load <NAMESPACE>` | Load a namespace |
 | `namespace unload <NAMESPACE_NAME>` | Unload a namespace |
-| `load plugin <PLUGIN>` | Load a plugin (`-l/--load-namespace` loads its namespace too) |
-| `load namespace <NAMESPACE>` | Load a namespace |
-| `unload plugin <PLUGIN_NAME>` / `unload namespace <NAMESPACE_NAME>` | Unload |
+| `load plugin <PLUGIN>` | Load a single plugin; it does not load the plugin's namespace group |
+| `load namespace <NAMESPACE>` | Load a namespace group (all plugins listed for it) |
+| `unload plugin <PLUGIN_NAME>` | Unload one plugin by name |
+| `unload namespace <NAMESPACE_NAME>` | Unload the plugin whose namespace (`command_name`) matches; reports if no loaded plugin matches |
 
 ### `tcpm` package manager
 

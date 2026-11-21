@@ -10,11 +10,9 @@ use safer_ffi::prelude::*;
 pub struct PluginCommand;
 
 impl PluginCommand {
-    #[allow(unused_variables)]
-    pub fn execute(&self, load_namespace: bool, plugin: String) -> Result<()> {
+    pub fn execute(&self, plugin: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        let _ = load_namespace;
         cli_core_macros::load_core_symbols!(lib, load_plugin);
         let res = load_plugin(&plugin.clone().into());
         if res.success == 1 {
@@ -44,13 +42,11 @@ impl CommandExecutor for PluginCommand {
         "plugin"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let load_namespace = matches.get_flag("load_namespace");
         let plugin = matches
             .get_one::<String>("plugin")
             .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
             .clone();
-        self.execute(load_namespace, plugin)
+        self.execute(plugin)
     }
 }

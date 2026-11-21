@@ -135,6 +135,16 @@ pub(crate) fn global_plugin_by_command(cmd: &str) -> Option<PluginMetadata> {
     GLOBAL_COMMAND_MAP.lock().unwrap().get(cmd).cloned()
 }
 
+/// （内部）全部已加载插件的命令命名空间（`command_name`），排序去重；
+/// 供顶层命令补全把可作为首词路由的 namespace 前缀一并列出。
+pub(crate) fn all_command_namespaces() -> Vec<String> {
+    let map = PLUGIN_MAP.lock().unwrap();
+    let mut namespaces: Vec<String> = map.values().map(|m| m.command_name.to_string()).collect();
+    namespaces.sort();
+    namespaces.dedup();
+    namespaces
+}
+
 #[register_hook]
 pub fn is_plugin_name_registered(identifier: &safer_ffi::String) -> Result {
     let map = PLUGIN_MAP.lock().unwrap();
