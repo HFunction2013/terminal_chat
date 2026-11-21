@@ -54,7 +54,6 @@ const BUILTIN_COMMANDS: &[&str] = &[
     "help",
     "banner",
     "train",
-    "sleep",
 ];
 
 static TABLE: LazyLock<Mutex<Vec<CommandEntry>>> = LazyLock::new(|| {
@@ -97,6 +96,8 @@ struct YamlDoc {
 struct YamlCmd {
     name: String,
     #[serde(default)]
+    hidden: bool,
+    #[serde(default)]
     args: Vec<YamlArg>,
     #[serde(default)]
     subcommands: Vec<YamlCmd>,
@@ -112,6 +113,10 @@ struct YamlArg {
 impl YamlCmd {
     /// 递归展开为命令条目，`parent` 为父命令名（顶层传 `None`）。
     fn into_entries(self, parent: Option<String>, owner: &str, out: &mut Vec<CommandEntry>) {
+        // `hidden: true` 命令不进入补全候选表（仍可由插件正常执行）。
+        if self.hidden {
+            return;
+        }
         let args = self
             .args
             .into_iter()
@@ -386,5 +391,24 @@ commands:
         }
         assert_eq!(&*ManuallyDrop::into_inner(spec), "2|");
         unregister_by_owner("t");
+    }
+
+    #[test]
+    fn hidden_command_is_not_listed_as_completion() {
+        register_yaml(
+            r#"
+commands:
+  - name: visible
+  - name: hidden-cmd
+    hidden: true
+"#,
+            "hidden-plug",
+        );
+        let rows = list_rows(|out| unsafe {
+            let _ = list_commands(out);
+        });
+        assert!(rows.iter().any(|c| c == "visible"));
+        assert!(!rows.iter().any(|c| c == "hidden-cmd"));
+        unregister_by_owner("hidden-plug");
     }
 }

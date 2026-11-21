@@ -55,6 +55,8 @@ The command tree in `command_yaml` may declare a completion `type` per argument.
 
 A type name core does not recognize (for example `USER`) is a **custom concept**: core keeps the raw type name, the host routes that argument position to the owning plugin's optional `tc_complete_arg` callback, and the plugin supplies candidates. Built-in types never reach this callback.
 
+A command entry marked `hidden: true` is still dispatched normally by the plugin, but it is skipped when core builds the completion candidate table, so it does not appear in command or subcommand suggestions.
+
 ## Server plugin entry functions
 
 Declared in `crates/srv-core-types/src/plugin_fn_types.rs` and `plugins.rs`.
