@@ -496,6 +496,16 @@ pub(crate) fn saying_text() -> Option<String> {
     rs_fortune::choose_fortune(FORTUNE_TEXT).map(|s| s.to_string())
 }
 
+/// 内置 / 常用命令帮助文本；供 REPL 终端输出与 TUI 帮助弹窗复用。
+pub(crate) fn builtin_help_lines() -> Vec<&'static str> {
+    vec![
+        "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info",
+        "          about  version + build info | copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help",
+        "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> [password] | create_freq <freq>",
+        "          show active_users | show active_freqs | workspace list | ls | upload | download",
+    ]
+}
+
 fn sha256_hex<T: AsRef<[u8]>>(data: T) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data.as_ref());
@@ -946,7 +956,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
         rl.add_history_entry(input)?;
-        println!("{}", repl_echo_line(input));
+        // TTY 下 rustyline 已在终端留下 `tc> <输入>` 行，不再重复回显；
+        // 管道 / 重定向下 rustyline 不渲染提示符，补打一行保持口径一致。
+        if !io::stdout().is_terminal() {
+            println!("{}", repl_echo_line(input));
+        }
         match input {
             "exit" | "quit" | "q" => {
                 println!("Bye");
@@ -970,6 +984,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "build_info" => {
                 build_info();
+                continue;
+            }
+            "about" => {
+                println!("{}", welcome_text(false));
+                println!();
+                println!("{}", build_info_text());
+                continue;
+            }
+            "help" => {
+                for line in builtin_help_lines() {
+                    println!("{line}");
+                }
                 continue;
             }
             "coffee" => {

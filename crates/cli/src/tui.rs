@@ -2384,7 +2384,8 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
             }
         },
         "help" => {
-            let lines: Vec<String> = builtin_help_lines().into_iter().map(String::from).collect();
+            let lines: Vec<String> =
+                crate::builtin_help_lines().into_iter().map(String::from).collect();
             app.present_info("Help".to_string(), lines);
             true
         }
@@ -2418,16 +2419,6 @@ const COFFEE_ART: &str = r"                  ( (
                  \      /
                   `----'
 Because everyone deserves a good cup of coffee.";
-
-/// 内置 / 常用命令帮助文本。
-fn builtin_help_lines() -> Vec<&'static str> {
-    vec![
-        "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info",
-        "          copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help",
-        "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> [password] | create_freq <freq>",
-        "          show active_users | show active_freqs | workspace list | ls | upload | download",
-    ]
-}
 
 /// 弹窗当前阶段确认：推进到下一阶段，或回填选项后执行 `connect`。
 fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
