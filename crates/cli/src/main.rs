@@ -562,7 +562,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let terminal_busy: Option<Symbol<tui::TerminalBusyFn>> =
             unsafe { core_lib.get(b"tc_cli_terminal_is_busy") }.ok();
         let terminal_busy_ref: Option<&tui::TerminalBusyFn> = terminal_busy.as_deref();
-        // 注册表菜单 / 表单查询为可选符号：缺失或为空时 TUI 回退内置硬编码菜单。
+        // 注册表菜单 / 表单 / 侧栏 / 底部查询为可选符号：缺失或为空时对应条目为空，
+        // 宿主仅保留本地内置命令菜单（File→Exit、Help 组），不再回退整套硬编码 UI。
         let get_menu_items: Option<Symbol<ui_registry::GetMenuItemsFn>> =
             unsafe { core_lib.get(b"get_menu_items") }.ok();
         let get_menu_items_ref: Option<&ui_registry::GetMenuItemsFn> = get_menu_items.as_deref();

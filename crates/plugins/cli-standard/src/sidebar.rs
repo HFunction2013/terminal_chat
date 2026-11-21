@@ -1,12 +1,9 @@
-//! 侧栏栏目壳与条目模板注册表登记（#90，批次 3）。
+//! 侧栏栏目壳与条目模板注册表登记（#90）。
 //!
-//! 把宿主内置的三段侧栏（会话 / 成员 / 插件）栏目壳与条目模板迁移到 cli-core
-//! 注册表：栏目壳声明标题、默认展开与快照数据源（`source`）；条目模板声明归属
-//! 栏目、前缀符号、内容占位（`{name}` / `{namespace}`）、高亮标记与主 / 次行。
-//! 实际条目名由宿主快照回填，模板外观随 #150 切换到注册表驱动渲染。
-//!
-//! 过渡期这些模板先进注册表；宿主 TUI 仍回退内置硬编码侧栏，待整体迁移完成后
-//! 切换（见 #150）。
+//! 侧栏三段（会话 / 成员 / 插件）栏目壳与条目模板登记在 cli-core 注册表：栏目壳
+//! 声明标题、默认展开与快照数据源（`source`）；条目模板声明归属栏目、前缀符号、
+//! 内容占位（`{name}` / `{namespace}`）、高亮标记与主 / 次行。宿主 TUI 按注册表
+//! 模板驱动渲染，实际条目名由宿主快照回填。
 
 use libloading::Library;
 use safer_ffi::prelude::*;
@@ -31,7 +28,7 @@ struct SideItemDef {
     line: i32,
 }
 
-/// 三段侧栏栏目壳（与宿主 legacy 标题 / 默认展开 / 快照数据源一一对应）。
+/// 三段侧栏栏目壳（标题 / 默认展开 / 快照数据源一一对应）。
 const SIDE_SECTIONS: &[SideSectionDef] = &[
     SideSectionDef { id: "sec-freq", title: "Session", source: "sessions", default_open: true },
     SideSectionDef { id: "sec-members", title: "Members", source: "members", default_open: true },

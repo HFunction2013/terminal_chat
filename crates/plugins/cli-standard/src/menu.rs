@@ -1,9 +1,8 @@
-//! 菜单 / 侧栏 / 底部 UI 注册表登记（#90）。
+//! 菜单注册表登记（#90）。
 //!
-//! 过渡期：本模块登记的条目先进 cli-core 注册表；宿主 TUI 仍回退内置硬编码
-//! 菜单，待菜单 / 表单整体迁移完成后再切换到注册表驱动（见 #150）。内置退出 /
-//! 信息弹窗命令（exit / about / copyright / license / help 等）由宿主本地分发，
-//! 不在此登记。
+//! 本模块把可被插件调度的命令菜单条目登记进 cli-core 注册表；宿主 TUI 按注册表
+//! 驱动渲染菜单。内置退出 / 信息弹窗命令（exit / about / copyright / license /
+//! help 等）由宿主本地分发，不在此登记。
 
 use cli_core_types::ui::ui_action_kind;
 use libloading::Library;

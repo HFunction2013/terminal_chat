@@ -585,9 +585,9 @@ struct App {
     list_registered_options: Option<GetRegisteredOptionsFn>,
     /// 已注册选项 key 缓存（供选项参数位置补全）。
     registered_options: Vec<String>,
-    /// 注册表追加的底部状态栏片段（插件 `on_init_plugin` 登记）；空时仅显示内置项。
+    /// 注册表底部状态栏片段（静态 label + 逐帧回调返回值）；宿主只拼接渲染。
     bottom_fragments: Vec<String>,
-    /// 注册表侧栏栏目壳（插件登记）；空时回退内置硬编码三段。
+    /// 注册表侧栏栏目壳（插件登记）；空时不渲染任何栏目。
     side_sections: Vec<ui_registry::RegSideSection>,
     /// 注册表侧栏条目模板（前缀符号 + 内容占位）；实际条目名由宿主快照回填。
     side_items: Vec<ui_registry::RegSideItem>,

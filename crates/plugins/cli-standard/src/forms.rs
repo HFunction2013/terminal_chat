@@ -1,11 +1,8 @@
-//! 参数表单规格注册表登记（#90，批次 2）。
+//! 参数表单规格注册表登记（#90）。
 //!
-//! 把宿主内置的 42 个表单规格迁移到 cli-core 注册表：先 `register_form_spec`
-//! 登记标题 / 命令 / 前缀，再 `register_form_field` 按命令追加字段。表单字段的
-//! 补全类别序号对齐 `cli_core_types::ui::ui_field_kind`。
-//!
-//! 过渡期这些规格先进注册表；宿主 TUI 仍回退内置硬编码表单，待整体迁移完成后
-//! 切换（见 #150）。
+//! 42 个表单规格登记在 cli-core 注册表：先 `register_form_spec` 登记标题 / 命令 /
+//! 前缀，再 `register_form_field` 按命令追加字段。表单字段的补全类别序号对齐
+//! `cli_core_types::ui::ui_field_kind`；宿主 TUI 按注册表规格渲染表单。
 
 use cli_core_types::ui::{ui_action_kind, ui_field_kind as k};
 use libloading::Library;
