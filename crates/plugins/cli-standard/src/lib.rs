@@ -32,6 +32,7 @@ mod commands;
 mod connection;
 pub mod editor;
 pub mod local;
+mod menu;
 mod session;
 mod terminal;
 mod command {
@@ -67,6 +68,7 @@ pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
     for key in BUILTIN_OPTIONS {
         let _ = register_option(&safer_ffi::String::from(*key));
     }
+    menu::register_menu(lib);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 

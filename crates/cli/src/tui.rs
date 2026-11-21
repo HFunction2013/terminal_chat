@@ -1449,11 +1449,18 @@ fn reg_groups_to_groups(
         .collect()
 }
 
-/// 解析当前生效菜单：注册表非空时用注册表条目，否则回退内置硬编码菜单。
+/// 注册表菜单启用闸门：菜单 / 表单整体迁移完成前保持关闭，宿主回退内置硬编码
+/// 菜单；#150 删除硬编码时翻为 `true`。过渡期不做注册表与硬编码的合并补齐。
+const REGISTRY_MENUS_ENABLED: bool = false;
+
+/// 解析当前生效菜单：注册表启用且非空时用注册表条目，否则回退内置硬编码菜单。
 fn resolve_groups(
     menu_fn: Option<&ui_registry::GetMenuItemsFn>,
     form_fn: Option<&ui_registry::GetFormSpecFn>,
 ) -> Vec<MenuGroup> {
+    if !REGISTRY_MENUS_ENABLED {
+        return menu_groups();
+    }
     let registered = ui_registry::fetch_menu_items(menu_fn);
     if registered.is_empty() { menu_groups() } else { reg_groups_to_groups(registered, form_fn) }
 }
