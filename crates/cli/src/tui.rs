@@ -28,7 +28,7 @@ use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -229,661 +229,6 @@ struct FormSpec {
     fields: Vec<FormField>,
 }
 
-/// `join_freq` 表单：freq 必填，password 可选。
-static JOIN_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Join Frequency".to_string(),
-    cmd: "join_freq".to_string(),
-    prefill: "join_freq ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Frequency ID:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-        FormField {
-            label: "Password (optional):".to_string(),
-            required: false,
-            secret: true,
-            kind: FieldKind::Plain,
-        },
-    ],
-});
-
-/// `workspace switch` 表单。
-static SWITCH_WS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Switch Workspace".to_string(),
-    cmd: "workspace switch".to_string(),
-    prefill: "workspace switch ".to_string(),
-    fields: vec![FormField {
-        label: "Workspace name:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// `workspace new` 表单：名称可选（服务端默认 `Workspace-xxx`）。
-static NEW_WS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "New Workspace".to_string(),
-    cmd: "workspace new".to_string(),
-    prefill: "workspace new ".to_string(),
-    fields: vec![FormField {
-        label: "Workspace name (optional):".to_string(),
-        required: false,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// `create_freq` 表单：频点名必填，密码可选（掩码回显）；成员数等其余参数仍走命令行。
-static CREATE_FREQ_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Create Frequency".to_string(),
-    cmd: "create_freq".to_string(),
-    prefill: "create_freq ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Frequency ID:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-        FormField {
-            label: "Password (optional):".to_string(),
-            required: false,
-            secret: true,
-            kind: FieldKind::Plain,
-        },
-    ],
-});
-
-/// `msg` 表单：收件人可选（默认全员），消息必填。
-static MSG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Send Message".to_string(),
-    cmd: "msg".to_string(),
-    prefill: "msg -m ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Users (optional):".to_string(),
-            required: false,
-            secret: false,
-            kind: FieldKind::Member,
-        },
-        FormField {
-            label: "Message:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-    ],
-});
-
-/// `reply` 表单。
-static REPLY_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Reply".to_string(),
-    cmd: "reply".to_string(),
-    prefill: "reply ".to_string(),
-    fields: vec![FormField {
-        label: "Message:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// `call` 表单。
-static CALL_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Call User".to_string(),
-    cmd: "call".to_string(),
-    prefill: "call ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-
-/// 单用户管理命令表单（mute/unmute/ignore/kick/ban）。
-static MUTE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Mute User".to_string(),
-    cmd: "mute".to_string(),
-    prefill: "mute ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static UNMUTE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unmute User".to_string(),
-    cmd: "unmute".to_string(),
-    prefill: "unmute ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static IGNORE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Ignore User".to_string(),
-    cmd: "ignore".to_string(),
-    prefill: "ignore ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static KICK_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Kick User".to_string(),
-    cmd: "kick".to_string(),
-    prefill: "kick ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static BAN_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Ban User".to_string(),
-    cmd: "ban".to_string(),
-    prefill: "ban ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-
-/// 文件列表表单：目录可选。
-static LS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "List Remote Files".to_string(),
-    cmd: "ls".to_string(),
-    prefill: "ls ".to_string(),
-    fields: vec![FormField {
-        label: "Directory (optional):".to_string(),
-        required: false,
-        secret: false,
-        kind: FieldKind::RemotePath,
-    }],
-});
-
-/// 上传表单：本地路径必填，远端路径可选。
-static UPLOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Upload".to_string(),
-    cmd: "upload".to_string(),
-    prefill: "upload ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Local path:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::LocalPath,
-        },
-        FormField {
-            label: "Remote path (optional):".to_string(),
-            required: false,
-            secret: false,
-            kind: FieldKind::RemotePath,
-        },
-    ],
-});
-
-/// 下载表单：远端路径必填，本地路径可选。
-static DOWNLOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Download".to_string(),
-    cmd: "download".to_string(),
-    prefill: "download ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Remote path:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::RemotePath,
-        },
-        FormField {
-            label: "Local path (optional):".to_string(),
-            required: false,
-            secret: false,
-            kind: FieldKind::LocalPath,
-        },
-    ],
-});
-
-/// 删除远端文件表单。
-static RM_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Remove Remote File".to_string(),
-    cmd: "rm".to_string(),
-    prefill: "rm ".to_string(),
-    fields: vec![FormField {
-        label: "Remote path:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::RemotePath,
-    }],
-});
-
-/// 移动/重命名远端文件表单。
-static MV_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Move Remote File".to_string(),
-    cmd: "mv".to_string(),
-    prefill: "mv ".to_string(),
-    fields: vec![
-        FormField {
-            label: "From:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::RemotePath,
-        },
-        FormField {
-            label: "To:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::RemotePath,
-        },
-    ],
-});
-
-/// 复制远端文件表单。
-static CP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Copy Remote File".to_string(),
-    cmd: "cp".to_string(),
-    prefill: "cp ".to_string(),
-    fields: vec![
-        FormField {
-            label: "From:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::RemotePath,
-        },
-        FormField {
-            label: "To:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::RemotePath,
-        },
-    ],
-});
-
-/// 加载插件表单。
-static LOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Load Plugin".to_string(),
-    cmd: "load".to_string(),
-    prefill: "load ".to_string(),
-    fields: vec![FormField {
-        label: "Plugin:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 卸载插件表单。
-static UNLOAD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unload Plugin".to_string(),
-    cmd: "unload".to_string(),
-    prefill: "unload ".to_string(),
-    fields: vec![FormField {
-        label: "Plugin name:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 本地 shell 命令表单。
-static SHELL_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Local Shell".to_string(),
-    cmd: "shell".to_string(),
-    prefill: "shell ".to_string(),
-    fields: vec![FormField {
-        label: "Command:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 单用户管理命令表单（unban/unignore/op/deop/trop/user_info）。
-static UNBAN_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unban User".to_string(),
-    cmd: "unban".to_string(),
-    prefill: "unban ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static UNIGNORE_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unignore User".to_string(),
-    cmd: "unignore".to_string(),
-    prefill: "unignore ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static OP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Grant Moderator".to_string(),
-    cmd: "op".to_string(),
-    prefill: "op ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static DEOP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Revoke Moderator".to_string(),
-    cmd: "deop".to_string(),
-    prefill: "deop ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static TROP_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Transfer Creator".to_string(),
-    cmd: "trop".to_string(),
-    prefill: "trop ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-static USER_INFO_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "User Info".to_string(),
-    cmd: "user_info".to_string(),
-    prefill: "user_info ".to_string(),
-    fields: vec![FormField {
-        label: "User:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Member,
-    }],
-});
-
-/// 远端文件系统命令表单。
-static MKDIR_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Make Remote Directory".to_string(),
-    cmd: "mkdir".to_string(),
-    prefill: "mkdir ".to_string(),
-    fields: vec![FormField {
-        label: "Directory:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::RemotePath,
-    }],
-});
-static CD_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Change Remote Directory".to_string(),
-    cmd: "cd".to_string(),
-    prefill: "cd ".to_string(),
-    fields: vec![FormField {
-        label: "Directory:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::RemotePath,
-    }],
-});
-static CHECKSUM_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "File Checksum".to_string(),
-    cmd: "checksum".to_string(),
-    prefill: "checksum ".to_string(),
-    fields: vec![FormField {
-        label: "File:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::RemotePath,
-    }],
-});
-static FILE_INFO_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "File Info".to_string(),
-    cmd: "file_info".to_string(),
-    prefill: "file_info ".to_string(),
-    fields: vec![FormField {
-        label: "File:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::RemotePath,
-    }],
-});
-
-/// 定时消息表单：time 位置、message 走 `-m`、users 可选。
-static SCHEDULE_MSG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Schedule Message".to_string(),
-    cmd: "schedule_msg".to_string(),
-    prefill: "schedule_msg ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Time (+30s / HH:MM):".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-        FormField {
-            label: "Message:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-        FormField {
-            label: "Users (optional):".to_string(),
-            required: false,
-            secret: false,
-            kind: FieldKind::Member,
-        },
-    ],
-});
-static CANCEL_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Cancel Task".to_string(),
-    cmd: "cancel".to_string(),
-    prefill: "cancel ".to_string(),
-    fields: vec![FormField {
-        label: "Task ID:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 加载/卸载命名空间表单。
-static LOAD_NS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Load Namespace".to_string(),
-    cmd: "load namespace".to_string(),
-    prefill: "load namespace ".to_string(),
-    fields: vec![FormField {
-        label: "Namespace:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-static UNLOAD_NS_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unload Namespace".to_string(),
-    cmd: "unload namespace".to_string(),
-    prefill: "unload namespace ".to_string(),
-    fields: vec![FormField {
-        label: "Namespace:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 会话/全局选项表单。
-static SET_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Set Session Option".to_string(),
-    cmd: "set".to_string(),
-    prefill: "set ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Key:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-        FormField {
-            label: "Value:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-    ],
-});
-static GET_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Get Session Option".to_string(),
-    cmd: "get".to_string(),
-    prefill: "get ".to_string(),
-    fields: vec![FormField {
-        label: "Key:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-static SETG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Set Global Option".to_string(),
-    cmd: "setg".to_string(),
-    prefill: "setg ".to_string(),
-    fields: vec![
-        FormField {
-            label: "Key:".to_string(),
-            required: true,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-        FormField {
-            label: "Value (optional):".to_string(),
-            required: false,
-            secret: false,
-            kind: FieldKind::Plain,
-        },
-    ],
-});
-static GETG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Get Global Option".to_string(),
-    cmd: "getg".to_string(),
-    prefill: "getg ".to_string(),
-    fields: vec![FormField {
-        label: "Key:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-static UNSET_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unset Session Option".to_string(),
-    cmd: "unset".to_string(),
-    prefill: "unset ".to_string(),
-    fields: vec![FormField {
-        label: "Key:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-static UNSETG_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Unset Global Option".to_string(),
-    cmd: "unsetg".to_string(),
-    prefill: "unsetg ".to_string(),
-    fields: vec![FormField {
-        label: "Key:".to_string(),
-        required: true,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 频点信息表单：频点可选（留空取当前）。
-static FREQ_INFO_FORM: LazyLock<FormSpec> = LazyLock::new(|| FormSpec {
-    title: "Frequency Info".to_string(),
-    cmd: "freq_info".to_string(),
-    prefill: "freq_info ".to_string(),
-    fields: vec![FormField {
-        label: "Frequency (optional):".to_string(),
-        required: false,
-        secret: false,
-        kind: FieldKind::Plain,
-    }],
-});
-
-/// 全部带参命令的表单规格；供菜单动作之外的输入框回车路径按命令名反查。
-static FORM_SPECS: LazyLock<Vec<&'static FormSpec>> = LazyLock::new(|| {
-    vec![
-        &*JOIN_FORM,
-        &*SWITCH_WS_FORM,
-        &*NEW_WS_FORM,
-        &*CREATE_FREQ_FORM,
-        &*MSG_FORM,
-        &*REPLY_FORM,
-        &*CALL_FORM,
-        &*MUTE_FORM,
-        &*UNMUTE_FORM,
-        &*IGNORE_FORM,
-        &*KICK_FORM,
-        &*BAN_FORM,
-        &*LS_FORM,
-        &*UPLOAD_FORM,
-        &*DOWNLOAD_FORM,
-        &*RM_FORM,
-        &*MV_FORM,
-        &*CP_FORM,
-        &*LOAD_FORM,
-        &*UNLOAD_FORM,
-        &*SHELL_FORM,
-        &*UNBAN_FORM,
-        &*UNIGNORE_FORM,
-        &*OP_FORM,
-        &*DEOP_FORM,
-        &*TROP_FORM,
-        &*USER_INFO_FORM,
-        &*MKDIR_FORM,
-        &*CD_FORM,
-        &*CHECKSUM_FORM,
-        &*FILE_INFO_FORM,
-        &*SCHEDULE_MSG_FORM,
-        &*CANCEL_FORM,
-        &*LOAD_NS_FORM,
-        &*UNLOAD_NS_FORM,
-        &*SET_FORM,
-        &*GET_FORM,
-        &*SETG_FORM,
-        &*GETG_FORM,
-        &*UNSET_FORM,
-        &*UNSETG_FORM,
-        &*FREQ_INFO_FORM,
-    ]
-});
-
-/// 按 argv 反查表单规格：先匹配复合命令（前两个 token，如 `workspace switch`），
-/// 再匹配单 token 命令；未注册返回 `None`。
-fn form_spec_for(argv: &[String]) -> Option<&'static FormSpec> {
-    if let Some(two) = argv.first_chunk::<2>() {
-        let compound = format!("{} {}", two[0], two[1]);
-        if let Some(spec) = FORM_SPECS.iter().find(|s| s.cmd == compound) {
-            return Some(spec);
-        }
-    }
-    let first = argv.first()?;
-    FORM_SPECS.iter().find(|s| s.cmd == first.as_str()).copied()
-}
-
 #[derive(Clone)]
 struct MenuItem {
     label: String,
@@ -1022,8 +367,9 @@ fn subcommands_of(cmd: &str) -> Option<&'static [&'static str]> {
     SUBCOMMANDS.iter().find(|(c, _)| *c == cmd).map(|(_, subs)| *subs)
 }
 
-/// 菜单定义：按 GUI 软件的大功能分组。
-fn menu_groups() -> Vec<MenuGroup> {
+/// 宿主内置菜单项：退出与信息弹窗命令由本地 `try_builtin` 分发，不进注册表；
+/// 其余业务菜单全部由 cli-standard 插件经注册表登记（见 #90 / #150）。
+fn builtin_groups() -> Vec<MenuGroup> {
     vec![
         MenuGroup {
             name: "File".to_string(),
@@ -1032,322 +378,6 @@ fn menu_groups() -> Vec<MenuGroup> {
                 label: "Exit".to_string(),
                 action: Action::Run(vec!["exit".to_string()]),
             }],
-        },
-        MenuGroup {
-            name: "Connection".to_string(),
-            accel: 'C',
-            items: vec![
-                MenuItem {
-                    label: "Connect".to_string(),
-                    action: Action::Run(vec!["connect".to_string()]),
-                },
-                MenuItem {
-                    label: "Reconnect".to_string(),
-                    action: Action::Run(vec!["reconnect".to_string()]),
-                },
-                MenuItem {
-                    label: "Disconnect".to_string(),
-                    action: Action::Run(vec!["disconnect".to_string()]),
-                },
-                MenuItem {
-                    label: "Whoami".to_string(),
-                    action: Action::Run(vec!["whoami".to_string()]),
-                },
-                MenuItem {
-                    label: "Status".to_string(),
-                    action: Action::Run(vec!["status".to_string()]),
-                },
-                MenuItem {
-                    label: "Route".to_string(),
-                    action: Action::Run(vec!["route".to_string()]),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Workspace".to_string(),
-            accel: 'W',
-            items: vec![
-                MenuItem {
-                    label: "List".to_string(),
-                    action: Action::Run(vec!["workspace".to_string(), "list".to_string()]),
-                },
-                MenuItem {
-                    label: "Switch...".to_string(),
-                    action: Action::Form(Box::new((&*SWITCH_WS_FORM).clone())),
-                },
-                MenuItem {
-                    label: "New...".to_string(),
-                    action: Action::Form(Box::new((&*NEW_WS_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Show".to_string(),
-                    action: Action::Run(vec!["workspace".to_string(), "show".to_string()]),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Frequency".to_string(),
-            accel: 'F',
-            items: vec![
-                MenuItem {
-                    label: "Join...".to_string(),
-                    action: Action::Form(Box::new((&*JOIN_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Create...".to_string(),
-                    action: Action::Form(Box::new((&*CREATE_FREQ_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Leave".to_string(),
-                    action: Action::Run(vec!["leave_freq".to_string()]),
-                },
-                MenuItem {
-                    label: "Info...".to_string(),
-                    action: Action::Form(Box::new((&*FREQ_INFO_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Background".to_string(),
-                    action: Action::Run(vec!["background".to_string()]),
-                },
-                MenuItem {
-                    label: "Foreground".to_string(),
-                    action: Action::Run(vec!["foreground".to_string()]),
-                },
-                MenuItem {
-                    label: "Away".to_string(),
-                    action: Action::Run(vec!["away".to_string()]),
-                },
-                MenuItem {
-                    label: "Notifications".to_string(),
-                    action: Action::Run(vec!["notifications".to_string()]),
-                },
-                MenuItem {
-                    label: "Sessions".to_string(),
-                    action: Action::Run(vec!["sessions".to_string(), "-l".to_string()]),
-                },
-                MenuItem {
-                    label: "Disband...".to_string(),
-                    action: Action::Run(vec!["disband".to_string()]),
-                },
-                MenuItem {
-                    label: "Active freqs".to_string(),
-                    action: Action::Run(vec!["show".to_string(), "active_freqs".to_string()]),
-                },
-                MenuItem {
-                    label: "Active users".to_string(),
-                    action: Action::Run(vec!["show".to_string(), "active_users".to_string()]),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Message".to_string(),
-            accel: 'M',
-            items: vec![
-                MenuItem {
-                    label: "Send...".to_string(),
-                    action: Action::Form(Box::new((&*MSG_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Reply...".to_string(),
-                    action: Action::Form(Box::new((&*REPLY_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Call...".to_string(),
-                    action: Action::Form(Box::new((&*CALL_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Schedule...".to_string(),
-                    action: Action::Form(Box::new((&*SCHEDULE_MSG_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Cancel Task...".to_string(),
-                    action: Action::Form(Box::new((&*CANCEL_FORM).clone())),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Moderation".to_string(),
-            accel: 'O',
-            items: vec![
-                MenuItem {
-                    label: "Mute...".to_string(),
-                    action: Action::Form(Box::new((&*MUTE_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unmute...".to_string(),
-                    action: Action::Form(Box::new((&*UNMUTE_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Ignore...".to_string(),
-                    action: Action::Form(Box::new((&*IGNORE_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Kick...".to_string(),
-                    action: Action::Form(Box::new((&*KICK_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Ban...".to_string(),
-                    action: Action::Form(Box::new((&*BAN_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unban...".to_string(),
-                    action: Action::Form(Box::new((&*UNBAN_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unignore...".to_string(),
-                    action: Action::Form(Box::new((&*UNIGNORE_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Op...".to_string(),
-                    action: Action::Form(Box::new((&*OP_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Deop...".to_string(),
-                    action: Action::Form(Box::new((&*DEOP_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Trop...".to_string(),
-                    action: Action::Form(Box::new((&*TROP_FORM).clone())),
-                },
-                MenuItem {
-                    label: "User Info...".to_string(),
-                    action: Action::Form(Box::new((&*USER_INFO_FORM).clone())),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Files".to_string(),
-            accel: 'L',
-            items: vec![
-                MenuItem {
-                    label: "List...".to_string(),
-                    action: Action::Form(Box::new((&*LS_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Upload...".to_string(),
-                    action: Action::Form(Box::new((&*UPLOAD_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Download...".to_string(),
-                    action: Action::Form(Box::new((&*DOWNLOAD_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Tree".to_string(),
-                    action: Action::Run(vec!["tree".to_string()]),
-                },
-                MenuItem {
-                    label: "Remove...".to_string(),
-                    action: Action::Form(Box::new((&*RM_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Move...".to_string(),
-                    action: Action::Form(Box::new((&*MV_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Copy...".to_string(),
-                    action: Action::Form(Box::new((&*CP_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Mkdir...".to_string(),
-                    action: Action::Form(Box::new((&*MKDIR_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Cd...".to_string(),
-                    action: Action::Form(Box::new((&*CD_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Checksum...".to_string(),
-                    action: Action::Form(Box::new((&*CHECKSUM_FORM).clone())),
-                },
-                MenuItem {
-                    label: "File Info...".to_string(),
-                    action: Action::Form(Box::new((&*FILE_INFO_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Pwd (remote)".to_string(),
-                    action: Action::Run(vec!["pwd".to_string()]),
-                },
-                MenuItem {
-                    label: "Local Pwd".to_string(),
-                    action: Action::Run(vec!["lpwd".to_string()]),
-                },
-                MenuItem {
-                    label: "Local List".to_string(),
-                    action: Action::Run(vec!["lls".to_string()]),
-                },
-                MenuItem {
-                    label: "Local Cd...".to_string(),
-                    action: Action::Run(vec!["lcd".to_string()]),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Plugins".to_string(),
-            accel: 'P',
-            items: vec![
-                MenuItem {
-                    label: "Show".to_string(),
-                    action: Action::Run(vec!["show".to_string(), "plugins".to_string()]),
-                },
-                MenuItem {
-                    label: "Load...".to_string(),
-                    action: Action::Form(Box::new((&*LOAD_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unload...".to_string(),
-                    action: Action::Form(Box::new((&*UNLOAD_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Load Namespace...".to_string(),
-                    action: Action::Form(Box::new((&*LOAD_NS_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unload Namespace...".to_string(),
-                    action: Action::Form(Box::new((&*UNLOAD_NS_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Shell...".to_string(),
-                    action: Action::Form(Box::new((&*SHELL_FORM).clone())),
-                },
-            ],
-        },
-        MenuGroup {
-            name: "Settings".to_string(),
-            accel: 'S',
-            items: vec![
-                MenuItem {
-                    label: "Set...".to_string(),
-                    action: Action::Form(Box::new((&*SET_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Get...".to_string(),
-                    action: Action::Form(Box::new((&*GET_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Set Global...".to_string(),
-                    action: Action::Form(Box::new((&*SETG_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Get Global...".to_string(),
-                    action: Action::Form(Box::new((&*GETG_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unset...".to_string(),
-                    action: Action::Form(Box::new((&*UNSET_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Unset Global...".to_string(),
-                    action: Action::Form(Box::new((&*UNSETG_FORM).clone())),
-                },
-                MenuItem {
-                    label: "Options".to_string(),
-                    action: Action::Run(vec!["show".to_string(), "options".to_string()]),
-                },
-                MenuItem {
-                    label: "Locals".to_string(),
-                    action: Action::Run(vec!["show".to_string(), "locals".to_string()]),
-                },
-            ],
         },
         MenuGroup {
             name: "Help".to_string(),
@@ -1409,6 +439,22 @@ fn reg_spec_to_spec(rs: ui_registry::RegFormSpec) -> FormSpec {
     }
 }
 
+/// 按 argv 从注册表反查表单规格：先匹配复合命令（前两个 token，如 `workspace switch`），
+/// 再匹配单 token 命令；未注册返回 `None`。
+fn registry_form_spec(
+    argv: &[String],
+    form_fn: Option<&ui_registry::GetFormSpecFn>,
+) -> Option<FormSpec> {
+    if let Some(two) = argv.first_chunk::<2>() {
+        let compound = format!("{} {}", two[0], two[1]);
+        if let Some(rs) = ui_registry::fetch_form_spec(&compound, form_fn) {
+            return Some(reg_spec_to_spec(rs));
+        }
+    }
+    let first = argv.first()?;
+    ui_registry::fetch_form_spec(first, form_fn).map(reg_spec_to_spec)
+}
+
 /// 注册表菜单动作 → 宿主动作；表单动作按需经查询钩子补全规格。
 fn reg_action_to_action(
     action: ui_registry::RegMenuAction,
@@ -1449,20 +495,14 @@ fn reg_groups_to_groups(
         .collect()
 }
 
-/// 注册表菜单启用闸门：菜单 / 表单整体迁移完成前保持关闭，宿主回退内置硬编码
-/// 菜单；#150 删除硬编码时翻为 `true`。过渡期不做注册表与硬编码的合并补齐。
-const REGISTRY_MENUS_ENABLED: bool = false;
-
-/// 解析当前生效菜单：注册表启用且非空时用注册表条目，否则回退内置硬编码菜单。
+/// 解析当前生效菜单：插件经注册表登记的业务菜单，追加宿主内置的退出 / 信息弹窗组。
 fn resolve_groups(
     menu_fn: Option<&ui_registry::GetMenuItemsFn>,
     form_fn: Option<&ui_registry::GetFormSpecFn>,
 ) -> Vec<MenuGroup> {
-    if !REGISTRY_MENUS_ENABLED {
-        return menu_groups();
-    }
-    let registered = ui_registry::fetch_menu_items(menu_fn);
-    if registered.is_empty() { menu_groups() } else { reg_groups_to_groups(registered, form_fn) }
+    let mut groups = reg_groups_to_groups(ui_registry::fetch_menu_items(menu_fn), form_fn);
+    groups.extend(builtin_groups());
+    groups
 }
 
 /// `connect` 缺配置时的弹窗询问阶段。
@@ -1545,6 +585,9 @@ struct App {
     /// 把当前频点写入 cli-core 状态槽的回调（cli-core `set_current_freq`）；
     /// 供插件底部状态栏回调读取；缺失时不写槽。
     set_current_freq: Option<SetCurrentFreqFn>,
+    /// 注册表表单规格查询回调（cli-core `get_form_spec`）；命令行回车路径按
+    /// 命令名反查已注册表单；缺失时不弹表单。
+    get_form_spec: Option<ui_registry::GetFormSpecFn>,
     /// 已注册选项列举回调（cli-core `get_registered_options`）；缺失时选项 key 不补全。
     list_registered_options: Option<GetRegisteredOptionsFn>,
     /// 已注册选项 key 缓存（供选项参数位置补全）。
@@ -1615,6 +658,7 @@ impl App {
             is_connected: None,
             set_interrupted: None,
             set_current_freq: None,
+            get_form_spec: None,
             list_registered_options: None,
             registered_options: Vec::new(),
             bottom_fragments: Vec::new(),
@@ -2494,6 +1538,7 @@ pub fn run(
     app.is_connected = is_connected.copied();
     app.set_interrupted = set_interrupted.copied();
     app.set_current_freq = set_current_freq.copied();
+    app.get_form_spec = get_form_spec.copied();
     app.list_registered_options = registered_options.copied();
     app.bottom_fragments = ui_registry::fetch_bottom_fragments(get_bottom_fragments)
         .into_iter()
@@ -3316,9 +2361,9 @@ fn execute_or_dialog(
     // 已敲参数则按原样执行。命令行偏好开启时保持直接走命令行（见 #51 反向口径）。
     if !app.prefer_cli
         && argv.len() <= 1
-        && let Some(spec) = form_spec_for(argv)
+        && let Some(spec) = registry_form_spec(argv, app.get_form_spec.as_ref())
     {
-        app.open_form(spec);
+        app.open_form(&spec);
         return;
     }
     // 危险操作：先弹二次确认框，确认后再执行。
@@ -3992,6 +3037,38 @@ mod tests {
     const STUB_DRAIN: OutputDrainFn = stub_drain;
     const STUB_CONNECTED: IsConnectedFn = stub_connected;
 
+    /// 注册表表单规格桩：仅返回 `STUB_FORM_CMDS` 内登记命令的桩规格。
+    static STUB_FORM_CMDS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    extern "C" fn stub_form_spec(
+        cmd: &safer_ffi::String,
+        out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let registered = STUB_FORM_CMDS.lock().unwrap().clone();
+        let rows: Vec<safer_ffi::String> = if registered.iter().any(|c| c == &cmd.to_string()) {
+            vec![format!("SPEC|Stub|{cmd}|{cmd} ").into(), "FIELD|Value:|1|0|0".into()]
+        } else {
+            Vec::new()
+        };
+        out.write(rows.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_FORM_SPEC: ui_registry::GetFormSpecFn = stub_form_spec;
+
+    /// 测试用字段桩：自由文本类别。
+    fn stub_field(required: bool, secret: bool) -> FormField {
+        FormField { label: String::new(), required, secret, kind: FieldKind::Plain }
+    }
+
+    /// 测试用表单规格桩：标题留空，仅携带命令名 / 前缀 / 字段。
+    fn stub_spec(cmd: &str, prefill: &str, fields: Vec<FormField>) -> FormSpec {
+        FormSpec {
+            title: String::new(),
+            cmd: cmd.to_string(),
+            prefill: prefill.to_string(),
+            fields,
+        }
+    }
+
     static INTERRUPT_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     extern "C" fn stub_set_interrupted(_: bool) -> cli_core_types::Result {
         INTERRUPT_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -4593,41 +3670,47 @@ mod tests {
 
     #[test]
     fn form_argv_join_omits_empty_password() {
-        let with_pw = form_argv(&*JOIN_FORM, &["abc".into(), "secret".into()]);
+        let spec = stub_spec("join_freq", "", vec![]);
+        let with_pw = form_argv(&spec, &["abc".into(), "secret".into()]);
         assert_eq!(with_pw, vec!["join_freq".to_string(), "abc".to_string(), "secret".to_string()]);
 
-        let no_pw = form_argv(&*JOIN_FORM, &["abc".into(), "".into()]);
+        let no_pw = form_argv(&spec, &["abc".into(), "".into()]);
         assert_eq!(no_pw, vec!["join_freq".to_string(), "abc".to_string()]);
     }
 
     #[test]
     fn form_argv_create_freq_omits_empty_password() {
-        let with_pw = form_argv(&*CREATE_FREQ_FORM, &["abc".into(), "secret".into()]);
+        let spec = stub_spec("create_freq", "", vec![]);
+        let with_pw = form_argv(&spec, &["abc".into(), "secret".into()]);
         assert_eq!(
             with_pw,
             vec!["create_freq".to_string(), "abc".to_string(), "secret".to_string()]
         );
 
-        let no_pw = form_argv(&*CREATE_FREQ_FORM, &["abc".into(), "".into()]);
+        let no_pw = form_argv(&spec, &["abc".into(), "".into()]);
         assert_eq!(no_pw, vec!["create_freq".to_string(), "abc".to_string()]);
     }
 
     #[test]
     fn open_form_initializes_focus_and_values() {
         let mut app = App::new();
-        app.open_form(&*JOIN_FORM);
+        let spec =
+            stub_spec("join_freq", "", vec![stub_field(true, false), stub_field(false, true)]);
+        app.open_form(&spec);
         let Some(Dialog::Form(form)) = &app.dialog else {
             panic!("expected form dialog");
         };
         assert_eq!(form.focus, 0);
-        assert_eq!(form.values.len(), JOIN_FORM.fields.len());
+        assert_eq!(form.values.len(), spec.fields.len());
         assert!(app.dialog_buffer().unwrap().is_empty());
     }
 
     #[test]
     fn form_required_field_blocks_advance() {
         let mut app = App::new();
-        app.open_form(&*JOIN_FORM);
+        let spec =
+            stub_spec("join_freq", "", vec![stub_field(true, false), stub_field(false, true)]);
+        app.open_form(&spec);
         // 必填的 freq 留空：回车应停留在第一字段。
         dialog_advance(&mut app, &STUB_RUN, &STUB_DRAIN);
         let Dialog::Form(form) = app.dialog.as_ref().unwrap() else {
@@ -4646,18 +3729,14 @@ mod tests {
 
     #[test]
     fn form_action_prefills_when_prefer_cli() {
+        let spec = stub_spec("join_freq", "join_freq ", vec![]);
         // 命令行偏好：退回输入框预填，不弹窗、不执行。
         let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
         let mut app = App::new();
         app.prefer_cli = true;
         app.is_connected = Some(STUB_CONNECTED);
-        run_action(
-            &mut app,
-            &STUB_RUN,
-            &STUB_DRAIN,
-            &Action::Form(Box::new((&*JOIN_FORM).clone())),
-        );
-        assert_eq!(app.input, JOIN_FORM.prefill.as_str());
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(Box::new(spec.clone())));
+        assert_eq!(app.input, spec.prefill.as_str());
         assert!(app.dialog.is_none());
         // 预填路径绝不触发命令执行。
         assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before);
@@ -4666,37 +3745,40 @@ mod tests {
         let before2 = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
-        run_action(
-            &mut app,
-            &STUB_RUN,
-            &STUB_DRAIN,
-            &Action::Form(Box::new((&*JOIN_FORM).clone())),
-        );
+        run_action(&mut app, &STUB_RUN, &STUB_DRAIN, &Action::Form(Box::new(spec.clone())));
         assert!(app.dialog.is_some());
         assert!(app.input.is_empty());
         assert_eq!(RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst), before2);
     }
 
     #[test]
-    fn form_spec_for_matches_single_and_compound_commands() {
+    fn registry_form_spec_matches_single_and_compound_commands() {
+        *STUB_FORM_CMDS.lock().unwrap() =
+            vec!["upload".to_string(), "workspace switch".to_string()];
+
         let upload = vec!["upload".to_string()];
-        assert_eq!(form_spec_for(&upload).unwrap().cmd, "upload");
+        assert_eq!(registry_form_spec(&upload, Some(&STUB_FORM_SPEC)).unwrap().cmd, "upload");
 
         let switch_ws = vec!["workspace".to_string(), "switch".to_string()];
-        assert_eq!(form_spec_for(&switch_ws).unwrap().cmd, "workspace switch");
+        assert_eq!(
+            registry_form_spec(&switch_ws, Some(&STUB_FORM_SPEC)).unwrap().cmd,
+            "workspace switch"
+        );
 
         // 只有复合命令的首 token 时不应误匹配。
         let ws_only = vec!["workspace".to_string()];
-        assert!(form_spec_for(&ws_only).is_none());
+        assert!(registry_form_spec(&ws_only, Some(&STUB_FORM_SPEC)).is_none());
 
         let bogus = vec!["definitely_not_a_command".to_string()];
-        assert!(form_spec_for(&bogus).is_none());
+        assert!(registry_form_spec(&bogus, Some(&STUB_FORM_SPEC)).is_none());
     }
 
     #[test]
     fn missing_arg_command_opens_form_when_not_prefer_cli() {
+        *STUB_FORM_CMDS.lock().unwrap() = vec!["upload".to_string()];
         let mut app = App::new();
         app.is_connected = Some(STUB_CONNECTED);
+        app.get_form_spec = Some(STUB_FORM_SPEC);
         let before = RUN_CALLS.load(std::sync::atomic::Ordering::SeqCst);
 
         // 缺参、非命令行偏好：打开 upload 表单，不进 FFI。
@@ -4761,7 +3843,7 @@ mod tests {
             &mut app,
             &STUB_RUN,
             &STUB_DRAIN,
-            &Action::Form(Box::new((&*JOIN_FORM).clone())),
+            &Action::Form(Box::new(stub_spec("join_freq", "", vec![]))),
         );
         assert!(app.dialog.is_none());
         assert!(app.input.is_empty());
@@ -4769,7 +3851,7 @@ mod tests {
 
     #[test]
     fn form_argv_msg_splits_users_and_flags_message() {
-        let argv = form_argv(&*MSG_FORM, &["alice bob".into(), "hello".into()]);
+        let argv = form_argv(&stub_spec("msg", "", vec![]), &["alice bob".into(), "hello".into()]);
         assert_eq!(
             argv,
             vec![
@@ -4784,18 +3866,18 @@ mod tests {
 
     #[test]
     fn form_argv_msg_omits_empty_users() {
-        let argv = form_argv(&*MSG_FORM, &["".into(), "hi".into()]);
+        let argv = form_argv(&stub_spec("msg", "", vec![]), &["".into(), "hi".into()]);
         assert_eq!(argv, vec!["msg".to_string(), "-m".to_string(), "hi".to_string()]);
     }
 
     #[test]
     fn form_argv_two_arg_commands() {
         assert_eq!(
-            form_argv(&*MV_FORM, &["a".into(), "b".into()]),
+            form_argv(&stub_spec("mv", "", vec![]), &["a".into(), "b".into()]),
             vec!["mv".to_string(), "a".to_string(), "b".to_string()]
         );
         assert_eq!(
-            form_argv(&*CP_FORM, &["x".into(), "y".into()]),
+            form_argv(&stub_spec("cp", "", vec![]), &["x".into(), "y".into()]),
             vec!["cp".to_string(), "x".to_string(), "y".to_string()]
         );
     }
@@ -4803,28 +3885,31 @@ mod tests {
     #[test]
     fn form_argv_workspace_switch_and_plugin_load() {
         assert_eq!(
-            form_argv(&*SWITCH_WS_FORM, &["dev".into()]),
+            form_argv(&stub_spec("workspace switch", "", vec![]), &["dev".into()]),
             vec!["workspace".to_string(), "switch".to_string(), "dev".to_string()]
         );
         assert_eq!(
-            form_argv(&*LOAD_FORM, &["foo".into()]),
+            form_argv(&stub_spec("load", "", vec![]), &["foo".into()]),
             vec!["load".to_string(), "plugin".to_string(), "foo".to_string()]
         );
         assert_eq!(
-            form_argv(&*UNLOAD_FORM, &["foo".into()]),
+            form_argv(&stub_spec("unload", "", vec![]), &["foo".into()]),
             vec!["unload".to_string(), "plugin".to_string(), "foo".to_string()]
         );
     }
 
     #[test]
     fn form_argv_shell_splits_command_line() {
-        let argv = form_argv(&*SHELL_FORM, &["ls -la".into()]);
+        let argv = form_argv(&stub_spec("shell", "", vec![]), &["ls -la".into()]);
         assert_eq!(argv, vec!["shell".to_string(), "ls".to_string(), "-la".to_string()]);
     }
 
     #[test]
     fn form_argv_schedule_msg_flags_message_and_users() {
-        let argv = form_argv(&*SCHEDULE_MSG_FORM, &["+5m".into(), "hi".into(), "alice bob".into()]);
+        let argv = form_argv(
+            &stub_spec("schedule_msg", "", vec![]),
+            &["+5m".into(), "hi".into(), "alice bob".into()],
+        );
         assert_eq!(
             argv,
             vec![
@@ -4841,11 +3926,11 @@ mod tests {
     #[test]
     fn form_argv_namespace_load_unload() {
         assert_eq!(
-            form_argv(&*LOAD_NS_FORM, &["net".into()]),
+            form_argv(&stub_spec("load namespace", "", vec![]), &["net".into()]),
             vec!["load".to_string(), "namespace".to_string(), "net".to_string()]
         );
         assert_eq!(
-            form_argv(&*UNLOAD_NS_FORM, &["net".into()]),
+            form_argv(&stub_spec("unload namespace", "", vec![]), &["net".into()]),
             vec!["unload".to_string(), "namespace".to_string(), "net".to_string()]
         );
     }
@@ -4853,45 +3938,51 @@ mod tests {
     #[test]
     fn form_argv_settings_key_value() {
         assert_eq!(
-            form_argv(&*SET_FORM, &["k".into(), "v".into()]),
+            form_argv(&stub_spec("set", "", vec![]), &["k".into(), "v".into()]),
             vec!["set".to_string(), "k".to_string(), "v".to_string()]
         );
         // setg 的 value 可选：留空时只带 key。
         assert_eq!(
-            form_argv(&*SETG_FORM, &["k".into(), "".into()]),
+            form_argv(&stub_spec("setg", "", vec![]), &["k".into(), "".into()]),
             vec!["setg".to_string(), "k".to_string()]
         );
-        assert_eq!(form_argv(&*GET_FORM, &["k".into()]), vec!["get".to_string(), "k".to_string()]);
+        assert_eq!(
+            form_argv(&stub_spec("get", "", vec![]), &["k".into()]),
+            vec!["get".to_string(), "k".to_string()]
+        );
     }
 
     #[test]
     fn form_argv_extra_single_arg_commands() {
         assert_eq!(
-            form_argv(&*UNBAN_FORM, &["u@h".into()]),
+            form_argv(&stub_spec("unban", "", vec![]), &["u@h".into()]),
             vec!["unban".to_string(), "u@h".to_string()]
         );
         assert_eq!(
-            form_argv(&*OP_FORM, &["u@h".into()]),
+            form_argv(&stub_spec("op", "", vec![]), &["u@h".into()]),
             vec!["op".to_string(), "u@h".to_string()]
         );
         assert_eq!(
-            form_argv(&*MKDIR_FORM, &["docs".into()]),
+            form_argv(&stub_spec("mkdir", "", vec![]), &["docs".into()]),
             vec!["mkdir".to_string(), "docs".to_string()]
         );
         assert_eq!(
-            form_argv(&*CANCEL_FORM, &["3".into()]),
+            form_argv(&stub_spec("cancel", "", vec![]), &["3".into()]),
             vec!["cancel".to_string(), "3".to_string()]
         );
         assert_eq!(
-            form_argv(&*UNSET_FORM, &["k".into()]),
+            form_argv(&stub_spec("unset", "", vec![]), &["k".into()]),
             vec!["unset".to_string(), "k".to_string()]
         );
         assert_eq!(
-            form_argv(&*UNSETG_FORM, &["k".into()]),
+            form_argv(&stub_spec("unsetg", "", vec![]), &["k".into()]),
             vec!["unsetg".to_string(), "k".to_string()]
         );
         // 可选频点留空：只发命令本身。
-        assert_eq!(form_argv(&*FREQ_INFO_FORM, &["".into()]), vec!["freq_info".to_string()]);
+        assert_eq!(
+            form_argv(&stub_spec("freq_info", "", vec![]), &["".into()]),
+            vec!["freq_info".to_string()]
+        );
     }
 
     #[test]
@@ -4966,46 +4057,13 @@ mod tests {
     }
 
     #[test]
-    fn menu_groups_place_entries_in_correct_group() {
-        let groups = menu_groups();
+    fn builtin_groups_hold_only_exit_and_info_dialogs() {
+        let groups = builtin_groups();
         let find = |name: &str| groups.iter().find(|g| g.name == name).expect(name);
         let labels = |g: &MenuGroup| g.items.iter().map(|i| i.label.clone()).collect::<Vec<_>>();
 
-        // File: Exit only; Connection must not hold Exit.
+        // File: only the local exit command; business groups are registry-driven.
         assert_eq!(labels(find("File")), vec!["Exit".to_string()]);
-        assert!(!labels(find("Connection")).contains(&"Exit".to_string()));
-
-        // Connection: presence/session queries.
-        let conn = labels(find("Connection"));
-        for label in ["Whoami", "Status", "Route"] {
-            assert!(conn.contains(&label.to_string()), "Connection should hold {label}");
-        }
-
-        // Frequency: disband lifecycle + online queries.
-        let freq = labels(find("Frequency"));
-        assert!(freq.contains(&"Disband...".to_string()));
-        assert!(freq.contains(&"Active freqs".to_string()));
-        assert!(freq.contains(&"Active users".to_string()));
-        for label in ["Foreground", "Away", "Notifications"] {
-            assert!(freq.contains(&label.to_string()), "Frequency should hold {label}");
-        }
-
-        // Files: remote pwd + local filesystem entries.
-        let files = labels(find("Files"));
-        for label in ["Pwd (remote)", "Local Pwd", "Local List", "Local Cd..."] {
-            assert!(files.contains(&label.to_string()), "Files should hold {label}");
-        }
-
-        // Moderation: a single Ignore, no Disband.
-        let moderation = labels(find("Moderation"));
-        assert_eq!(moderation.iter().filter(|l| l.as_str() == "Ignore...").count(), 1);
-        assert!(!moderation.contains(&"Disband...".to_string()));
-
-        // Settings: option inspection; Plugins: local shell.
-        let settings = labels(find("Settings"));
-        assert!(settings.contains(&"Options".to_string()));
-        assert!(settings.contains(&"Locals".to_string()));
-        assert!(labels(find("Plugins")).contains(&"Shell...".to_string()));
 
         // Help group: About / Copyright / License / Help info dialogs.
         let help = labels(find("Help"));
@@ -5019,7 +4077,7 @@ mod tests {
             ]
         );
 
-        // Menu accelerators must be unique.
+        // Built-in accelerators must be unique.
         let mut accels: Vec<char> = groups.iter().map(|g| g.accel).collect();
         accels.sort();
         assert!(!accels.windows(2).any(|w| w[0] == w[1]), "duplicate accel");
@@ -5117,7 +4175,8 @@ mod tests {
     #[test]
     fn form_dangerous_submit_opens_confirm_not_executed() {
         let mut app = App::new();
-        app.open_form(&*KICK_FORM);
+        let spec = stub_spec("kick", "", vec![stub_field(true, false)]);
+        app.open_form(&spec);
         app.dialog_buffer().unwrap().push_str("alice");
         dialog_advance(&mut app, &STUB_RUN, &STUB_DRAIN);
         let Some(Dialog::Confirm { argv, .. }) = &app.dialog else {
@@ -5208,7 +4267,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
 
         draw(
             &mut tui,
@@ -5244,7 +4303,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.sessions = vec![SessionEntry { name: "1.0".to_string(), current: true }];
         app.members = vec!["alice".to_string(), "bob".to_string()];
 
@@ -5352,7 +4411,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.side_sections = vec![ui_registry::RegSideSection {
             id: "members".to_string(),
             title: "Members".to_string(),
@@ -5447,7 +4506,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.open_info("Info".into(), vec!["hello world".to_string().into()]);
         draw(
             &mut tui,
@@ -5485,7 +4544,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.open_info("Info".into(), vec!["hello world".to_string().into()]);
         draw(
             &mut tui,
@@ -5525,7 +4584,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.open_confirm(
             "Really kick alice?".into(),
             vec!["kick".to_string().into(), "alice".to_string().into()],
@@ -5569,7 +4628,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
 
         // First frame establishes the tree (and focus) so the editline has a
         // previous-node cache; input is only dispatched from the second frame on.
@@ -5805,7 +4864,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.completions = vec!["server".to_string()];
         app.comp_idx = 0;
         app.completion_active = true;
@@ -5838,7 +4897,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.input = "se".to_string();
         app.completions = vec!["server".to_string()];
         app.comp_idx = 0;
@@ -5910,7 +4969,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.input = "se".to_string();
         app.completions = vec!["server".to_string()];
         app.comp_idx = 0;
@@ -5949,7 +5008,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.input = "se".to_string();
         app.completions = vec!["sessions".to_string()];
         app.comp_idx = 0;
@@ -6032,7 +5091,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.open_confirm(
             "Really kick alice?".into(),
             vec!["kick".to_string().into(), "alice".to_string().into()],
@@ -6076,7 +5135,7 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
-        let groups = menu_groups();
+        let groups = builtin_groups();
         app.open_confirm(
             "Really kick alice?".into(),
             vec!["kick".to_string().into(), "alice".to_string().into()],
