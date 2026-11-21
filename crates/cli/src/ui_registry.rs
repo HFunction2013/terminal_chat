@@ -3,11 +3,6 @@
 //! cli-core 注册表由插件在初始化阶段登记菜单 / 侧栏 / 底部条目；跨 FFI 查询经
 //! `Out<Vec<String>>` 回传扁平记录行（字段以 `|` 分隔）。本模块把扁平行解析为
 //! 宿主内部 owned UI 模型，供 TUI 渲染层消费。
-//!
-//! 过渡阶段：注册表为空时 TUI 仍回退现有内置硬编码菜单；本模块只负责读取与解析，
-//! 不直接参与渲染。
-// 渲染层接入前，下列模型 / FFI 别名暂未被生产代码引用；待菜单通路接线后移除。
-#![allow(dead_code)]
 
 use cli_core_types::Result;
 use safer_ffi::prelude::*;
@@ -61,8 +56,6 @@ pub enum RegMenuAction {
     Run(Vec<String>),
     /// 表单动作：仅记录命令名，待渲染前经 `GetFormSpecFn` 补全字段。
     FormCmd(String),
-    /// 表单动作：字段已补全。
-    Form(RegFormSpec),
 }
 
 /// 已注册菜单项（owned 模型）。

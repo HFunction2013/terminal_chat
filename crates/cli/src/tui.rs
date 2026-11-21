@@ -469,7 +469,6 @@ fn reg_action_to_action(
                 None => Action::Run(vec![cmd]),
             }
         }
-        ui_registry::RegMenuAction::Form(rs) => Action::Form(Box::new(reg_spec_to_spec(rs))),
     }
 }
 
@@ -570,12 +569,6 @@ struct App {
     plugins: Vec<PluginEntry>,
     /// 待拉取一次插件列表；空闲时投递 `plugin list`。
     pending_plugins: bool,
-    /// 侧栏 Sessions 栏目是否展开。
-    sessions_open: bool,
-    /// 侧栏 Members 栏目是否展开。
-    members_open: bool,
-    /// 侧栏 Plugins 栏目是否展开。
-    plugins_open: bool,
     /// 远端目录列举回调（cli-core `remote_list_dir`）；缺失时远端路径不补全。
     remote_list_dir: Option<ListRemoteDirFn>,
     /// 连接态查询回调（cli-core `is_connected`）；缺失时视为未连接。
@@ -651,9 +644,6 @@ impl App {
             pending_sessions: false,
             plugins: Vec::new(),
             pending_plugins: true,
-            sessions_open: true,
-            members_open: true,
-            plugins_open: true,
             remote_list_dir: None,
             is_connected: None,
             set_interrupted: None,
@@ -1868,11 +1858,7 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
 
     ctx.scrollarea_begin("sidebar-scroll", Size { width: 26, height: body_height });
 
-    if app.side_sections.is_empty() {
-        draw_sidebar_legacy(ctx, app);
-    } else {
-        draw_sidebar_registry(ctx, app);
-    }
+    draw_sidebar_registry(ctx, app);
 
     ctx.scrollarea_end();
     ctx.block_end();
@@ -1903,56 +1889,13 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
     ctx.table_end();
 }
 
-/// 过渡期回退：内置硬编码三段侧栏（Session / Members / Plugin）。
-///
-/// 注册表段壳为空时使用；待 cli-standard 侧栏迁移完成、#150 删除硬编码后移除。
-fn draw_sidebar_legacy(ctx: &mut Context, app: &mut App) {
-    let sessions_glyph = if app.sessions_open { "#" } else { ">" };
-    if ctx.row_button(
-        "sec-freq",
-        &section_header_text("Session", sessions_glyph),
-        app.menubar_bg,
-        app.menubar_fg,
-    ) {
-        app.sessions_open = !app.sessions_open;
-    }
-    if app.sessions_open {
-        render_sessions_snapshot(ctx, app);
-    }
-
-    let members_glyph = if app.members_open { "#" } else { ">" };
-    if ctx.row_button(
-        "sec-members",
-        &section_header_text("Members", members_glyph),
-        app.menubar_bg,
-        app.menubar_fg,
-    ) {
-        app.members_open = !app.members_open;
-    }
-    if app.members_open {
-        render_members_snapshot(ctx, app);
-    }
-
-    let plugins_glyph = if app.plugins_open { "#" } else { ">" };
-    if ctx.row_button(
-        "sec-plugins",
-        &section_header_text("Plugin", plugins_glyph),
-        app.menubar_bg,
-        app.menubar_fg,
-    ) {
-        app.plugins_open = !app.plugins_open;
-    }
-    if app.plugins_open {
-        render_plugins_snapshot(ctx, app);
-    }
-}
-
-/// 注册表驱动侧栏：遍历插件登记的栏目壳，按 `source` 取宿主快照回填条目。
+/// 注册表驱动侧栏：遍历插件登记的栏目壳，按 `source` 取宿主快照，模板回填条目外观。
 fn draw_sidebar_registry(ctx: &mut Context, app: &mut App) {
     let sections = app.side_sections.clone();
-    for section in &sections {
+    for (i, section) in sections.iter().enumerate() {
         let open = *app.side_open.get(&section.id).unwrap_or(&section.default_open);
         let glyph = if open { "#" } else { ">" };
+        ctx.next_block_id_mixin(i as u64);
         let clicked = ctx.row_button(
             "sidebar-reg-section",
             &section_header_text(&section.title, glyph),
@@ -1964,14 +1907,12 @@ fn draw_sidebar_registry(ctx: &mut Context, app: &mut App) {
         if !open {
             continue;
         }
-        // 条目模板（前缀符号 + 内容占位）按栏目归属过滤；占位 ↔ 快照键的回填
-        // 语义随 cli-standard 侧栏迁移（#149）定稿，本轮先按 source 复用快照渲染。
-        let _templates: Vec<&ui_registry::RegSideItem> =
-            app.side_items.iter().filter(|item| item.section == section.id).collect();
+        let templates: Vec<ui_registry::RegSideItem> =
+            app.side_items.iter().filter(|item| item.section == section.id).cloned().collect();
         match section.source.as_str() {
-            "sessions" => render_sessions_snapshot(ctx, app),
-            "members" => render_members_snapshot(ctx, app),
-            "plugins" => render_plugins_snapshot(ctx, app),
+            "sessions" => render_sessions_template(ctx, app, &templates),
+            "members" => render_members_template(ctx, app, &templates),
+            "plugins" => render_plugins_template(ctx, app, &templates),
             _ => {
                 ctx.label("none", "  (none)");
             }
@@ -1979,8 +1920,29 @@ fn draw_sidebar_registry(ctx: &mut Context, app: &mut App) {
     }
 }
 
-/// 会话快照：当前会话前缀 `*` 整行绿色；其余缩进列出。空快照显示当前频点占位。
-fn render_sessions_snapshot(ctx: &mut Context, app: &mut App) {
+/// 回填模板占位：`{name}` ↔ 条目名，`{namespace}` ↔ 命名空间；未声明占位原样保留。
+fn fill_side_label(label: &str, name: &str, namespace: &str) -> String {
+    label.replace("{name}", name).replace("{namespace}", namespace)
+}
+
+/// 按主 / 次行与高亮标记选取模板；高亮无匹配时回退到该行任意模板。
+fn find_template(
+    templates: &[ui_registry::RegSideItem],
+    line: i32,
+    highlight: bool,
+) -> Option<&ui_registry::RegSideItem> {
+    templates
+        .iter()
+        .find(|t| t.line == line && t.highlight == highlight)
+        .or_else(|| templates.iter().find(|t| t.line == line))
+}
+
+/// 会话快照：当前会话套用高亮模板整行绿色；其余按普通模板缩进列出。
+fn render_sessions_template(
+    ctx: &mut Context,
+    app: &mut App,
+    templates: &[ui_registry::RegSideItem],
+) {
     if app.sessions.is_empty() {
         let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
         ctx.label("freq", &format!("  {freq}"));
@@ -1990,13 +1952,20 @@ fn render_sessions_snapshot(ctx: &mut Context, app: &mut App) {
     let sessions = app.sessions.clone();
     for s in &sessions {
         let name = s.name.clone();
-        let sel = if s.current {
+        let tpl = find_template(templates, 0, s.current);
+        let (prefix, text, highlight) = match tpl {
+            Some(t) => {
+                (t.prefix.clone(), fill_side_label(&t.label, &name, ""), t.highlight && s.current)
+            }
+            None => ("  ".to_string(), name.clone(), s.current),
+        };
+        let sel = if highlight {
             ctx.styled_list_item_begin();
             ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
-            ctx.styled_label_add_text(&format!("* {name}"));
+            ctx.styled_label_add_text(&format!("{prefix}{text}"));
             ctx.styled_list_item_end(false)
         } else {
-            ctx.list_item(false, &format!("  {name}"))
+            ctx.list_item(false, &format!("{prefix}{text}"))
         };
         if let ListSelection::Activated = sel {
             app.append_entry_to_input(&name);
@@ -2005,8 +1974,12 @@ fn render_sessions_snapshot(ctx: &mut Context, app: &mut App) {
     ctx.list_end();
 }
 
-/// 成员快照：缩进圆点列出成员名；空快照显示 `(none)`。
-fn render_members_snapshot(ctx: &mut Context, app: &mut App) {
+/// 成员快照：按成员模板回填条目名；空快照显示 `(none)`。
+fn render_members_template(
+    ctx: &mut Context,
+    app: &mut App,
+    templates: &[ui_registry::RegSideItem],
+) {
     if app.members.is_empty() {
         ctx.label("none", "  (none)");
         return;
@@ -2015,7 +1988,11 @@ fn render_members_snapshot(ctx: &mut Context, app: &mut App) {
     let members = app.members.clone();
     for m in &members {
         let name = m.clone();
-        let sel = ctx.list_item(false, &format!("  • {name}"));
+        let text = match find_template(templates, 0, false) {
+            Some(t) => format!("{}{}", t.prefix, fill_side_label(&t.label, &name, "")),
+            None => format!("  {name}"),
+        };
+        let sel = ctx.list_item(false, &text);
         if let ListSelection::Activated = sel {
             app.append_entry_to_input(&name);
         }
@@ -2023,8 +2000,12 @@ fn render_members_snapshot(ctx: &mut Context, app: &mut App) {
     ctx.list_end();
 }
 
-/// 插件快照：第一行插件名，第二行命令命名空间；双击分别插入对应名字。
-fn render_plugins_snapshot(ctx: &mut Context, app: &mut App) {
+/// 插件快照：主行插件名，次行命令命名空间；双击分别插入对应名字。
+fn render_plugins_template(
+    ctx: &mut Context,
+    app: &mut App,
+    templates: &[ui_registry::RegSideItem],
+) {
     if app.plugins.is_empty() {
         ctx.label("plugin-none", "  (none)");
         return;
@@ -2033,15 +2014,22 @@ fn render_plugins_snapshot(ctx: &mut Context, app: &mut App) {
     let plugins = app.plugins.clone();
     for p in &plugins {
         let name = p.name.clone();
-        let sel = ctx.list_item(false, &format!("  • {name}"));
+        let ns = p.namespace.clone();
+        let primary = match find_template(templates, 0, false) {
+            Some(t) => format!("{}{}", t.prefix, fill_side_label(&t.label, &name, "")),
+            None => format!("  • {name}"),
+        };
+        let sel = ctx.list_item(false, &primary);
         if let ListSelection::Activated = sel {
             app.append_entry_to_input(&name);
         }
-    }
-    for p in &plugins {
-        let ns = p.namespace.clone();
-        let sel = ctx.list_item(false, &format!("  : {ns}"));
-        if let ListSelection::Activated = sel {
+
+        let secondary = match find_template(templates, 1, false) {
+            Some(t) => format!("{}{}", t.prefix, fill_side_label(&t.label, "", &ns)),
+            None => format!("  : {ns}"),
+        };
+        let sel2 = ctx.list_item(false, &secondary);
+        if let ListSelection::Activated = sel2 {
             app.append_entry_to_input(&ns);
         }
     }
@@ -4268,6 +4256,19 @@ mod tests {
         tui.set_size(Size { width: 80, height: 24 });
         let mut app = App::new();
         let groups = builtin_groups();
+        app.side_sections = vec![ui_registry::RegSideSection {
+            id: "freq".to_string(),
+            title: "Session".to_string(),
+            default_open: true,
+            source: "sessions".to_string(),
+        }];
+        app.side_items = vec![ui_registry::RegSideItem {
+            section: "freq".to_string(),
+            prefix: "  ".to_string(),
+            label: "{name}".to_string(),
+            highlight: false,
+            line: 0,
+        }];
 
         draw(
             &mut tui,
@@ -4286,7 +4287,13 @@ mod tests {
             freq.iter().any(|node| node.text.contains("(not joined)")),
             "sidebar shows the unjoined placeholder: {freq:?}"
         );
-        assert!(!tui.testing_find("sec-members").is_empty());
+        let header = tui.testing_find("sidebar-reg-section");
+        assert!(!header.is_empty(), "registry sidebar header rendered");
+        assert!(
+            header[0].text.contains("Session"),
+            "section title from registry: {:?}",
+            header[0].text
+        );
         assert!(!tui.testing_nodes().is_empty());
     }
 
@@ -4306,6 +4313,43 @@ mod tests {
         let groups = builtin_groups();
         app.sessions = vec![SessionEntry { name: "1.0".to_string(), current: true }];
         app.members = vec!["alice".to_string(), "bob".to_string()];
+        app.side_sections = vec![
+            ui_registry::RegSideSection {
+                id: "freq".to_string(),
+                title: "Session".to_string(),
+                default_open: true,
+                source: "sessions".to_string(),
+            },
+            ui_registry::RegSideSection {
+                id: "members".to_string(),
+                title: "Members".to_string(),
+                default_open: true,
+                source: "members".to_string(),
+            },
+        ];
+        app.side_items = vec![
+            ui_registry::RegSideItem {
+                section: "freq".to_string(),
+                prefix: "* ".to_string(),
+                label: "{name}".to_string(),
+                highlight: true,
+                line: 0,
+            },
+            ui_registry::RegSideItem {
+                section: "freq".to_string(),
+                prefix: "  ".to_string(),
+                label: "{name}".to_string(),
+                highlight: false,
+                line: 0,
+            },
+            ui_registry::RegSideItem {
+                section: "members".to_string(),
+                prefix: " • ".to_string(),
+                label: "{name}".to_string(),
+                highlight: false,
+                line: 0,
+            },
+        ];
 
         draw(
             &mut tui,
@@ -4340,25 +4384,31 @@ mod tests {
             x: node.x + node.width / 2,
             y: node.y + node.height / 2,
         };
+        let header_of = |tui: &Tui, title: &str| -> edit_tui::tui::NodeSnapshot {
+            tui.testing_find("sidebar-reg-section")
+                .into_iter()
+                .find(|n| n.text.contains(title))
+                .expect(title)
+        };
 
         // Default: both sections expanded, glyph `#`, lists rendered.
-        let sec_freq = tui.testing_find("sec-freq");
-        assert!(sec_freq[0].text.contains('#'), "session header expanded: {:?}", sec_freq[0].text);
+        let sec_freq = header_of(&tui, "Session");
+        assert!(sec_freq.text.contains('#'), "session header expanded: {:?}", sec_freq.text);
         assert!(
-            sec_freq[0].width >= 20,
+            sec_freq.width >= 20,
             "header row stretches across the sidebar: width {}",
-            sec_freq[0].width
+            sec_freq.width
         );
         assert!(!tui.testing_find("sidebar-sessions").is_empty(), "session list shown");
         assert!(!tui.testing_find("sidebar-members").is_empty(), "member list shown");
 
         // Click the Session header row to collapse it.
-        let center = row_center(&sec_freq[0]);
+        let center = row_center(&sec_freq);
         click_at(&mut tui, &mut app, center, input::InputMouseState::Left);
         click_at(&mut tui, &mut app, center, input::InputMouseState::None);
 
-        let sec_freq = tui.testing_find("sec-freq");
-        assert!(sec_freq[0].text.contains('>'), "session header collapsed: {:?}", sec_freq[0].text);
+        let sec_freq = header_of(&tui, "Session");
+        assert!(sec_freq.text.contains('>'), "session header collapsed: {:?}", sec_freq.text);
         assert!(
             tui.testing_find("sidebar-sessions").is_empty(),
             "session list hidden after collapse"
@@ -4367,30 +4417,22 @@ mod tests {
         assert!(!tui.testing_find("sidebar-members").is_empty(), "member list still shown");
 
         // Click again to re-expand.
-        let center = row_center(&sec_freq[0]);
+        let center = row_center(&sec_freq);
         click_at(&mut tui, &mut app, center, input::InputMouseState::Left);
         click_at(&mut tui, &mut app, center, input::InputMouseState::None);
 
-        let sec_freq = tui.testing_find("sec-freq");
-        assert!(
-            sec_freq[0].text.contains('#'),
-            "session header re-expanded: {:?}",
-            sec_freq[0].text
-        );
+        let sec_freq = header_of(&tui, "Session");
+        assert!(sec_freq.text.contains('#'), "session header re-expanded: {:?}", sec_freq.text);
         assert!(!tui.testing_find("sidebar-sessions").is_empty(), "session list restored");
 
         // The Members header toggles independently.
-        let sec_members = tui.testing_find("sec-members");
-        let center = row_center(&sec_members[0]);
+        let sec_members = header_of(&tui, "Members");
+        let center = row_center(&sec_members);
         click_at(&mut tui, &mut app, center, input::InputMouseState::Left);
         click_at(&mut tui, &mut app, center, input::InputMouseState::None);
 
-        let sec_members = tui.testing_find("sec-members");
-        assert!(
-            sec_members[0].text.contains('>'),
-            "members header collapsed: {:?}",
-            sec_members[0].text
-        );
+        let sec_members = header_of(&tui, "Members");
+        assert!(sec_members.text.contains('>'), "members header collapsed: {:?}", sec_members.text);
         assert!(
             tui.testing_find("sidebar-members").is_empty(),
             "member list hidden after collapse"
@@ -4421,7 +4463,7 @@ mod tests {
         app.side_items = vec![ui_registry::RegSideItem {
             section: "members".to_string(),
             prefix: " • ".to_string(),
-            label: "{member}".to_string(),
+            label: "{name}".to_string(),
             highlight: false,
             line: 0,
         }];
