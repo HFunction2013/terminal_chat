@@ -21,7 +21,7 @@
 use crate::ui_registry;
 use anyhow::Result;
 use cli_core_types::plugin_fn_types::ListRemoteDirFn;
-use cli_core_types::{IsConnectedFn, RunCommandFn, SetInterruptedFn};
+use cli_core_types::{IsConnectedFn, RunCommandFn, SetCurrentFreqFn, SetInterruptedFn};
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
 use std::collections::HashMap;
@@ -1542,6 +1542,9 @@ struct App {
     is_connected: Option<IsConnectedFn>,
     /// 设置命令中断标志的回调（cli-core `set_interrupted`）；缺失时 Ctrl+C 不中断。
     set_interrupted: Option<SetInterruptedFn>,
+    /// 把当前频点写入 cli-core 状态槽的回调（cli-core `set_current_freq`）；
+    /// 供插件底部状态栏回调读取；缺失时不写槽。
+    set_current_freq: Option<SetCurrentFreqFn>,
     /// 已注册选项列举回调（cli-core `get_registered_options`）；缺失时选项 key 不补全。
     list_registered_options: Option<GetRegisteredOptionsFn>,
     /// 已注册选项 key 缓存（供选项参数位置补全）。
@@ -1611,6 +1614,7 @@ impl App {
             remote_list_dir: None,
             is_connected: None,
             set_interrupted: None,
+            set_current_freq: None,
             list_registered_options: None,
             registered_options: Vec::new(),
             bottom_fragments: Vec::new(),
@@ -2436,6 +2440,7 @@ pub fn run(
     is_connected: Option<&IsConnectedFn>,
     registered_options: Option<&GetRegisteredOptionsFn>,
     set_interrupted: Option<&SetInterruptedFn>,
+    set_current_freq: Option<&SetCurrentFreqFn>,
     terminal_busy: Option<&TerminalBusyFn>,
     get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
     get_form_spec: Option<&ui_registry::GetFormSpecFn>,
@@ -2488,6 +2493,7 @@ pub fn run(
     app.remote_list_dir = remote_list_dir.copied();
     app.is_connected = is_connected.copied();
     app.set_interrupted = set_interrupted.copied();
+    app.set_current_freq = set_current_freq.copied();
     app.list_registered_options = registered_options.copied();
     app.bottom_fragments = ui_registry::fetch_bottom_fragments(get_bottom_fragments)
         .into_iter()
@@ -2520,6 +2526,7 @@ pub fn run(
         terminal_busy,
         get_menu_items,
         get_form_spec,
+        get_bottom_fragments,
     );
 
     res
@@ -2538,6 +2545,7 @@ fn event_loop(
     terminal_busy: Option<&TerminalBusyFn>,
     get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
     get_form_spec: Option<&ui_registry::GetFormSpecFn>,
+    get_bottom_fragments: Option<&ui_registry::GetBottomFragmentsFn>,
 ) -> Result<()> {
     let groups = resolve_groups(get_menu_items, get_form_spec);
     let mut was_busy = false;
@@ -2551,6 +2559,17 @@ fn event_loop(
         app.prefer_cli =
             is_truthy(&opt_get_effective(get_session, get_option, "PREFER_COMMAND_LINE"));
         app.refresh_registered_options();
+
+        // 把当前频点写入 cli-core 状态槽，供插件底部状态栏回调读取；再逐帧重取
+        // 底部片段（回调按当前状态生成整行文本）。
+        if let Some(set_freq) = app.set_current_freq {
+            let freq = app.current_freq.clone().unwrap_or_default();
+            set_freq(&freq.into());
+        }
+        app.bottom_fragments = ui_registry::fetch_bottom_fragments(get_bottom_fragments)
+            .into_iter()
+            .map(|f| f.label)
+            .collect();
 
         // 取积压推送。
         let pushes: Vec<safer_ffi::String> = unsafe { take_pushes() }.into();
@@ -3097,20 +3116,23 @@ fn draw_suggestions(ctx: &mut Context, app: &mut App) {
 }
 
 fn draw_status(ctx: &mut Context, app: &App) {
-    let who = if app.username.is_empty() { "guest" } else { &app.username };
-    let host = if app.server.is_empty() {
-        "offline".to_string()
-    } else if app.port.is_empty() {
-        app.server.clone()
+    // 插件已登记底部回调时，整行文本由插件按当前状态生成；过渡期无回调则回退
+    // 内置硬编码整行（见 #150 删硬编码）。
+    let text = if !app.bottom_fragments.is_empty() {
+        app.bottom_fragments.join(" | ")
     } else {
-        format!("{}:{}", app.server, app.port)
+        let who = if app.username.is_empty() { "guest" } else { &app.username };
+        let host = if app.server.is_empty() {
+            "offline".to_string()
+        } else if app.port.is_empty() {
+            app.server.clone()
+        } else {
+            format!("{}:{}", app.server, app.port)
+        };
+        let freq = app.current_freq.clone().unwrap_or_else(|| "-".to_string());
+        let quiet = if app.quiet { "QUIET" } else { "sound" };
+        format!("{who}@{host} | freq {freq} | {quiet} | {}", now_ts())
     };
-    let freq = app.current_freq.clone().unwrap_or_else(|| "-".to_string());
-    let quiet = if app.quiet { "QUIET" } else { "sound" };
-    let mut text = format!("{who}@{host} | freq {freq} | {quiet} | {}", now_ts());
-    for frag in &app.bottom_fragments {
-        text.push_str(&format!(" | {frag}"));
-    }
 
     ctx.table_begin("status");
     ctx.attr_focus_well();

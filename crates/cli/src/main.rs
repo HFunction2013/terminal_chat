@@ -4,7 +4,7 @@ use clap::Command;
 use clap_complete::engine::complete;
 use cli_core_types::{
     GetAllPluginsFn, IsConnectedFn, IsInCmdFn, LoadPluginFn, PluginMetadata, RunCommandFn,
-    SetInterruptedFn, plugin_fn_types::ListRemoteDirFn,
+    SetCurrentFreqFn, SetInterruptedFn, plugin_fn_types::ListRemoteDirFn,
 };
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -555,6 +555,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let set_interrupted: Option<Symbol<SetInterruptedFn>> =
             unsafe { core_lib.get(b"set_interrupted") }.ok();
         let set_interrupted_ref: Option<&SetInterruptedFn> = set_interrupted.as_deref();
+        let set_current_freq: Option<Symbol<SetCurrentFreqFn>> =
+            unsafe { core_lib.get(b"set_current_freq") }.ok();
+        let set_current_freq_ref: Option<&SetCurrentFreqFn> = set_current_freq.as_deref();
         // 终端占用查询为可选符号：缺失时视为空闲，TUI 照常渲染。
         let terminal_busy: Option<Symbol<tui::TerminalBusyFn>> =
             unsafe { core_lib.get(b"tc_cli_terminal_is_busy") }.ok();
@@ -592,6 +595,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             is_connected_ref,
             registered_options_ref,
             set_interrupted_ref,
+            set_current_freq_ref,
             terminal_busy_ref,
             get_menu_items_ref,
             get_form_spec_ref,
