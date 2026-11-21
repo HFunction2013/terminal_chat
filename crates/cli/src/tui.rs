@@ -82,6 +82,9 @@ struct CommandWorker {
     tx: Sender<(Vec<String>, bool)>,
     running: Arc<AtomicBool>,
     result: Arc<Mutex<Option<JobResult>>>,
+    /// 当前 / 最近一次提交作业是否为静默回填；跟随作业流，作业完成后不复位，
+    /// 直到下一次 submit 覆盖。避免全局单值被相邻作业的完成回调过早翻转。
+    silent: Arc<AtomicBool>,
 }
 
 impl CommandWorker {
@@ -90,10 +93,11 @@ impl CommandWorker {
         let (tx, rx) = std::sync::mpsc::channel::<(Vec<String>, bool)>();
         let running = Arc::new(AtomicBool::new(false));
         let result = Arc::new(Mutex::new(None));
+        let silent = Arc::new(AtomicBool::new(false));
         let running_w = running.clone();
         let result_w = result.clone();
         thread::spawn(move || {
-            while let Ok((argv, silent)) = rx.recv() {
+            while let Ok((argv, silent_flag)) = rx.recv() {
                 running_w.store(true, Ordering::SeqCst);
                 let args_ffi: safer_ffi::vec::Vec<safer_ffi::String> =
                     argv.iter().map(|s| s.as_str().into()).collect::<Vec<_>>().into();
@@ -102,12 +106,12 @@ impl CommandWorker {
                     code: res.code,
                     message: res.message.to_string(),
                     argv,
-                    silent,
+                    silent: silent_flag,
                 });
                 running_w.store(false, Ordering::SeqCst);
             }
         });
-        Self { tx, running, result }
+        Self { tx, running, result, silent }
     }
 
     fn is_running(&self) -> bool {
@@ -116,7 +120,13 @@ impl CommandWorker {
 
     /// 投递待执行命令；`silent` 标记该作业是否为后台回填型刷新。
     fn submit(&self, argv: Vec<String>, silent: bool) {
+        self.silent.store(silent, Ordering::SeqCst);
         let _ = self.tx.send((argv, silent));
+    }
+
+    /// 当前 / 最近作业是否静默回填（供实时输出回流判定回显归属）。
+    fn is_silent(&self) -> bool {
+        self.silent.load(Ordering::SeqCst)
     }
 
     fn take_result(&self) -> Option<JobResult> {
@@ -672,6 +682,16 @@ impl App {
         }
     }
 
+    /// 回流一条后台命令实时输出：非静默作业回显到输出区；静默回填只累积到
+    /// `worker_output` 供侧栏快照 reconcile，不进入输出区。
+    fn drain_background(&mut self, text: &str, silent: bool) {
+        if !silent {
+            self.push_line(text.to_string(), LineKind::Result);
+        }
+        self.worker_output.push_str(text);
+        self.worker_output.push('\n');
+    }
+
     /// Ctrl+C：中断正在运行的后台命令，返回是否消费了该按键。
     ///
     /// 无命令运行时返回 `false`（不退出；退出仍走 Ctrl+Q）。中断标志由命令轮询
@@ -755,6 +775,8 @@ impl App {
                 push_unique(&mut names, name);
             }
         }
+        names.sort();
+        names.dedup();
         if !names.is_empty() && names != self.members {
             self.members = names;
         }
@@ -785,6 +807,9 @@ impl App {
             }
             entries.push(SessionEntry { name, current });
         }
+        // 当前会话优先，组内按名排序；顺序抖动不触发整表替换重绘。
+        entries.sort_by(|a, b| (!a.current, &a.name).cmp(&(!b.current, &b.name)));
+        entries.dedup_by(|a, b| a.name == b.name);
         if !entries.is_empty() && entries != self.sessions {
             self.sessions = entries;
         }
@@ -810,6 +835,9 @@ impl App {
             }
             entries.push(PluginEntry { name, namespace });
         }
+        // 归一化排序 + 按名去重：注册表 / 输出顺序抖动不应触发整表替换重绘。
+        entries.sort_by(|a, b| a.name.cmp(&b.name));
+        entries.dedup_by(|a, b| a.name == b.name);
         if !entries.is_empty() && entries != self.plugins {
             self.plugins = entries;
         }
@@ -1597,16 +1625,14 @@ fn event_loop(
             app.push_line(text, LineKind::Push);
         }
 
-        // 后台命令实时输出回流：逐帧取走 `print_content` 暂存的行，追加到聊天记录，
-        // 同时累积文本供命令完成后回填成员侧栏。
+        // 后台命令实时输出回流：逐帧取走 `print_content` 暂存的行，累积文本供命令
+        // 完成后回填成员 / 侧栏快照。回显归属跟随当前 / 最近作业的静默标记（worker
+        // 侧原子），不再读跨帧可被相邻作业翻转的全局单值；无 worker 时回退全局标志。
+        let worker_silent =
+            app.worker.as_ref().map(|w| w.is_silent()).unwrap_or(app.silent_refresh);
         let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
         for d in drained {
-            let text = d.to_string();
-            if !app.silent_refresh {
-                app.push_line(text.clone(), LineKind::Result);
-            }
-            app.worker_output.push_str(&text);
-            app.worker_output.push('\n');
+            app.drain_background(&d.to_string(), worker_silent);
         }
 
         // 后台命令完成：取回结果消息并落地成员侧栏副作用。
@@ -3119,6 +3145,20 @@ mod tests {
         assert_eq!(app.plugins[0].namespace, "std");
         assert_eq!(app.plugins[1].name, "extra");
         assert_eq!(app.plugins[1].namespace, "xns");
+    }
+
+    #[test]
+    fn reconcile_plugins_normalizes_order_and_dedupes() {
+        let mut app = App::new();
+        // 输入顺序颠倒：归一化后按名排序，快照顺序稳定。
+        app.reconcile_plugins("  extra (command: xns)\n  cli-standard (command: std)");
+        assert_eq!(app.plugins[0].name, "cli-standard");
+        assert_eq!(app.plugins[1].name, "extra");
+        // 重复条目去重，不产生重复快照。
+        app.reconcile_plugins(
+            "  extra (command: xns)\n  extra (command: xns)\n  cli-standard (command: std)",
+        );
+        assert_eq!(app.plugins.len(), 2);
     }
 
     #[test]
@@ -4697,6 +4737,66 @@ mod tests {
         }
         assert!(done.is_some(), "worker result never arrived");
         assert!(!worker.is_running());
+    }
+
+    #[test]
+    fn silent_background_job_keeps_marker_after_completion() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut app = App::new();
+        app.worker = Some(CommandWorker::spawn(STUB_RUN));
+        let worker = app.worker.clone().unwrap();
+
+        // 后台回填作业按静默投递；静默标记跟随该作业写入 worker 原子。
+        run_argv(
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &["plugin".to_string(), "list".to_string()],
+            true,
+        );
+        assert!(worker.is_silent(), "background refresh must be marked silent");
+
+        // 等待作业完成；完成回调不得把静默标记复位为非静默，残留输出仍属该静默作业。
+        let mut done = None;
+        for _ in 0..50 {
+            done = worker.take_result();
+            if done.is_some() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(done.is_some(), "worker result never arrived");
+        assert!(worker.is_silent(), "silent marker must survive job completion");
+
+        // 残留行回流：静默作业的输出只进回填缓冲，不进输出区日志。
+        app.drain_background("  cli-standard (command: std)", worker.is_silent());
+        assert!(
+            !app.log.iter().any(|l| l.text.contains("cli-standard")),
+            "background refresh output must not echo to the output log"
+        );
+        assert!(app.worker_output.contains("cli-standard"));
+
+        // 下一条主动命令投递后，静默标记被覆盖为非静默。
+        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["connect".to_string()], false);
+        assert!(!worker.is_silent(), "typed command must reset non-silent");
+    }
+
+    #[test]
+    fn drain_background_honors_silent_flag() {
+        let mut app = App::new();
+        let before = app.log.len();
+
+        // 静默回填：只累积回填文本，不写日志。
+        app.drain_background("  alice  AliceA", true);
+        assert_eq!(app.log.len(), before);
+        assert!(app.worker_output.contains("alice"));
+
+        // 非静默：正常回显到输出区。
+        app.drain_background("visible result", false);
+        assert!(app.log.iter().any(|l| l.text == "visible result"));
     }
 
     #[test]
