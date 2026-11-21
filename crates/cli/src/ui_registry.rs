@@ -208,7 +208,7 @@ pub fn parse_side_section_rows(rows: &[String]) -> Vec<RegSideSection> {
         .collect()
 }
 
-/// 解析侧栏小项行：`section|label`。
+/// 解析侧栏小项行：`section|prefix|label`。
 pub fn parse_side_item_rows(rows: &[String]) -> Vec<RegSideItem> {
     rows.iter()
         .filter_map(|row| {

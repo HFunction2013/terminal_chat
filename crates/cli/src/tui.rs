@@ -24,6 +24,7 @@ use cli_core_types::plugin_fn_types::ListRemoteDirFn;
 use cli_core_types::{IsConnectedFn, RunCommandFn, SetInterruptedFn};
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -1540,6 +1541,12 @@ struct App {
     registered_options: Vec<String>,
     /// 注册表追加的底部状态栏片段（插件 `on_init_plugin` 登记）；空时仅显示内置项。
     bottom_fragments: Vec<String>,
+    /// 注册表侧栏栏目壳（插件登记）；空时回退内置硬编码三段。
+    side_sections: Vec<ui_registry::RegSideSection>,
+    /// 注册表侧栏条目模板（前缀符号 + 内容占位）；实际条目名由宿主快照回填。
+    side_items: Vec<ui_registry::RegSideItem>,
+    /// 注册表栏目壳折叠态，按段 id 存取；缺省取段壳 `default_open`。
+    side_open: HashMap<String, bool>,
     /// 状态栏快照（来自全局选项）。
     username: String,
     server: String,
@@ -1600,6 +1607,9 @@ impl App {
             list_registered_options: None,
             registered_options: Vec::new(),
             bottom_fragments: Vec::new(),
+            side_sections: Vec::new(),
+            side_items: Vec::new(),
+            side_open: HashMap::new(),
             username: String::new(),
             server: String::new(),
             port: String::new(),
@@ -2423,6 +2433,8 @@ pub fn run(
     get_menu_items: Option<&ui_registry::GetMenuItemsFn>,
     get_form_spec: Option<&ui_registry::GetFormSpecFn>,
     get_bottom_fragments: Option<&ui_registry::GetBottomFragmentsFn>,
+    get_side_sections: Option<&ui_registry::GetSideSectionsFn>,
+    get_side_items: Option<&ui_registry::GetSideItemsFn>,
 ) -> Result<()> {
     use std::io::IsTerminal;
     if !std::io::stdout().is_terminal() {
@@ -2474,6 +2486,11 @@ pub fn run(
         .into_iter()
         .map(|f| f.label)
         .collect();
+    app.side_sections = ui_registry::fetch_side_sections(get_side_sections);
+    app.side_items = ui_registry::fetch_side_items(get_side_items);
+    for section in &app.side_sections {
+        app.side_open.entry(section.id.clone()).or_insert(section.default_open);
+    }
 
     // 启动后台命令 worker：命令在独立线程串行执行，UI 线程不被阻塞命令卡住；
     // 输出经全局缓冲逐帧回流，完成结果由事件循环取回。
@@ -2780,99 +2797,10 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
 
     ctx.scrollarea_begin("sidebar-scroll", Size { width: 26, height: body_height });
 
-    let sessions_glyph = if app.sessions_open { "#" } else { ">" };
-    if ctx.row_button(
-        "sec-freq",
-        &section_header_text("Session", sessions_glyph),
-        app.menubar_bg,
-        app.menubar_fg,
-    ) {
-        app.sessions_open = !app.sessions_open;
-    }
-    if app.sessions_open {
-        if app.sessions.is_empty() {
-            let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
-            ctx.label("freq", &format!("  {freq}"));
-        } else {
-            ctx.list_begin("sidebar-sessions");
-            let sessions = app.sessions.clone();
-            for s in &sessions {
-                let name = s.name.clone();
-                let sel = if s.current {
-                    // 当前会话：前缀 `*` 并整行绿色标注。
-                    ctx.styled_list_item_begin();
-                    ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
-                    ctx.styled_label_add_text(&format!("* {name}"));
-                    ctx.styled_list_item_end(false)
-                } else {
-                    ctx.list_item(false, &format!("  {name}"))
-                };
-                if let ListSelection::Activated = sel {
-                    app.append_entry_to_input(&name);
-                }
-            }
-            ctx.list_end();
-        }
-    }
-
-    let members_glyph = if app.members_open { "#" } else { ">" };
-    if ctx.row_button(
-        "sec-members",
-        &section_header_text("Members", members_glyph),
-        app.menubar_bg,
-        app.menubar_fg,
-    ) {
-        app.members_open = !app.members_open;
-    }
-    if app.members_open {
-        if app.members.is_empty() {
-            ctx.label("none", "  (none)");
-        } else {
-            ctx.list_begin("sidebar-members");
-            let members = app.members.clone();
-            for m in &members {
-                let name = m.clone();
-                let sel = ctx.list_item(false, &format!("  • {name}"));
-                if let ListSelection::Activated = sel {
-                    app.append_entry_to_input(&name);
-                }
-            }
-            ctx.list_end();
-        }
-    }
-
-    let plugins_glyph = if app.plugins_open { "#" } else { ">" };
-    if ctx.row_button(
-        "sec-plugins",
-        &section_header_text("Plugin", plugins_glyph),
-        app.menubar_bg,
-        app.menubar_fg,
-    ) {
-        app.plugins_open = !app.plugins_open;
-    }
-    if app.plugins_open {
-        if app.plugins.is_empty() {
-            ctx.label("plugin-none", "  (none)");
-        } else {
-            ctx.list_begin("sidebar-plugins");
-            let plugins = app.plugins.clone();
-            // 第一组：插件名；第二组：命令命名空间。双击分别插入对应名字。
-            for p in &plugins {
-                let name = p.name.clone();
-                let sel = ctx.list_item(false, &format!("  • {name}"));
-                if let ListSelection::Activated = sel {
-                    app.append_entry_to_input(&name);
-                }
-            }
-            for p in &plugins {
-                let ns = p.namespace.clone();
-                let sel = ctx.list_item(false, &format!("  : {ns}"));
-                if let ListSelection::Activated = sel {
-                    app.append_entry_to_input(&ns);
-                }
-            }
-            ctx.list_end();
-        }
+    if app.side_sections.is_empty() {
+        draw_sidebar_legacy(ctx, app);
+    } else {
+        draw_sidebar_registry(ctx, app);
     }
 
     ctx.scrollarea_end();
@@ -2902,6 +2830,151 @@ fn draw_body(ctx: &mut Context, app: &mut App) {
     ctx.scrollarea_end();
 
     ctx.table_end();
+}
+
+/// 过渡期回退：内置硬编码三段侧栏（Session / Members / Plugin）。
+///
+/// 注册表段壳为空时使用；待 cli-standard 侧栏迁移完成、#150 删除硬编码后移除。
+fn draw_sidebar_legacy(ctx: &mut Context, app: &mut App) {
+    let sessions_glyph = if app.sessions_open { "#" } else { ">" };
+    if ctx.row_button(
+        "sec-freq",
+        &section_header_text("Session", sessions_glyph),
+        app.menubar_bg,
+        app.menubar_fg,
+    ) {
+        app.sessions_open = !app.sessions_open;
+    }
+    if app.sessions_open {
+        render_sessions_snapshot(ctx, app);
+    }
+
+    let members_glyph = if app.members_open { "#" } else { ">" };
+    if ctx.row_button(
+        "sec-members",
+        &section_header_text("Members", members_glyph),
+        app.menubar_bg,
+        app.menubar_fg,
+    ) {
+        app.members_open = !app.members_open;
+    }
+    if app.members_open {
+        render_members_snapshot(ctx, app);
+    }
+
+    let plugins_glyph = if app.plugins_open { "#" } else { ">" };
+    if ctx.row_button(
+        "sec-plugins",
+        &section_header_text("Plugin", plugins_glyph),
+        app.menubar_bg,
+        app.menubar_fg,
+    ) {
+        app.plugins_open = !app.plugins_open;
+    }
+    if app.plugins_open {
+        render_plugins_snapshot(ctx, app);
+    }
+}
+
+/// 注册表驱动侧栏：遍历插件登记的栏目壳，按 `source` 取宿主快照回填条目。
+fn draw_sidebar_registry(ctx: &mut Context, app: &mut App) {
+    let sections = app.side_sections.clone();
+    for section in &sections {
+        let open = *app.side_open.get(&section.id).unwrap_or(&section.default_open);
+        let glyph = if open { "#" } else { ">" };
+        let clicked = ctx.row_button(
+            "sidebar-reg-section",
+            &section_header_text(&section.title, glyph),
+            app.menubar_bg,
+            app.menubar_fg,
+        );
+        let open = if clicked { !open } else { open };
+        app.side_open.insert(section.id.clone(), open);
+        if !open {
+            continue;
+        }
+        // 条目模板（前缀符号 + 内容占位）按栏目归属过滤；占位 ↔ 快照键的回填
+        // 语义随 cli-standard 侧栏迁移（#149）定稿，本轮先按 source 复用快照渲染。
+        let _templates: Vec<&ui_registry::RegSideItem> =
+            app.side_items.iter().filter(|item| item.section == section.id).collect();
+        match section.source.as_str() {
+            "sessions" => render_sessions_snapshot(ctx, app),
+            "members" => render_members_snapshot(ctx, app),
+            "plugins" => render_plugins_snapshot(ctx, app),
+            _ => {
+                ctx.label("none", "  (none)");
+            }
+        }
+    }
+}
+
+/// 会话快照：当前会话前缀 `*` 整行绿色；其余缩进列出。空快照显示当前频点占位。
+fn render_sessions_snapshot(ctx: &mut Context, app: &mut App) {
+    if app.sessions.is_empty() {
+        let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
+        ctx.label("freq", &format!("  {freq}"));
+        return;
+    }
+    ctx.list_begin("sidebar-sessions");
+    let sessions = app.sessions.clone();
+    for s in &sessions {
+        let name = s.name.clone();
+        let sel = if s.current {
+            ctx.styled_list_item_begin();
+            ctx.styled_label_set_foreground(ctx.indexed(IndexedColor::Green));
+            ctx.styled_label_add_text(&format!("* {name}"));
+            ctx.styled_list_item_end(false)
+        } else {
+            ctx.list_item(false, &format!("  {name}"))
+        };
+        if let ListSelection::Activated = sel {
+            app.append_entry_to_input(&name);
+        }
+    }
+    ctx.list_end();
+}
+
+/// 成员快照：缩进圆点列出成员名；空快照显示 `(none)`。
+fn render_members_snapshot(ctx: &mut Context, app: &mut App) {
+    if app.members.is_empty() {
+        ctx.label("none", "  (none)");
+        return;
+    }
+    ctx.list_begin("sidebar-members");
+    let members = app.members.clone();
+    for m in &members {
+        let name = m.clone();
+        let sel = ctx.list_item(false, &format!("  • {name}"));
+        if let ListSelection::Activated = sel {
+            app.append_entry_to_input(&name);
+        }
+    }
+    ctx.list_end();
+}
+
+/// 插件快照：第一行插件名，第二行命令命名空间；双击分别插入对应名字。
+fn render_plugins_snapshot(ctx: &mut Context, app: &mut App) {
+    if app.plugins.is_empty() {
+        ctx.label("plugin-none", "  (none)");
+        return;
+    }
+    ctx.list_begin("sidebar-plugins");
+    let plugins = app.plugins.clone();
+    for p in &plugins {
+        let name = p.name.clone();
+        let sel = ctx.list_item(false, &format!("  • {name}"));
+        if let ListSelection::Activated = sel {
+            app.append_entry_to_input(&name);
+        }
+    }
+    for p in &plugins {
+        let ns = p.namespace.clone();
+        let sel = ctx.list_item(false, &format!("  : {ns}"));
+        if let ListSelection::Activated = sel {
+            app.append_entry_to_input(&ns);
+        }
+    }
+    ctx.list_end();
 }
 
 fn draw_input(
@@ -5235,6 +5308,101 @@ mod tests {
             "member list hidden after collapse"
         );
         assert!(!tui.testing_find("sidebar-sessions").is_empty(), "session list still shown");
+    }
+
+    /// Registry-driven sidebar: registered section shells render in registration
+    /// order and dispatch to the host snapshot by `source`; clicking the header
+    /// toggles that section's independent open state.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn registry_sidebar_renders_sections_and_dispatches_snapshot() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        let groups = menu_groups();
+        app.side_sections = vec![ui_registry::RegSideSection {
+            id: "members".to_string(),
+            title: "Members".to_string(),
+            default_open: true,
+            source: "members".to_string(),
+        }];
+        app.side_items = vec![ui_registry::RegSideItem {
+            section: "members".to_string(),
+            prefix: " • ".to_string(),
+            label: "{member}".to_string(),
+        }];
+        app.members = vec!["alice".to_string()];
+
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        let header = tui.testing_find("sidebar-reg-section");
+        assert!(!header.is_empty(), "registry section header rendered");
+        assert!(
+            header[0].text.contains("Members"),
+            "section title from registry: {:?}",
+            header[0].text
+        );
+        let members = tui.testing_find("sidebar-members");
+        assert!(!members.is_empty(), "members snapshot dispatched to registry section");
+        let nodes = tui.testing_nodes();
+        assert!(
+            nodes.iter().any(|node| node.text.contains("alice")),
+            "member name backfilled from snapshot: {members:?}"
+        );
+
+        // Legacy hardcoded sections are not rendered while the registry is non-empty.
+        assert!(
+            tui.testing_find("sec-freq").is_empty(),
+            "legacy session section suppressed by registry path"
+        );
+
+        // Clicking the registry header collapses its own section.
+        let center =
+            Point { x: header[0].x + header[0].width / 2, y: header[0].y + header[0].height / 2 };
+        let mouse = |state: input::InputMouseState| input::InputMouse {
+            state,
+            modifiers: kbmod::NONE,
+            position: center,
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+        draw(
+            &mut tui,
+            Some(Input::Mouse(mouse(input::InputMouseState::Left))),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        draw(
+            &mut tui,
+            Some(Input::Mouse(mouse(input::InputMouseState::None))),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+        assert!(
+            tui.testing_find("sidebar-members").is_empty(),
+            "registry section snapshot hidden after collapse"
+        );
     }
 
     /// The Info dialog's Close button owns the focus, sizes to its label (no full-row

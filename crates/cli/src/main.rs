@@ -570,6 +570,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             unsafe { core_lib.get(b"get_bottom_fragments") }.ok();
         let get_bottom_fragments_ref: Option<&ui_registry::GetBottomFragmentsFn> =
             get_bottom_fragments.as_deref();
+        let get_side_sections: Option<Symbol<ui_registry::GetSideSectionsFn>> =
+            unsafe { core_lib.get(b"get_side_sections") }.ok();
+        let get_side_sections_ref: Option<&ui_registry::GetSideSectionsFn> =
+            get_side_sections.as_deref();
+        let get_side_items: Option<Symbol<ui_registry::GetSideItemsFn>> =
+            unsafe { core_lib.get(b"get_side_items") }.ok();
+        let get_side_items_ref: Option<&ui_registry::GetSideItemsFn> = get_side_items.as_deref();
         register_terminal_hooks(
             tui_terminal_suspend as *const (),
             tui_terminal_resume as *const (),
@@ -589,6 +596,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             get_menu_items_ref,
             get_form_spec_ref,
             get_bottom_fragments_ref,
+            get_side_sections_ref,
+            get_side_items_ref,
         )
         .map_err(|e| e.into());
     }
