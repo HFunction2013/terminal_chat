@@ -116,6 +116,19 @@ The host fills actual entry names from its sidebar snapshots; the plugin supplie
 
 Additional grouped hooks exist for global/session settings, aliases, and macros; their generated types follow the same naming scheme in `cli_core_types` (e.g. `SetAliasFn`, `GetAllAliasesFn`, `SetGlobalOptionFn`).
 
+## Command table & argument completion
+
+These query symbols back host-side command and argument completion. The host reads the unified command table maintained by core; it does not keep its own hard-coded command or subcommand list.
+
+| Hook | Signature | Purpose |
+| --- | --- | --- |
+| `list_commands` | `fn(Out<Vec<String>>) -> Result` | List top-level command names (sorted, deduplicated) for the first-token completion |
+| `list_subcommands` | `fn(parent: &String, Out<Vec<String>>) -> Result` | List the direct subcommand names of a parent command |
+| `arg_spec` | `fn(command_path: &String, arg_index: &i32, Out<String>) -> Result` | Read the completion category of one argument position. Writes one flat row `kind|custom`; empty buffer on miss. `command_path` is space-separated and may already contain filled arguments; core truncates it to the longest registered command prefix. `arg_index` is the 1-based position after the command |
+| `complete_arg` | `fn(argv: &Vec<String>, arg_index: &i32, prefix: &String, Out<Vec<String>>) -> Result` | Route a custom-concept argument to the owning plugin's `tc_complete_arg` callback; writes empty candidates when the command is unowned, the symbol is absent, or the callback returns nothing |
+
+`kind` is a `ui_field_kind` numeric category (see the [Forms section](#forms) table). `custom` is non-empty only for a type name core does not recognize; in that case the host treats the position as a custom concept and calls `complete_arg`. Built-in categories are filled from host snapshots and registries directly and do not reach the plugin callback.
+
 ## Plugin registry
 
 | Hook | Signature | Purpose |

@@ -3,6 +3,7 @@ commands:
     about: Set global options
     args:
       - name: key
+        type: OPTION_KEY
         required: true
         value_name: KEY
         help: Config key name
@@ -20,6 +21,7 @@ commands:
     about: Get session options
     args:
       - name: key
+        type: OPTION_KEY
         required: true
         value_name: KEY
         help: Config key name
@@ -27,6 +29,7 @@ commands:
     about: Get global options
     args:
       - name: key
+        type: OPTION_KEY
         required: true
         value_name: KEY
         help: Config key name
@@ -34,6 +37,7 @@ commands:
     about: Set session options
     args:
       - name: key
+        type: OPTION_KEY
         required: true
         value_name: KEY
         help: Session config key
@@ -49,6 +53,7 @@ commands:
     about: Change local directory
     args:
       - name: dir
+        type: LOCAL_PATH
         required: false
         value_name: DIR
         help: Directory to change into (defaults to current)
@@ -171,6 +176,7 @@ commands:
             help: load plugin's namespace while loading the plugin
             action: set_true
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN
             required: true
             help: Plugin to load
@@ -178,6 +184,7 @@ commands:
         about: load namespace
         args:
           - name: namespace
+            type: NAMESPACE
             value_name: NAMESPACE
             required: true
             help: namespace to load
@@ -188,6 +195,7 @@ commands:
         about: unload plugin
         args:
           - name: plugin_name
+            type: PLUGIN
             value_name: PLUGIN_NAME
             required: true
             help: Plugin to unload
@@ -195,6 +203,7 @@ commands:
         about: unload namespace
         args:
           - name: namespace_name
+            type: NAMESPACE
             value_name: NAMESPACE_NAME
             required: true
             help: namespace to unload
@@ -207,6 +216,7 @@ commands:
         about: Load a plugin
         args:
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN
             required: true
             help: Plugin to load
@@ -214,6 +224,7 @@ commands:
         about: Unload a plugin
         args:
           - name: plugin_name
+            type: PLUGIN
             value_name: PLUGIN_NAME
             required: true
             help: Plugin to unload
@@ -226,6 +237,7 @@ commands:
         about: Load a namespace
         args:
           - name: namespace
+            type: NAMESPACE
             value_name: NAMESPACE
             required: true
             help: Namespace to load
@@ -233,6 +245,7 @@ commands:
         about: Unload a namespace
         args:
           - name: namespace_name
+            type: NAMESPACE
             value_name: NAMESPACE_NAME
             required: true
             help: Namespace to unload
@@ -245,6 +258,7 @@ commands:
           'standard' means main program.
         args:
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN_NAME
             required: true
             help: Plugin(s) to update
@@ -269,6 +283,7 @@ commands:
         about: Search plugin in registry
         args:
           - name: plugin_name
+            type: PLUGIN
             value_name: PLUGIN_NAME
             required: true 
             help: plugin name to search
@@ -276,6 +291,7 @@ commands:
         about: Show plugin information from registry(default)
         args:
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN_NAME
             required: true
             help: Plugin to show
@@ -303,6 +319,7 @@ commands:
         about: Install plugin
         args:
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN_NAME
             required: true
             num_args: "1.."
@@ -333,6 +350,7 @@ commands:
         about: Uninstall plugin
         args:
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN
             num_args: "1.."
             required: true
@@ -347,6 +365,7 @@ commands:
         about: Download plugin
         args:
           - name: plugin
+            type: PLUGIN
             value_name: PLUGIN
             num_args: "1.."
             required: true
@@ -374,10 +393,12 @@ commands:
     about: Upload file or folder to server.
     args: 
       - name: local_path
+        type: LOCAL_PATH
         required: true
         value_name: LOCAL_PATH
         help: Local path to upload.
       - name: remote_path
+        type: REMOTE_PATH
         required: false
         value_name: REMOTE_PATH
         help: Remote path to upload.
@@ -387,10 +408,12 @@ commands:
     about: Download file or folder to server.
     args: 
       - name: remote_path
+        type: REMOTE_PATH
         required: true
         value_name: REMOTE_PATH
         help: Remote path to download.
       - name: local_path
+        type: LOCAL_PATH
         required: false
         value_name: LOCAL_PATH
         help: Local path to store downloads.
@@ -405,6 +428,7 @@ commands:
     about: Remove a remote file or directory.
     args:
       - name: path
+        type: REMOTE_PATH
         required: true
         value_name: PATH
         help: Remote path to remove.
@@ -419,10 +443,12 @@ commands:
     about: Move or rename a remote file/directory.
     args:
       - name: from
+        type: REMOTE_PATH
         required: true
         value_name: FROM
         help: Source path.
       - name: to
+        type: REMOTE_PATH
         required: true
         value_name: TO
         help: Destination path.
@@ -432,10 +458,12 @@ commands:
     about: Copy a remote file/directory.
     args:
       - name: from
+        type: REMOTE_PATH
         required: true
         value_name: FROM
         help: Source path.
       - name: to
+        type: REMOTE_PATH
         required: true
         value_name: TO
         help: Destination path.
@@ -443,6 +471,7 @@ commands:
     about: Show remote directory tree.
     args:
       - name: directory
+        type: REMOTE_PATH
         required: false
         value_name: DIRECTORY
         help: "Remote directory (default: current)."
@@ -450,6 +479,7 @@ commands:
     about: Get checksum of remote file (SHA256).
     args:
       - name: file
+        type: REMOTE_PATH
         value_name: FILE
         required: true
         help: Remote file to check. NO FOLDERS!
@@ -457,6 +487,7 @@ commands:
     about: Change the current remote directory to DIR.
     args:
       - name: dir
+        type: REMOTE_PATH
         value_name: DIR
         required: true
         help: DIR to change.
@@ -466,6 +497,7 @@ commands:
     about: List files in current directory.
     args:
       - name: directory
+        type: REMOTE_PATH
         required: false
         value_name: DIRECTORY
         help: "Remote directory to list (default: current)."
@@ -475,6 +507,7 @@ commands:
     about: Make directory in remote server.
     args:
       - name: directory
+        type: REMOTE_PATH
         required: true 
         value_name: DIR
         help: DIR to make.
@@ -482,6 +515,7 @@ commands:
     about: Get remote file infomation.
     args:
       - name: file
+        type: REMOTE_PATH
         value_name: FILE
         required: true
         help: The remote file
@@ -493,6 +527,7 @@ commands:
     about: Call an user
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         help: The user
         required: true 
@@ -505,6 +540,7 @@ commands:
         required: false
         help: 'Your message, fallback to editor'
       - name: users
+        type: MEMBER
         value_name: USERS
         num_args: "0.."
         help: The users, default everybody.
@@ -521,6 +557,7 @@ commands:
         required: true
         help: 'Your message to send later.'
       - name: users
+        type: MEMBER
         value_name: USERS
         num_args: "0.."
         help: The users, default everybody.
@@ -551,6 +588,7 @@ commands:
     about: Unset session variable.
     args:
       - name: key
+        type: OPTION_KEY
         required: false
         value_name: KEY
         help: Config key name
@@ -564,6 +602,7 @@ commands:
     about: Unset global variable.
     args:
       - name: key
+        type: OPTION_KEY
         required: false
         value_name: KEY
         help: Config key name
@@ -655,6 +694,7 @@ commands:
     about: Ignore comments of certain user
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -662,6 +702,7 @@ commands:
     about: Unignore comments of certain user
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -669,6 +710,7 @@ commands:
     about: Show user information
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -717,6 +759,7 @@ commands:
     about: kick user from freq (op)
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -724,6 +767,7 @@ commands:
     about: ban user from freq
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -731,6 +775,7 @@ commands:
     about: unban banned users
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -738,6 +783,7 @@ commands:
     about: mute a certain user, use `set QUIET true` to mute everyboy except mods.
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -745,6 +791,7 @@ commands:
     about: mute reversed.
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -752,6 +799,7 @@ commands:
     about: give mod permission to a certain user.
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -759,6 +807,7 @@ commands:
     about: take mod permission from a certain user, noone can deop creator.
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -766,6 +815,7 @@ commands:
     about: transfer creator permission.
     args:
       - name: user
+        type: MEMBER
         value_name: USER
         required: true 
         help: the full username, e.g., HZFY@192.168.78.91
@@ -789,6 +839,7 @@ commands:
     about: just opens an editor
     args:
       - name: file
+        type: LOCAL_PATH
         value_name: FILE
         required: false
         help: file to open, optional.
@@ -895,6 +946,7 @@ commands:
             short: 'n'
             help: workspace name.
           - name: output
+            type: LOCAL_PATH
             long: output
             short: o
             help: >
@@ -904,6 +956,7 @@ commands:
         about: Import workspace information.
         args:
           - name: workspace_file
+            type: LOCAL_PATH
             required: true
             value_name: WORKSPACE_FILE
             help: workspace file.

@@ -33,8 +33,27 @@ Declared in `crates/cli-core-types/src/plugin_fn_types.rs`. Export with `#[ffi_e
 | `cli_take_pushes` | `unsafe extern "C" fn() -> safer_ffi::Vec<safer_ffi::String>` | Drain the async push queue (QUIET-aware) for the host to display |
 | `list_remote_dir` | `extern "C" fn(&safer_ffi::String, Out<'_, Vec<String>>) -> Result` | List remote directory entry names for TUI path completion; empty list on failure |
 | `is_connected` | `extern "C" fn() -> i32` | Report current TCP connection state: `1` connected, `0` not connected |
+| `tc_complete_arg` (optional) | `extern "C" fn(&Vec<String>, i32, &String, Out<'_, Vec<String>>) -> Result` | Return completion candidates for a plugin-defined concept. `argv` is the split command line, `arg_index` is the 1-based argument position, `prefix` is the token being typed; write candidate strings to the output buffer. Only invoked for argument types core does not recognize |
 
-The last three are optional in practice but required by the standard client plugin; the host treats a missing symbol gracefully where applicable.
+`list_remote_dir` and `is_connected` are expected from the standard client plugin; the host treats a missing optional symbol gracefully where applicable. `tc_complete_arg` is a best-effort completion hook: if the symbol is absent or returns an empty list, the host falls back to free-text / no completion without blocking input.
+
+## Argument completion: built-in types vs custom concepts
+
+The command tree in `command_yaml` may declare a completion `type` per argument. Core maps each declared type to a built-in completion category the host fills from its own snapshots and registries:
+
+| Declared type(s) | Built-in category | Host candidate source |
+| --- | --- | --- |
+| `MEMBER` | Member | Sidebar member snapshot |
+| `REMOTE_PATH` / `REMOTE` | Remote path | Plugin `list_remote_dir` RPC listing |
+| `LOCAL_PATH` / `LOCAL` | Local path | Local filesystem |
+| `OPTION_KEY` / `OPTION` | Option key | Registered option keys |
+| `SUBCOMMAND` | Subcommand | Registered subcommands of the parent command |
+| `PLUGIN` | Plugin | Loaded plugin names |
+| `NAMESPACE` | Namespace | Loaded plugin namespaces |
+| `PLAIN` / `TEXT` / `STRING` / unset | Free text | No semantic completion |
+| `NO_COMPLETION` / `NONE` | No completion | Empty candidate list |
+
+A type name core does not recognize (for example `USER`) is a **custom concept**: core keeps the raw type name, the host routes that argument position to the owning plugin's optional `tc_complete_arg` callback, and the plugin supplies candidates. Built-in types never reach this callback.
 
 ## Server plugin entry functions
 

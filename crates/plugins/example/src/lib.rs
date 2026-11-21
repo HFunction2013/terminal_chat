@@ -73,3 +73,26 @@ pub fn run_command(args: &safer_ffi::Vec<safer_ffi::String>) -> CmdResult {
 pub fn on_shutdown_plugin() -> PluginResult {
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
+
+/// 可选参数补全回调（core 符号 `complete_arg` 按首词归属路由到本插件）。
+///
+/// 仅服务于插件自定义概念：yaml 中 `type: GREETING_NAME` 是宿主不认识的新类型，
+/// 候选由本回调给出。内置类型（成员 / 远端路径 / 本地路径 / 选项 key / 插件 /
+/// 命名空间）由宿主按声明类型自行补全，不需要实现本回调。
+///
+/// 入参：拆分后的整行 `argv`、参数位置（1 起）、当前前缀；出参写入候选字符串。
+#[ffi_export]
+pub fn tc_complete_arg(
+    argv: &safer_ffi::Vec<safer_ffi::String>,
+    arg_index: i32,
+    prefix: &safer_ffi::String,
+    out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+) -> CmdResult {
+    let _ = (argv, arg_index);
+    let needle = prefix.to_string();
+    let names = ["alice", "bob", "carol", "world"];
+    let rows: Vec<safer_ffi::String> =
+        names.iter().copied().filter(|n| n.starts_with(&needle)).map(|s| s.into()).collect();
+    out.write(rows.into());
+    CmdResult::success()
+}

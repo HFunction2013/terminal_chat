@@ -139,7 +139,8 @@ mod built_info {
 }
 
 /// 选项命令在 key 位置的补全候选：仅当首词为选项命令且处于第 1 参（key）位置时，
-/// 按大小写不敏感前缀过滤已注册选项。
+/// 按大小写不敏感前缀过滤已注册选项。（仅测试沿用旧口径断言，生产路径走 core 表驱动。）
+#[cfg(test)]
 fn option_candidates(
     options: &[String],
     cmd: Option<&str>,
@@ -162,11 +163,19 @@ fn repl_echo_line(input: &str) -> String {
     format!("tc> {input}")
 }
 
-/// rustyline Helper：桥接 `clap_complete`
+/// rustyline Helper：桥接 `clap_complete`，并叠加 core 命令表 / 参数规格补全。
 struct ClapHelper {
     cli: Command,
     /// 已注册选项 key（供 set/setg/get/... 的参数位置补全）。
     options: Vec<String>,
+    /// 已加载插件快照 `(name, namespace)`，供插件名 / 命名空间参数位置补全。
+    plugins: Vec<(String, String)>,
+    /// core 命令表查询与自定义概念回调（可选符号，缺失时对应补全退化）。
+    list_commands: Option<tui::ListCommandsFn>,
+    list_subcommands: Option<tui::ListSubcommandsFn>,
+    arg_spec: Option<tui::ArgSpecFn>,
+    complete_arg: Option<tui::CompleteArgHostFn>,
+    remote_list_dir: Option<ListRemoteDirFn>,
 }
 
 impl Helper for ClapHelper {}
@@ -187,8 +196,18 @@ impl Completer for ClapHelper {
             Err(_) => return Ok((pos, vec![])),
         };
 
-        let is_starting_new_arg = before_cursor.ends_with(' ');
-        let arg_index = if is_starting_new_arg { args.len() + 1 } else { args.len() };
+        let trailing = before_cursor.ends_with(' ');
+        let committed: Vec<String>;
+        let prefix: String;
+        if trailing {
+            committed = args.clone();
+            prefix = String::new();
+        } else {
+            committed = args[..args.len().saturating_sub(1)].to_vec();
+            prefix = args.last().map(|s| s.to_string()).unwrap_or_default();
+        }
+        // 命令后参数序号（1 起），与 core `arg_spec` 口径一致。
+        let arg_index = committed.len();
 
         let args_os: Vec<OsString> =
             std::iter::once("tc-cli".to_string()).chain(args.clone()).map(OsString::from).collect();
@@ -206,16 +225,14 @@ impl Completer for ClapHelper {
             })
             .collect();
 
-        // 选项命令的 key 位置：叠加已注册选项候选（大小写不敏感前缀匹配）。
-        let first = args.first().map(|s| s.to_string());
-        let prefix = args.last().map(|s| s.to_string()).unwrap_or_default();
-        for opt in option_candidates(&self.options, first.as_deref(), arg_index, &prefix) {
-            if !pairs.iter().any(|p| p.replacement == opt) {
-                pairs.push(Pair { display: opt.clone(), replacement: opt });
+        // 叠加 core 命令表 / 子命令 / 参数规格 / 自定义概念候选，按前缀去重。
+        for extra in self.core_candidates(&committed, arg_index, &prefix) {
+            if !pairs.iter().any(|p| p.replacement == extra) {
+                pairs.push(Pair { display: extra.clone(), replacement: extra });
             }
         }
 
-        let start = if is_starting_new_arg {
+        let start = if trailing {
             pos
         } else if args.is_empty() {
             0
@@ -227,6 +244,164 @@ impl Completer for ClapHelper {
 
         Ok((start, pairs))
     }
+}
+
+impl ClapHelper {
+    /// 首词命令名 / 子命令 / 参数位置的 core 表驱动候选。
+    fn core_candidates(&self, committed: &[String], arg_index: usize, prefix: &str) -> Vec<String> {
+        if committed.is_empty() {
+            return filter_prefix(self.fetch_command_names(), prefix);
+        }
+        let parent = committed[0].clone();
+        if committed.len() == 1 {
+            let subs = self.fetch_subcommands(&parent);
+            if !subs.is_empty() {
+                return filter_prefix(subs, prefix);
+            }
+        }
+        self.arg_candidates(committed, arg_index, prefix)
+    }
+
+    /// 按参数规格类别取内置来源候选；自定义概念回退插件 `complete_arg` 回调。
+    fn arg_candidates(&self, committed: &[String], arg_index: usize, prefix: &str) -> Vec<String> {
+        use cli_core_types::ui::ui_field_kind as k;
+        let path = committed.join(" ");
+        let (kind, custom) = self.fetch_arg_spec(&path, arg_index as i32);
+        if !custom.is_empty() {
+            return self.custom_candidates(committed, arg_index, prefix);
+        }
+        match kind {
+            k::OPTION_KEY => {
+                let needle = prefix.to_uppercase();
+                self.options
+                    .iter()
+                    .filter(|o| o.to_uppercase().starts_with(&needle))
+                    .cloned()
+                    .collect()
+            }
+            k::PLUGIN => {
+                filter_prefix(self.plugins.iter().map(|(n, _)| n.clone()).collect(), prefix)
+            }
+            k::NAMESPACE => {
+                filter_prefix(self.plugins.iter().map(|(_, ns)| ns.clone()).collect(), prefix)
+            }
+            k::LOCAL_PATH => local_path_candidates(prefix),
+            k::REMOTE_PATH => self.remote_candidates(prefix),
+            // REPL 无成员快照；MEMBER 暂不补全，回退 clap 基础候选。
+            _ => Vec::new(),
+        }
+    }
+
+    fn fetch_command_names(&self) -> Vec<String> {
+        let Some(list) = self.list_commands else { return Vec::new() };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe { list(Out::from(&mut buf)) };
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    fn fetch_subcommands(&self, parent: &str) -> Vec<String> {
+        let Some(list) = self.list_subcommands else { return Vec::new() };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe { list(&parent.into(), Out::from(&mut buf)) };
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    fn fetch_arg_spec(&self, path: &str, arg_index: i32) -> (i32, String) {
+        use cli_core_types::ui::ui_field_kind as k;
+        let Some(query) = self.arg_spec else { return (k::PLAIN, String::new()) };
+        let mut spec: ManuallyDrop<safer_ffi::String> =
+            ManuallyDrop::new(safer_ffi::String::from(String::new()));
+        let _ = unsafe { query(&path.into(), &arg_index, Out::from(&mut spec)) };
+        let row = ManuallyDrop::into_inner(spec).to_string();
+        match row.split_once('|') {
+            Some((kind, custom)) => (kind.trim().parse().unwrap_or(k::PLAIN), custom.to_string()),
+            None => (k::NO_COMPLETION, String::new()),
+        }
+    }
+
+    fn custom_candidates(
+        &self,
+        committed: &[String],
+        arg_index: usize,
+        prefix: &str,
+    ) -> Vec<String> {
+        let Some(complete) = self.complete_arg else { return Vec::new() };
+        let argv: Vec<safer_ffi::String> = committed
+            .iter()
+            .cloned()
+            .chain(std::iter::once(prefix.to_string()))
+            .map(|s| s.into())
+            .collect();
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe {
+            complete(
+                &safer_ffi::vec::Vec::from(argv),
+                &(arg_index as i32),
+                &prefix.into(),
+                Out::from(&mut buf),
+            )
+        };
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    fn remote_candidates(&self, prefix: &str) -> Vec<String> {
+        let Some(list_dir) = self.remote_list_dir else { return Vec::new() };
+        let (parent, base) = split_path_prefix(prefix);
+        let dir = parent.trim_end_matches('/').to_string();
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = list_dir(&dir.into(), Out::from(&mut buf));
+        let entries: Vec<String> =
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+        entries
+            .into_iter()
+            .filter(|n| n.starts_with(base))
+            .map(|n| format!("{parent}{n}"))
+            .collect()
+    }
+}
+
+/// 按前缀过滤候选；前缀为空时返回全量。
+fn filter_prefix(items: Vec<String>, prefix: &str) -> Vec<String> {
+    if prefix.is_empty() {
+        return items;
+    }
+    items.into_iter().filter(|s| s.starts_with(prefix)).collect()
+}
+
+/// 把路径前缀拆成 `(父目录, 基名)`，与 TUI 口径一致。
+fn split_path_prefix(prefix: &str) -> (&str, &str) {
+    match prefix.rfind('/') {
+        Some(i) => (&prefix[..=i], &prefix[i + 1..]),
+        None => ("", prefix),
+    }
+}
+
+/// 列举本机目录条目，按基名前缀过滤；目录条目补 `/` 后缀。
+fn local_path_candidates(prefix: &str) -> Vec<String> {
+    let (parent, base) = split_path_prefix(prefix);
+    let base_dir = if parent.is_empty() {
+        std::env::current_dir().unwrap_or_default()
+    } else {
+        std::path::PathBuf::from(parent)
+    };
+    let Ok(rd) = std::fs::read_dir(&base_dir) else { return Vec::new() };
+    let mut out = Vec::new();
+    for entry in rd.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with(base) {
+            continue;
+        }
+        let suffix = if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { "/" } else { "" };
+        out.push(format!("{parent}{name}{suffix}"));
+    }
+    if base_dir.parent().is_some() && "..".starts_with(base) {
+        out.push(format!("{parent}../"));
+    }
+    out
 }
 
 impl Hinter for ClapHelper {
@@ -551,6 +726,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             unsafe { core_lib.get(b"get_registered_options") }.ok();
         let registered_options_ref: Option<&tui::GetRegisteredOptionsFn> =
             registered_options.as_deref();
+        // 命令表 / 子命令 / 参数规格 / 自定义概念补全转发为可选符号：缺失时对应补全退化。
+        let list_commands: Option<Symbol<tui::ListCommandsFn>> =
+            unsafe { core_lib.get(b"list_commands") }.ok();
+        let list_commands_ref: Option<&tui::ListCommandsFn> = list_commands.as_deref();
+        let list_subcommands: Option<Symbol<tui::ListSubcommandsFn>> =
+            unsafe { core_lib.get(b"list_subcommands") }.ok();
+        let list_subcommands_ref: Option<&tui::ListSubcommandsFn> = list_subcommands.as_deref();
+        let arg_spec: Option<Symbol<tui::ArgSpecFn>> = unsafe { core_lib.get(b"arg_spec") }.ok();
+        let arg_spec_ref: Option<&tui::ArgSpecFn> = arg_spec.as_deref();
+        let complete_arg: Option<Symbol<tui::CompleteArgHostFn>> =
+            unsafe { core_lib.get(b"complete_arg") }.ok();
+        let complete_arg_ref: Option<&tui::CompleteArgHostFn> = complete_arg.as_deref();
         // 命令中断标志为可选符号：缺失时 TUI Ctrl+C 不中断命令。
         let set_interrupted: Option<Symbol<SetInterruptedFn>> =
             unsafe { core_lib.get(b"set_interrupted") }.ok();
@@ -595,6 +782,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             remote_list_dir_ref,
             is_connected_ref,
             registered_options_ref,
+            list_commands_ref,
+            list_subcommands_ref,
+            arg_spec_ref,
+            complete_arg_ref,
             set_interrupted_ref,
             set_current_freq_ref,
             terminal_busy_ref,
@@ -625,7 +816,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .unwrap_or_default();
 
-    let helper = ClapHelper { cli: cli.clone(), options: registered_options };
+    // 命令表 / 子命令 / 参数规格 / 自定义概念补全转发为可选符号：缺失时对应补全退化。
+    let list_commands: Option<Symbol<tui::ListCommandsFn>> =
+        unsafe { get_cli_core().get(b"list_commands") }.ok();
+    let list_subcommands: Option<Symbol<tui::ListSubcommandsFn>> =
+        unsafe { get_cli_core().get(b"list_subcommands") }.ok();
+    let arg_spec: Option<Symbol<tui::ArgSpecFn>> = unsafe { get_cli_core().get(b"arg_spec") }.ok();
+    let complete_arg: Option<Symbol<tui::CompleteArgHostFn>> =
+        unsafe { get_cli_core().get(b"complete_arg") }.ok();
+    let remote_list_dir: Option<Symbol<ListRemoteDirFn>> =
+        unsafe { get_cli_core().get(b"remote_list_dir") }.ok();
+
+    // 插件快照 `(name, command_namespace)`，供插件名 / 命名空间参数位置补全。
+    let plugin_snapshot: Vec<(String, String)> =
+        plugins.iter().map(|p| (p.name.to_string(), p.command_name.to_string())).collect();
+
+    let helper = ClapHelper {
+        cli: cli.clone(),
+        options: registered_options,
+        plugins: plugin_snapshot,
+        list_commands: list_commands.as_deref().copied(),
+        list_subcommands: list_subcommands.as_deref().copied(),
+        arg_spec: arg_spec.as_deref().copied(),
+        complete_arg: complete_arg.as_deref().copied(),
+        remote_list_dir: remote_list_dir.as_deref().copied(),
+    };
     let mut rl = Editor::<ClapHelper, _>::new()?;
     rl.set_helper(Some(helper));
     // 异步推送显示：tty 下用 rustyline 的 ExternalPrinter（在输入行上方打印，
@@ -812,7 +1027,117 @@ Because everyone deserves a good cup of coffee."
 
 #[cfg(test)]
 mod tests {
-    use super::{option_candidates, repl_echo_line};
+    use super::*;
+
+    static STUB_CMDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    static STUB_SPEC: Mutex<Vec<(String, i32, i32, String)>> = Mutex::new(Vec::new());
+    static STUB_CUSTOM: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+    unsafe extern "C" fn stub_list_commands(
+        out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let rows: Vec<safer_ffi::String> =
+            STUB_CMDS.lock().unwrap().iter().map(|s| s.clone().into()).collect();
+        out.write(rows.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_LIST_COMMANDS: tui::ListCommandsFn = stub_list_commands;
+
+    unsafe extern "C" fn stub_arg_spec(
+        path: &safer_ffi::String,
+        arg_index: &i32,
+        out: Out<'_, safer_ffi::String>,
+    ) -> cli_core_types::Result {
+        let table = STUB_SPEC.lock().unwrap().clone();
+        let parts: Vec<&str> = path.split_whitespace().collect();
+        let mut best: Option<(String, usize)> = None;
+        for entry in &table {
+            let key_parts: Vec<&str> = entry.0.split_whitespace().collect();
+            if parts.starts_with(&key_parts[..]) {
+                match &best {
+                    Some((_, d)) if *d >= key_parts.len() => {}
+                    _ => best = Some((entry.0.clone(), key_parts.len())),
+                }
+            }
+        }
+        let row = match best {
+            Some((key, depth)) => {
+                let param = arg_index - depth as i32 + 1;
+                table
+                    .iter()
+                    .find(|(p, i, _, _)| p == &key && *i == param)
+                    .map(|(_, _, k, c)| format!("{k}|{c}"))
+                    .unwrap_or_else(|| "8|".to_string())
+            }
+            None => "8|".to_string(),
+        };
+        out.write(row.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_ARG_SPEC: tui::ArgSpecFn = stub_arg_spec;
+
+    unsafe extern "C" fn stub_complete_arg(
+        _argv: &safer_ffi::Vec<safer_ffi::String>,
+        _arg_index: &i32,
+        prefix: &safer_ffi::String,
+        out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let needle = prefix.to_string();
+        let rows: Vec<safer_ffi::String> = STUB_CUSTOM
+            .lock()
+            .unwrap()
+            .iter()
+            .cloned()
+            .filter(|s| s.starts_with(&needle))
+            .map(|s| s.into())
+            .collect();
+        out.write(rows.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_COMPLETE_ARG: tui::CompleteArgHostFn = stub_complete_arg;
+
+    fn stub_helper() -> ClapHelper {
+        ClapHelper {
+            cli: Command::new("tc-cli").no_binary_name(true),
+            options: Vec::new(),
+            plugins: Vec::new(),
+            list_commands: Some(STUB_LIST_COMMANDS),
+            list_subcommands: None,
+            arg_spec: Some(STUB_ARG_SPEC),
+            complete_arg: Some(STUB_COMPLETE_ARG),
+            remote_list_dir: None,
+        }
+    }
+
+    #[test]
+    fn repl_command_names_come_from_core_table() {
+        *STUB_CMDS.lock().unwrap() = vec!["msg".into(), "ls".into()];
+        let h = stub_helper();
+        assert_eq!(h.core_candidates(&[], 0, "m"), vec!["msg".to_string()]);
+        assert_eq!(h.core_candidates(&[], 0, ""), vec!["msg", "ls"]);
+    }
+
+    #[test]
+    fn repl_plugin_arg_uses_plugin_snapshot() {
+        *STUB_SPEC.lock().unwrap() = vec![("plugin load".into(), 1, 6, String::new())];
+        let mut h = stub_helper();
+        h.plugins = vec![("cli-standard".into(), "std".into())];
+        assert_eq!(
+            h.core_candidates(&["plugin".to_string(), "load".to_string()], 2, "cli"),
+            vec!["cli-standard".to_string()]
+        );
+    }
+
+    #[test]
+    fn repl_custom_arg_routes_to_plugin_callback() {
+        *STUB_SPEC.lock().unwrap() = vec![("do thing".into(), 1, 0, "USER".into())];
+        *STUB_CUSTOM.lock().unwrap() = vec!["alice".into(), "bob".into()];
+        let h = stub_helper();
+        assert_eq!(
+            h.core_candidates(&["do".to_string(), "thing".to_string()], 2, "a"),
+            vec!["alice".to_string()]
+        );
+    }
 
     #[test]
     fn option_candidates_match_prefix_case_insensitive() {

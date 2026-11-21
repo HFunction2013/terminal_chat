@@ -5,4 +5,8 @@ commands:
       - name: who
         required: false
         value_name: WHO
+        # 自定义概念类型：core/宿主不认识 `GREETING_NAME`，候选由本插件
+        # 可选导出的 `tc_complete_arg` 回调提供。内置类型（MEMBER、路径等）
+        # 不需要回调，宿主按类型自行补全。
+        type: GREETING_NAME
         help: Who to greet (defaults to world)

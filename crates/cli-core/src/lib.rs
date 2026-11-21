@@ -7,6 +7,7 @@ mod macros;
 mod plugins;
 mod print_content;
 mod push_queue;
+mod registered_commands;
 mod registered_options;
 mod registered_ui;
 mod run_commands;

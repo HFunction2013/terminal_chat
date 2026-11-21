@@ -55,9 +55,12 @@ commands:
         args:
           - name: who
             required: true
+            type: MEMBER
             value_name: WHO
             help: Who to greet
 ```
+
+The optional `type` on an argument declares its completion category (`MEMBER`, `REMOTE_PATH`, `LOCAL_PATH`, `OPTION_KEY`, `SUBCOMMAND`, `PLUGIN`, `NAMESPACE`, `PLAIN`, `NO_COMPLETION`; see the full table in [plugin-contract.md](plugin-contract.md#argument-completion-built-in-types-vs-custom-concepts)). A type core does not recognize is a custom concept: the host routes that position to the plugin's optional `tc_complete_arg` callback instead.
 
 ## 3. Build script and command skeleton
 

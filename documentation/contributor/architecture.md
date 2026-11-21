@@ -94,7 +94,13 @@ Asynchronous pushes from the server are enqueued by the plugin's background read
 
 ### Completion candidates
 
-Completion reuses existing sidebar snapshots (member names, plugin names, namespaces) and registered option keys; field completion categories are defined in `ui_field_kind`. A command that cannot supply candidates falls back to `NO_COMPLETION`.
+Completion is driven by a unified command table in `cli-core` (`registered_commands.rs`); the host keeps no hard-coded command or subcommand list:
+
+- **Command names and subcommands**: built-in commands are registered in the table at initialization; plugin commands, subcommands, and argument specs are parsed from each plugin's `command_yaml` at load. The host reads top-level names through `list_commands` and a parent's direct subcommands through `list_subcommands`.
+- **Argument specs**: each argument's declared `type` is mapped to a `ui_field_kind` category. `arg_spec(command_path, arg_index)` returns one flat row `kind|custom`. The incoming path may already contain filled arguments, so core locates the entry by longest registered-prefix match and recomputes the argument index against the matched command's depth.
+- **Built-in categories** reuse existing host snapshots and registries: member names from the sidebar member snapshot, plugin names and namespaces from the plugin snapshot, option keys from the registered-option registry, remote paths from the plugin's directory listing, and local paths from the local filesystem.
+- **Custom concepts**: a type name core does not recognize is kept as the raw `custom` type name. The host routes that argument position to `complete_arg`, which resolves the owning plugin by the first token and forwards to its optional `tc_complete_arg` callback; a missing owner, symbol, or empty result yields no candidates.
+- A command or position that cannot supply candidates falls back to `NO_COMPLETION`; free text maps to `PLAIN`.
 
 ## 7. Server side
 

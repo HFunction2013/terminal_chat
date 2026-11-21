@@ -272,6 +272,11 @@ pub fn register_plugin(metadata: &PluginMetadata) -> Result {
         for name in top_level_command_names(&metadata.command_yaml.to_string()) {
             global.entry(name).or_insert_with(|| metadata.clone());
         }
+        // 解析命令 / 子命令 / 参数规格写入统一命令表，供宿主命令与参数补全查询。
+        crate::registered_commands::register_yaml(
+            &metadata.command_yaml.to_string(),
+            &metadata.name.to_string(),
+        );
         Result::success()
     }
 }
@@ -327,6 +332,7 @@ pub fn unregister_plugin(name: &safer_ffi::String) -> Result {
     // 按归属清理选项与 UI 注册项。
     crate::registered_options::unregister_by_owner(&meta.name.to_string());
     crate::registered_ui::unregister_by_owner(&meta.name.to_string());
+    crate::registered_commands::unregister_by_owner(&meta.name.to_string());
 
     Result::success()
 }
@@ -355,6 +361,7 @@ pub fn clear_plugins() -> Result {
     PLUGIN_LIBS.lock().unwrap().clear();
     crate::registered_options::clear_all();
     crate::registered_ui::clear_all();
+    crate::registered_commands::clear_all();
     Result::success()
 }
 

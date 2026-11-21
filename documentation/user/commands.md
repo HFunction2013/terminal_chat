@@ -106,6 +106,7 @@ Commands are grouped by usage scenario. Parameter names match the built-in help;
 | `show globals` | Show all global variables | — |
 | `show locals` | Show all session variables | — |
 | `show variables` (`vars`) | Show all variables | — |
+| `show plugins` (`namespaces`) | List loaded plugins and their namespaces | — |
 | `proxy on` / `proxy off` | Toggle the system proxy | — |
 
 ## Aliases & macros

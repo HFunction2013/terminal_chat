@@ -55,6 +55,31 @@ pub type GetOptionFn = unsafe extern "C" fn(
 pub type GetRegisteredOptionsFn =
     unsafe extern "C" fn(Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> cli_core_types::Result;
 
+/// 列举顶层命令名的 FFI 符号类型（cli-core `list_commands`）。
+pub type ListCommandsFn =
+    unsafe extern "C" fn(Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> cli_core_types::Result;
+
+/// 列举指定父命令直接子命令名的 FFI 符号类型（cli-core `list_subcommands`）。
+pub type ListSubcommandsFn = unsafe extern "C" fn(
+    &safer_ffi::String,
+    Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+) -> cli_core_types::Result;
+
+/// 查询命令路径参数规格的 FFI 符号类型（cli-core `arg_spec`）；出参一行 `kind|custom`。
+pub type ArgSpecFn = unsafe extern "C" fn(
+    &safer_ffi::String,
+    &i32,
+    Out<'_, safer_ffi::String>,
+) -> cli_core_types::Result;
+
+/// 参数补全转发回调（cli-core `complete_arg`）：按首词归属路由到插件 `tc_complete_arg`。
+pub type CompleteArgHostFn = unsafe extern "C" fn(
+    &safer_ffi::Vec<safer_ffi::String>,
+    &i32,
+    &safer_ffi::String,
+    Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+) -> cli_core_types::Result;
+
 /// 切换 TUI/REPL 输出模式的 FFI 符号类型。
 pub type SetTuiModeFn = unsafe extern "C" fn(bool);
 
@@ -223,6 +248,8 @@ enum FieldKind {
     Plugin,
     /// 已加载插件的命令命名空间（namespace/load/unload 相关参数位置）。
     Namespace,
+    /// 插件自定义概念：core 内置类型表未覆盖，经 `complete_arg` 回调向归属插件取候选。
+    Custom,
     /// 该位置没有可补全的来源：不弹出任何候选。
     NoCompletion,
 }
@@ -254,128 +281,6 @@ struct MenuGroup {
 
 /// 补全浮层最多同时可见的候选条数；超出部分靠窗口滚动跟随高亮。
 const COMPLETION_VIEW: usize = 5;
-
-/// 输入框命令名补全候选（与 cli-standard 注册命令一致的静态子集）。
-const COMMAND_NAMES: &[&str] = &[
-    "away",
-    "background",
-    "ban",
-    "call",
-    "cancel",
-    "cd",
-    "checksum",
-    "connect",
-    "cp",
-    "create",
-    "create_freq",
-    "deop",
-    "delete",
-    "disband",
-    "disconnect",
-    "download",
-    "editor",
-    "exit",
-    "quit",
-    "q",
-    "clear",
-    "about",
-    "version",
-    "build_info",
-    "copyright",
-    "license",
-    "coffee",
-    "saying",
-    "banner",
-    "train",
-    "feedback",
-    "file_info",
-    "foreground",
-    "freq_info",
-    "get",
-    "getg",
-    "help",
-    "ignore",
-    "join_freq",
-    "kick",
-    "lcd",
-    "leave_freq",
-    "lls",
-    "load",
-    "lpwd",
-    "ls",
-    "mkdir",
-    "msg",
-    "mute",
-    "mv",
-    "namespace",
-    "notifications",
-    "op",
-    "plugin",
-    "proxy",
-    "pwd",
-    "reconnect",
-    "reply",
-    "rm",
-    "route",
-    "run",
-    "schedule",
-    "schedule_msg",
-    "sessions",
-    "set",
-    "setg",
-    "shell",
-    "show",
-    "sleep",
-    "status",
-    "tasks",
-    "tcpm",
-    "tree",
-    "trop",
-    "unban",
-    "unignore",
-    "unload",
-    "unmute",
-    "unset",
-    "unsetg",
-    "upload",
-    "user_info",
-    "whoami",
-    "workspace",
-];
-
-/// 复合命令 → 第二词子命令名表（对齐 `cli-standard/commands/` 下各子命令 executor）。
-const SUBCOMMANDS: &[(&str, &[&str])] = &[
-    (
-        "workspace",
-        &["clone", "delete", "export", "import", "list", "new", "rename", "show", "switch"],
-    ),
-    (
-        "show",
-        &[
-            "active_freqs",
-            "active_users",
-            "globals",
-            "locals",
-            "moderators",
-            "options",
-            "plugins",
-            "variables",
-        ],
-    ),
-    ("load", &["namespace", "plugin"]),
-    ("unload", &["namespace", "plugin"]),
-    ("namespace", &["list", "load", "unload"]),
-    ("plugin", &["list", "load", "unload"]),
-    ("create", &["alias", "macro"]),
-    ("delete", &["alias", "macro"]),
-    ("proxy", &["off", "on"]),
-    ("tcpm", &["download", "install", "list", "search", "show", "uninstall", "update"]),
-];
-
-/// 查复合命令的子命令名表；非复合命令返回 `None`。
-fn subcommands_of(cmd: &str) -> Option<&'static [&'static str]> {
-    SUBCOMMANDS.iter().find(|(c, _)| *c == cmd).map(|(_, subs)| *subs)
-}
 
 /// 宿主内置菜单项：退出与信息弹窗命令由本地 `try_builtin` 分发，不进注册表；
 /// 其余业务菜单全部由 cli-standard 插件经注册表登记（见 #90 / #150）。
@@ -597,6 +502,16 @@ struct App {
     list_registered_options: Option<GetRegisteredOptionsFn>,
     /// 已注册选项 key 缓存（供选项参数位置补全）。
     registered_options: Vec<String>,
+    /// 顶层命令名列举回调（cli-core `list_commands`）；缺失时首词命令不补全。
+    list_commands: Option<ListCommandsFn>,
+    /// 当前顶层命令名缓存（供首词位置补全）。
+    command_names: Vec<String>,
+    /// 子命令列举回调（cli-core `list_subcommands`）；缺失时子命令位置不补全。
+    list_subcommands: Option<ListSubcommandsFn>,
+    /// 参数规格查询回调（cli-core `arg_spec`）；缺失时参数类别退化为不补全。
+    arg_spec: Option<ArgSpecFn>,
+    /// 自定义概念参数补全转发回调（cli-core `complete_arg`）；缺失时自定义类型不补全。
+    complete_arg: Option<CompleteArgHostFn>,
     /// 注册表底部状态栏片段（静态 label + 逐帧回调返回值）；宿主只拼接渲染。
     bottom_fragments: Vec<String>,
     /// 注册表侧栏栏目壳（插件登记）；空时不渲染任何栏目。
@@ -625,6 +540,16 @@ struct App {
     menubar_bg: StraightRgba,
     /// 菜单栏 / 状态栏主题前景。
     menubar_fg: StraightRgba,
+}
+
+/// 当前补全上下文：类别、当前前缀、已提交命令路径与参数序号（1 起）。
+struct CompletionCtx {
+    kind: FieldKind,
+    prefix: String,
+    /// 已提交的命令路径词（不含正在输入的末词）。
+    path: Vec<String>,
+    /// 命令后参数序号（1 起）。
+    arg_index: i32,
 }
 
 impl App {
@@ -662,6 +587,11 @@ impl App {
             get_form_spec: None,
             list_registered_options: None,
             registered_options: Vec::new(),
+            list_commands: None,
+            command_names: Vec::new(),
+            list_subcommands: None,
+            arg_spec: None,
+            complete_arg: None,
             bottom_fragments: Vec::new(),
             side_sections: Vec::new(),
             side_items: Vec::new(),
@@ -957,97 +887,163 @@ impl App {
         if self.dialog.is_some() { self.dialog_buffer() } else { Some(&mut self.input) }
     }
 
-    /// 判定当前活动缓冲的补全类别、前缀与首词命令（表单首词为空）。
-    fn completion_context(&self) -> (FieldKind, String, String) {
-        if let Some(Dialog::Form(form)) = &self.dialog {
-            let kind = form.spec.fields[form.focus].kind;
-            return (kind, form.values[form.focus].clone(), String::new());
-        }
-        let parts: Vec<&str> = self.input.split_whitespace().collect();
-        match parts.as_slice() {
-            [] => (FieldKind::Plain, String::new(), String::new()),
-            [first] => {
-                let cmd = (*first).to_string();
-                // 首词后已敲空格：处于第一参数位置（尾空格被 split 丢弃，需按原始输入判断）。
-                if self.input.ends_with(' ') {
-                    let kind = if subcommands_of(&cmd).is_some() {
-                        FieldKind::Subcommand
-                    } else {
-                        kind_for_command_arg(&cmd, 1)
-                    };
-                    (kind, String::new(), cmd)
-                } else {
-                    (FieldKind::Plain, cmd.clone(), cmd)
-                }
-            }
-            _ => {
-                let cmd = parts[0].to_string();
-                let arg_index = parts.len() - 1; // 命令后第几个参数（1 起）
-                let kind = if arg_index == 1 && subcommands_of(&cmd).is_some() {
-                    FieldKind::Subcommand
-                } else {
-                    kind_for_command_parts(&parts)
-                };
-                (kind, parts[parts.len() - 1].to_string(), cmd)
-            }
+    /// 经 core 列举某父命令的直接子命令名；回调缺失返回空。
+    fn fetch_subcommands(&self, parent: &str) -> Vec<String> {
+        let Some(list) = self.list_subcommands else { return Vec::new() };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe { list(&parent.into(), Out::from(&mut buf)) };
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    /// 查询命令路径在某参数位置的规格：返回 (内置类别序号, 自定义类型名)。
+    fn fetch_arg_spec(&self, path: &str, arg_index: i32) -> (i32, String) {
+        use cli_core_types::ui::ui_field_kind as k;
+        let Some(query) = self.arg_spec else { return (k::PLAIN, String::new()) };
+        let mut spec: ManuallyDrop<safer_ffi::String> =
+            ManuallyDrop::new(safer_ffi::String::from(String::new()));
+        let _ = unsafe { query(&path.into(), &arg_index, Out::from(&mut spec)) };
+        let row = ManuallyDrop::into_inner(spec).to_string();
+        match row.split_once('|') {
+            Some((kind, custom)) => (kind.trim().parse().unwrap_or(k::PLAIN), custom.to_string()),
+            // core 未命中命令 / 参数位置：不补全。
+            None => (k::NO_COMPLETION, String::new()),
         }
     }
 
-    /// 依据当前类别刷新补全候选：命令名 / 成员名 / 远端路径 / 本地路径。
+    /// 判定当前活动缓冲的补全上下文（表单字段类别 / 命令路径与参数序号）。
+    fn completion_context(&self) -> CompletionCtx {
+        if let Some(Dialog::Form(form)) = &self.dialog {
+            return CompletionCtx {
+                kind: form.spec.fields[form.focus].kind,
+                prefix: form.values[form.focus].clone(),
+                path: Vec::new(),
+                arg_index: 0,
+            };
+        }
+        let parts: Vec<&str> = self.input.split_whitespace().collect();
+        if parts.is_empty() {
+            return CompletionCtx {
+                kind: FieldKind::Plain,
+                prefix: String::new(),
+                path: Vec::new(),
+                arg_index: 0,
+            };
+        }
+        let trailing = self.input.ends_with(' ');
+        let committed: Vec<String>;
+        let prefix: String;
+        if trailing {
+            committed = parts.iter().map(|s| s.to_string()).collect();
+            prefix = String::new();
+        } else {
+            committed = parts[..parts.len() - 1].iter().map(|s| s.to_string()).collect();
+            prefix = parts[parts.len() - 1].to_string();
+        }
+        if committed.is_empty() {
+            // 首词位置：命令名补全。
+            return CompletionCtx {
+                kind: FieldKind::Plain,
+                prefix,
+                path: Vec::new(),
+                arg_index: 0,
+            };
+        }
+        let cmd = committed[0].clone();
+        let arg_index = committed.len() as i32;
+        // 第二词位置：父命令若登记了子命令，先补子命令名。
+        if committed.len() == 1 && !self.fetch_subcommands(&cmd).is_empty() {
+            return CompletionCtx {
+                kind: FieldKind::Subcommand,
+                prefix,
+                path: committed,
+                arg_index: 1,
+            };
+        }
+        let path = committed.join(" ");
+        let (kind_no, custom) = self.fetch_arg_spec(&path, arg_index);
+        let kind = if !custom.is_empty() { FieldKind::Custom } else { reg_field_kind(kind_no) };
+        CompletionCtx { kind, prefix, path: committed, arg_index }
+    }
+
+    /// 自定义概念参数候选：经 core `complete_arg` 转发到归属插件回调。
+    fn custom_candidates(&self, ctx: &CompletionCtx) -> Vec<String> {
+        let Some(complete) = self.complete_arg else { return Vec::new() };
+        let argv: Vec<safer_ffi::String> = ctx
+            .path
+            .iter()
+            .cloned()
+            .chain(std::iter::once(ctx.prefix.clone()))
+            .map(|s| s.into())
+            .collect();
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe {
+            complete(
+                &safer_ffi::vec::Vec::from(argv),
+                &ctx.arg_index,
+                &ctx.prefix.clone().into(),
+                Out::from(&mut buf),
+            )
+        };
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    /// 依据当前类别刷新补全候选：命令名 / 子命令 / 成员名 / 路径 / 选项 key / 自定义概念。
     fn refresh_completions(&mut self) {
-        let (kind, prefix, cmd) = self.completion_context();
-        let cands: Vec<String> = match kind {
+        self.refresh_command_names();
+        let ctx = self.completion_context();
+        let cands: Vec<String> = match ctx.kind {
             FieldKind::Plain => {
                 // 表单内自由文本不补全；主命令行首词匹配命令名。
                 if self.dialog.is_some() {
                     Vec::new()
                 } else {
-                    COMMAND_NAMES
+                    self.command_names
                         .iter()
-                        .copied()
-                        .filter(|c| c.starts_with(&prefix))
-                        .map(String::from)
+                        .filter(|c| c.starts_with(&ctx.prefix))
+                        .cloned()
                         .collect()
                 }
             }
-            FieldKind::Subcommand => subcommands_of(&cmd)
-                .unwrap_or(&[])
+            FieldKind::Subcommand => self
+                .fetch_subcommands(&ctx.path[0])
                 .iter()
-                .copied()
-                .filter(|s| s.starts_with(&prefix))
-                .map(String::from)
+                .filter(|s| s.starts_with(&ctx.prefix))
+                .cloned()
                 .collect(),
             FieldKind::Member => {
-                self.members.iter().filter(|m| m.starts_with(&prefix)).cloned().collect()
+                self.members.iter().filter(|m| m.starts_with(&ctx.prefix)).cloned().collect()
             }
             FieldKind::Plugin => self
                 .plugins
                 .iter()
-                .filter(|p| p.name.starts_with(&prefix))
+                .filter(|p| p.name.starts_with(&ctx.prefix))
                 .map(|p| p.name.clone())
                 .collect(),
             FieldKind::Namespace => self
                 .plugins
                 .iter()
-                .filter(|p| p.namespace.starts_with(&prefix))
+                .filter(|p| p.namespace.starts_with(&ctx.prefix))
                 .map(|p| p.namespace.clone())
                 .collect(),
             FieldKind::RemotePath => {
-                let (parent, base) = split_path_prefix(&prefix);
+                let (parent, base) = split_path_prefix(&ctx.prefix);
                 self.remote_candidates(parent, base)
             }
             FieldKind::LocalPath => {
-                let (parent, base) = split_path_prefix(&prefix);
+                let (parent, base) = split_path_prefix(&ctx.prefix);
                 local_candidates(parent, base)
             }
             FieldKind::OptionKey => {
-                let needle = prefix.to_uppercase();
+                let needle = ctx.prefix.to_uppercase();
                 self.registered_options
                     .iter()
                     .filter(|k| k.to_uppercase().starts_with(&needle))
                     .cloned()
                     .collect()
             }
+            FieldKind::Custom => self.custom_candidates(&ctx),
             FieldKind::NoCompletion => Vec::new(),
         };
         // 仅当候选集合实际变化时才回到首项并退出选择态；重绘帧保留当前
@@ -1092,6 +1088,18 @@ impl App {
         let _ = unsafe { list(Out::from(&mut buf)) };
         self.registered_options =
             ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+    }
+
+    /// 从 core 命令表刷新顶层命令名缓存（供首词位置补全）。
+    fn refresh_command_names(&mut self) {
+        let Some(list) = self.list_commands else {
+            self.command_names = Vec::new();
+            return;
+        };
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = unsafe { list(Out::from(&mut buf)) };
+        self.command_names = ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
     }
 
     /// 接受当前高亮候选：替换活动缓冲的末词（路径候选已含父目录前缀）。
@@ -1288,74 +1296,6 @@ fn section_header_text(title: &str, glyph: &str) -> String {
     format!("{title}{:pad$}{glyph}", "")
 }
 
-/// 按完整命令词序列判定补全类别；识别二级子命令之后的插件名 / 命名空间参数位置。
-fn kind_for_command_parts(parts: &[&str]) -> FieldKind {
-    if parts.len() >= 3 {
-        match (parts[0], parts[1]) {
-            ("plugin", "load")
-            | ("plugin", "unload")
-            | ("load", "plugin")
-            | ("unload", "plugin") => FieldKind::Plugin,
-            ("namespace", "load")
-            | ("namespace", "unload")
-            | ("load", "namespace")
-            | ("unload", "namespace") => FieldKind::Namespace,
-            _ => kind_for_command_arg(parts[0], parts.len() - 1),
-        }
-    } else {
-        kind_for_command_arg(parts[0], parts.len() - 1)
-    }
-}
-
-/// 按命令名与参数位置判定主命令行该位置的补全类别。
-fn kind_for_command_arg(cmd: &str, arg_index: usize) -> FieldKind {
-    match cmd {
-        // 单参数远端路径命令。
-        "ls" | "cd" | "mkdir" | "rm" | "checksum" | "file_info" => FieldKind::RemotePath,
-        // mv / cp：from、to 均为远端路径。
-        "mv" | "cp" => FieldKind::RemotePath,
-        // upload：第 1 参本地路径，第 2 参远端路径。
-        "upload" => {
-            if arg_index == 1 {
-                FieldKind::LocalPath
-            } else {
-                FieldKind::RemotePath
-            }
-        }
-        // download：第 1 参远端路径，第 2 参本地路径。
-        "download" => {
-            if arg_index == 1 {
-                FieldKind::RemotePath
-            } else {
-                FieldKind::LocalPath
-            }
-        }
-        // lcd：切换本地目录。
-        "lcd" => FieldKind::LocalPath,
-        // 选项命令：第 1 参为已注册选项 key。
-        "set" | "setg" | "get" | "getg" | "unset" | "unsetg" => {
-            if arg_index == 1 {
-                FieldKind::OptionKey
-            } else {
-                FieldKind::NoCompletion
-            }
-        }
-        // 成员命令：第 1 参为用户名/昵称。
-        "call" | "kick" | "ban" | "unban" | "op" | "deop" | "trop" | "mute" | "unmute"
-        | "ignore" | "unignore" | "user_info" => FieldKind::Member,
-        // msg：第 1 参为接收成员列表，其后为自由文本消息。
-        "msg" => {
-            if arg_index == 1 {
-                FieldKind::Member
-            } else {
-                FieldKind::NoCompletion
-            }
-        }
-        // 其余命令的参数为状态词 / 主机端口 / 自由文本或无参，不补全成员名。
-        _ => FieldKind::NoCompletion,
-    }
-}
-
 /// 拆分路径前缀为 `(父目录, 基名)`；父目录保留尾斜杠，空表示当前目录。
 fn split_path_prefix(prefix: &str) -> (&str, &str) {
     match prefix.rfind('/') {
@@ -1489,6 +1429,10 @@ pub fn run(
     remote_list_dir: Option<&ListRemoteDirFn>,
     is_connected: Option<&IsConnectedFn>,
     registered_options: Option<&GetRegisteredOptionsFn>,
+    list_commands: Option<&ListCommandsFn>,
+    list_subcommands: Option<&ListSubcommandsFn>,
+    arg_spec: Option<&ArgSpecFn>,
+    complete_arg: Option<&CompleteArgHostFn>,
     set_interrupted: Option<&SetInterruptedFn>,
     set_current_freq: Option<&SetCurrentFreqFn>,
     terminal_busy: Option<&TerminalBusyFn>,
@@ -1546,6 +1490,10 @@ pub fn run(
     app.set_current_freq = set_current_freq.copied();
     app.get_form_spec = get_form_spec.copied();
     app.list_registered_options = registered_options.copied();
+    app.list_commands = list_commands.copied();
+    app.list_subcommands = list_subcommands.copied();
+    app.arg_spec = arg_spec.copied();
+    app.complete_arg = complete_arg.copied();
     app.bottom_fragments = ui_registry::fetch_bottom_fragments(get_bottom_fragments)
         .into_iter()
         .map(|f| f.label)
@@ -1612,6 +1560,7 @@ fn event_loop(
         app.prefer_cli =
             is_truthy(&opt_get_effective(get_session, get_option, "PREFER_COMMAND_LINE"));
         app.refresh_registered_options();
+        app.refresh_command_names();
 
         // 把当前频点写入 cli-core 状态槽，供插件底部状态栏回调读取；再逐帧重取
         // 底部片段（回调按当前状态生成整行文本）。
@@ -3107,6 +3056,104 @@ mod tests {
     const STUB_SESSION: GetOptionFn = stub_session_option;
     const STUB_GLOBAL: GetOptionFn = stub_global_option;
 
+    // ---- 命令表 / 子命令 / 参数规格 / 自定义概念补全桩（对齐 core 查询符号） ----
+
+    static STUB_COMMANDS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    extern "C" fn stub_list_commands(
+        out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let rows: Vec<safer_ffi::String> =
+            STUB_COMMANDS.lock().unwrap().iter().map(|s| s.clone().into()).collect();
+        out.write(rows.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_LIST_COMMANDS: ListCommandsFn = stub_list_commands;
+
+    static STUB_SUBS: std::sync::Mutex<Vec<(String, Vec<String>)>> =
+        std::sync::Mutex::new(Vec::new());
+    extern "C" fn stub_list_subcommands(
+        parent: &safer_ffi::String,
+        out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let subs = STUB_SUBS
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|(p, _)| p == &parent.to_string())
+            .map(|(_, v)| v.clone())
+            .unwrap_or_default();
+        let rows: Vec<safer_ffi::String> = subs.iter().map(|s| s.clone().into()).collect();
+        out.write(rows.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_SUBS_FN: ListSubcommandsFn = stub_list_subcommands;
+
+    /// 参数规格桩表：`(命令路径, 参数序号, 内置类别序号, 自定义类型名)`。
+    static STUB_ARG_SPEC: std::sync::Mutex<Vec<(String, i32, i32, String)>> =
+        std::sync::Mutex::new(Vec::new());
+    extern "C" fn stub_arg_spec(
+        path: &safer_ffi::String,
+        arg_index: &i32,
+        out: Out<'_, safer_ffi::String>,
+    ) -> cli_core_types::Result {
+        let table = STUB_ARG_SPEC.lock().unwrap().clone();
+        let parts: Vec<&str> = path.split_whitespace().collect();
+        // 模拟 core 最长前缀截断：在表内命令路径中取与入参前缀匹配最长的一条。
+        let mut best: Option<(String, usize)> = None;
+        for entry in &table {
+            let key_parts: Vec<&str> = entry.0.split_whitespace().collect();
+            if parts.starts_with(&key_parts[..]) {
+                match &best {
+                    Some((_, d)) if *d >= key_parts.len() => {}
+                    _ => best = Some((entry.0.clone(), key_parts.len())),
+                }
+            }
+        }
+        let row = match best {
+            Some((key, depth)) => {
+                let param = arg_index - depth as i32 + 1;
+                table
+                    .iter()
+                    .find(|(p, i, _, _)| p == &key && *i == param)
+                    .map(|(_, _, k, c)| format!("{k}|{c}"))
+                    .unwrap_or_else(|| "8|".to_string())
+            }
+            None => "8|".to_string(),
+        };
+        out.write(row.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_ARG_SPEC_FN: ArgSpecFn = stub_arg_spec;
+
+    static STUB_CUSTOM: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    extern "C" fn stub_complete_arg(
+        _argv: &safer_ffi::Vec<safer_ffi::String>,
+        _arg_index: &i32,
+        prefix: &safer_ffi::String,
+        out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>,
+    ) -> cli_core_types::Result {
+        let needle = prefix.to_string();
+        let rows: Vec<safer_ffi::String> = STUB_CUSTOM
+            .lock()
+            .unwrap()
+            .iter()
+            .cloned()
+            .filter(|s| s.starts_with(&needle))
+            .map(|s| s.into())
+            .collect();
+        out.write(rows.into());
+        cli_core_types::Result::success()
+    }
+    const STUB_COMPLETE_ARG: CompleteArgHostFn = stub_complete_arg;
+
+    /// 给 App 装入命令表 / 子命令 / 参数规格 / 自定义补全桩。
+    fn stub_command_table(app: &mut App) {
+        app.list_commands = Some(STUB_LIST_COMMANDS);
+        app.list_subcommands = Some(STUB_SUBS_FN);
+        app.arg_spec = Some(STUB_ARG_SPEC_FN);
+        app.complete_arg = Some(STUB_COMPLETE_ARG);
+    }
+
     fn set_session(v: Option<&str>) {
         *SESSION_OPT.lock().unwrap() = v.map(|s| s.to_string());
     }
@@ -3250,7 +3297,11 @@ mod tests {
 
     #[test]
     fn completes_command_prefix() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() =
+            vec!["connect".to_string(), "status".to_string(), "unload".to_string()];
         app.input = "con".into();
         app.refresh_completions();
         assert!(app.completions.iter().any(|c| c == "connect"));
@@ -3258,7 +3309,10 @@ mod tests {
 
     #[test]
     fn completes_member_prefix_after_command() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![("msg".to_string(), 1, 1, String::new())];
         app.members = vec!["alice".to_string().into(), "bob".to_string().into()];
         app.input = "msg al".into();
         app.refresh_completions();
@@ -3267,7 +3321,13 @@ mod tests {
 
     #[test]
     fn completes_plugin_name_after_plugin_load_or_unload() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![
+            ("plugin load".to_string(), 1, 6, String::new()),
+            ("plugin unload".to_string(), 1, 6, String::new()),
+        ];
         app.plugins = vec![
             PluginEntry {
                 name: "cli-standard".to_string().into(),
@@ -3286,7 +3346,13 @@ mod tests {
 
     #[test]
     fn completes_namespace_after_namespace_load_or_unload() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![
+            ("namespace load".to_string(), 1, 7, String::new()),
+            ("namespace unload".to_string(), 1, 7, String::new()),
+        ];
         app.plugins = vec![
             PluginEntry {
                 name: "cli-standard".to_string().into(),
@@ -3304,28 +3370,34 @@ mod tests {
     }
 
     #[test]
-    fn legacy_load_unload_arg_classifies_plugin_or_namespace() {
-        assert_eq!(kind_for_command_parts(&["load", "plugin", "x"]), FieldKind::Plugin);
-        assert_eq!(kind_for_command_parts(&["unload", "plugin", "x"]), FieldKind::Plugin);
-        assert_eq!(kind_for_command_parts(&["load", "namespace", "x"]), FieldKind::Namespace);
-        assert_eq!(kind_for_command_parts(&["unload", "namespace", "x"]), FieldKind::Namespace);
-    }
-
-    #[test]
-    fn option_key_arg_is_classified() {
-        assert_eq!(kind_for_command_arg("set", 1), FieldKind::OptionKey);
-        assert_eq!(kind_for_command_arg("setg", 1), FieldKind::OptionKey);
-        assert_eq!(kind_for_command_arg("get", 1), FieldKind::OptionKey);
-        assert_eq!(kind_for_command_arg("unsetg", 1), FieldKind::OptionKey);
-        // 第 2 参（值）与自由文本消息没有可补全来源，不弹候选。
-        assert_eq!(kind_for_command_arg("set", 2), FieldKind::NoCompletion);
-        assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
-        assert_eq!(kind_for_command_arg("msg", 2), FieldKind::NoCompletion);
+    fn arg_spec_routes_to_plugin_namespace_member_option() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![
+            ("plugin load".to_string(), 1, 6, String::new()),
+            ("namespace load".to_string(), 1, 7, String::new()),
+            ("msg".to_string(), 1, 1, String::new()),
+            ("set".to_string(), 1, 4, String::new()),
+            ("set".to_string(), 2, 8, String::new()),
+        ];
+        let mut kind_of = |input: &str| {
+            app.input = input.into();
+            app.completion_context().kind
+        };
+        assert_eq!(kind_of("plugin load x"), FieldKind::Plugin);
+        assert_eq!(kind_of("namespace load x"), FieldKind::Namespace);
+        assert_eq!(kind_of("msg a"), FieldKind::Member);
+        assert_eq!(kind_of("set pre"), FieldKind::OptionKey);
+        assert_eq!(kind_of("set k v"), FieldKind::NoCompletion);
     }
 
     #[test]
     fn no_command_names_after_command_without_arg_source() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        // 参数规格桩表为空：未命中位置落 NO_COMPLETION，不回退命令名候选。
         app.input = "status ".into();
         app.refresh_completions();
         assert!(
@@ -3341,7 +3413,11 @@ mod tests {
 
     #[test]
     fn command_name_completion_only_at_first_word() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() =
+            vec!["connect".to_string(), "status".to_string(), "unload".to_string()];
         app.input = "sta".into();
         app.refresh_completions();
         assert!(app.completions.iter().any(|c| c == "status"));
@@ -3349,7 +3425,11 @@ mod tests {
 
     #[test]
     fn unload_is_in_first_word_command_completion() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() =
+            vec!["connect".to_string(), "status".to_string(), "unload".to_string()];
         app.input = "un".into();
         app.refresh_completions();
         assert!(app.completions.iter().any(|c| c == "unload"));
@@ -3357,7 +3437,10 @@ mod tests {
 
     #[test]
     fn completes_registered_option_prefix_case_insensitive() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![("set".to_string(), 1, 4, String::new())];
         app.registered_options = vec![
             "SERVER".to_string().into(),
             "PORT".to_string().into(),
@@ -3417,7 +3500,10 @@ mod tests {
 
     #[test]
     fn accept_completion_fills_first_token() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() = vec!["connect".to_string()];
         app.input = "con".into();
         app.refresh_completions();
         let first = app.completions[0].clone();
@@ -3428,7 +3514,12 @@ mod tests {
 
     #[test]
     fn completes_subcommand_after_compound_prefix() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_SUBS.lock().unwrap() =
+            vec![("workspace".to_string(), vec!["list".to_string(), "new".to_string()])];
+        app.members = vec!["alice".to_string().into()];
         app.input = "workspace l".into();
         app.refresh_completions();
         assert!(app.completions.iter().any(|c| c == "list"));
@@ -3438,20 +3529,25 @@ mod tests {
 
     #[test]
     fn completes_all_subcommands_after_trailing_space() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_SUBS.lock().unwrap() =
+            vec![("show".to_string(), vec!["active_users".to_string(), "options".to_string()])];
         app.input = "show ".into();
         app.refresh_completions();
         assert!(app.completions.iter().any(|c| c == "active_users"));
         assert!(app.completions.iter().any(|c| c == "options"));
-        assert_eq!(
-            app.completions,
-            subcommands_of("show").unwrap().iter().map(|s| s.to_string()).collect::<Vec<_>>()
-        );
+        assert_eq!(app.completions, vec!["active_users".to_string(), "options".to_string()]);
     }
 
     #[test]
     fn accept_subcommand_advances_past_separator() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_SUBS.lock().unwrap() =
+            vec![("workspace".to_string(), vec!["list".to_string(), "new".to_string()])];
         app.input = "workspace ".into();
         app.refresh_completions();
         let sub = app.completions[0].clone();
@@ -3484,7 +3580,10 @@ mod tests {
 
     #[test]
     fn completion_highlight_preserved_when_candidates_unchanged() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![("msg".to_string(), 1, 1, String::new())];
         app.members = vec![
             "alice".to_string().into(),
             "andrew".to_string().into(),
@@ -3504,7 +3603,10 @@ mod tests {
 
     #[test]
     fn completion_view_resets_when_candidates_change() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_ARG_SPEC.lock().unwrap() = vec![("msg".to_string(), 1, 1, String::new())];
         app.members = vec![
             "alice".to_string().into(),
             "andrew".to_string().into(),
@@ -4109,23 +4211,49 @@ mod tests {
 
     #[test]
     fn command_arg_kind_maps_path_commands() {
-        assert_eq!(kind_for_command_arg("ls", 1), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("rm", 1), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("mv", 2), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("cp", 1), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("checksum", 1), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("upload", 1), FieldKind::LocalPath);
-        assert_eq!(kind_for_command_arg("upload", 2), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("download", 1), FieldKind::RemotePath);
-        assert_eq!(kind_for_command_arg("download", 2), FieldKind::LocalPath);
-        assert_eq!(kind_for_command_arg("lcd", 1), FieldKind::LocalPath);
-        assert_eq!(kind_for_command_arg("msg", 1), FieldKind::Member);
-        assert_eq!(kind_for_command_arg("msg", 2), FieldKind::NoCompletion);
-        assert_eq!(kind_for_command_arg("kick", 1), FieldKind::Member);
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        let mut app = App::new();
+        stub_command_table(&mut app);
+        // kind: MEMBER=1, REMOTE_PATH=2, LOCAL_PATH=3, NO_COMPLETION=8。
+        *STUB_ARG_SPEC.lock().unwrap() = vec![
+            ("ls".to_string(), 1, 2, String::new()),
+            ("rm".to_string(), 1, 2, String::new()),
+            ("mv".to_string(), 2, 2, String::new()),
+            ("cp".to_string(), 1, 2, String::new()),
+            ("checksum".to_string(), 1, 2, String::new()),
+            ("upload".to_string(), 1, 3, String::new()),
+            ("upload".to_string(), 2, 2, String::new()),
+            ("download".to_string(), 1, 2, String::new()),
+            ("download".to_string(), 2, 3, String::new()),
+            ("lcd".to_string(), 1, 3, String::new()),
+            ("msg".to_string(), 1, 1, String::new()),
+            ("msg".to_string(), 2, 8, String::new()),
+            ("kick".to_string(), 1, 1, String::new()),
+            ("away".to_string(), 1, 8, String::new()),
+            ("reply".to_string(), 1, 8, String::new()),
+            ("status".to_string(), 1, 8, String::new()),
+        ];
+        let mut kind_of = |input: &str| {
+            app.input = input.into();
+            app.completion_context().kind
+        };
+        assert_eq!(kind_of("ls x"), FieldKind::RemotePath);
+        assert_eq!(kind_of("rm x"), FieldKind::RemotePath);
+        assert_eq!(kind_of("mv x y"), FieldKind::RemotePath);
+        assert_eq!(kind_of("cp x"), FieldKind::RemotePath);
+        assert_eq!(kind_of("checksum x"), FieldKind::RemotePath);
+        assert_eq!(kind_of("upload l"), FieldKind::LocalPath);
+        assert_eq!(kind_of("upload l r"), FieldKind::RemotePath);
+        assert_eq!(kind_of("download r"), FieldKind::RemotePath);
+        assert_eq!(kind_of("download r l"), FieldKind::LocalPath);
+        assert_eq!(kind_of("lcd d"), FieldKind::LocalPath);
+        assert_eq!(kind_of("msg a"), FieldKind::Member);
+        assert_eq!(kind_of("msg a b"), FieldKind::NoCompletion);
+        assert_eq!(kind_of("kick u"), FieldKind::Member);
         // 状态词 / 自由文本 / 无参命令不得补全成员名。
-        assert_eq!(kind_for_command_arg("away", 1), FieldKind::NoCompletion);
-        assert_eq!(kind_for_command_arg("reply", 1), FieldKind::NoCompletion);
-        assert_eq!(kind_for_command_arg("status", 1), FieldKind::NoCompletion);
+        assert_eq!(kind_of("away s"), FieldKind::NoCompletion);
+        assert_eq!(kind_of("reply m"), FieldKind::NoCompletion);
+        assert_eq!(kind_of("status x"), FieldKind::NoCompletion);
     }
 
     #[test]
@@ -5037,6 +5165,8 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() = vec!["server".to_string()];
         let groups = builtin_groups();
         app.input = "se".to_string();
         app.completions = vec!["server".to_string()];
@@ -5109,9 +5239,11 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() = vec!["sessions".to_string()];
         let groups = builtin_groups();
         app.input = "se".to_string();
-        app.completions = vec!["server".to_string()];
+        app.completions = vec!["sessions".to_string()];
         app.comp_idx = 0;
         app.completion_active = true;
         draw(
@@ -5148,6 +5280,8 @@ mod tests {
         let mut tui = Tui::new().unwrap();
         tui.set_size(Size { width: 100, height: 30 });
         let mut app = App::new();
+        stub_command_table(&mut app);
+        *STUB_COMMANDS.lock().unwrap() = vec!["sessions".to_string()];
         let groups = builtin_groups();
         app.input = "se".to_string();
         app.completions = vec!["sessions".to_string()];
