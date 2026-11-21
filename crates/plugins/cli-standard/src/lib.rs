@@ -31,6 +31,7 @@ fn init_library(path: &str) -> &Library {
 mod commands;
 mod connection;
 pub mod editor;
+mod forms;
 pub mod local;
 mod menu;
 mod session;
@@ -69,6 +70,8 @@ pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
         let _ = register_option(&safer_ffi::String::from(*key));
     }
     menu::register_menu(lib);
+    forms::register_forms(lib);
+    forms::register_form_menu_items(lib);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 
