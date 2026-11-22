@@ -30,7 +30,9 @@ impl CommandExecutor for ChecksumCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let file = matches
             .get_one::<String>("file")
-            .ok_or_else(|| anyhow!("Missing required argument: file"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "file"))
+            })?
             .clone();
         self.execute(file)
     }

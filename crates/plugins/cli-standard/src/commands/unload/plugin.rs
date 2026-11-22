@@ -16,7 +16,9 @@ impl PluginCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         cli_core_macros::load_core_symbols!(lib, unregister_plugin);
         let _ = unregister_plugin(&plugin_name.clone().into());
-        print_content(&format!("[*] Plugin `{plugin_name}` unloaded.").into());
+        print_content(
+            &crate::tr("std.prompt.plugin.unloaded").replace("{plugin_name}", &plugin_name).into(),
+        );
         Ok(())
     }
 }
@@ -30,7 +32,12 @@ impl CommandExecutor for PluginCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let plugin_name = matches
             .get_one::<String>("plugin_name")
-            .ok_or_else(|| anyhow!("Missing required argument: plugin_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "plugin_name")
+                )
+            })?
             .clone();
         self.execute(plugin_name)
     }

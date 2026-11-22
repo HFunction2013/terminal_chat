@@ -48,7 +48,12 @@ impl DownloadCommand {
                 std::fs::write(&dest, &f.content)
                     .map_err(|e| anyhow!("cannot write `{dest}`: {e}"))?;
             }
-            print_content(&format!("{} files downloaded to {base}/", resp.files.len()).into());
+            print_content(
+                &crate::tr("std.prompt.fs.files_downloaded")
+                    .replace("{count}", &resp.files.len().to_string())
+                    .replace("{base}", &base)
+                    .into(),
+            );
             return Ok(());
         }
         let dest = local_path.unwrap_or_else(|| {
@@ -60,7 +65,12 @@ impl DownloadCommand {
                 .to_string()
         });
         std::fs::write(&dest, &resp.content).map_err(|e| anyhow!("cannot write `{dest}`: {e}"))?;
-        print_content(&format!("{} bytes downloaded to {dest}", resp.content.len()).into());
+        print_content(
+            &crate::tr("std.prompt.fs.bytes_downloaded")
+                .replace("{count}", &resp.content.len().to_string())
+                .replace("{dest}", &dest)
+                .into(),
+        );
         Ok(())
     }
 }
@@ -74,7 +84,12 @@ impl CommandExecutor for DownloadCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let remote_path = matches
             .get_one::<String>("remote_path")
-            .ok_or_else(|| anyhow!("Missing required argument: remote_path"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "remote_path")
+                )
+            })?
             .clone();
         let local_path = matches.get_one::<String>("local_path").cloned();
         let recursive = matches.get_flag("recursive");

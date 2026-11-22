@@ -18,15 +18,22 @@ impl CloneCommand {
         let s = crate::local::workspace_path(&src);
         let t = crate::local::workspace_path(&target);
         if !s.is_dir() {
-            print_content(&format!("[!] Workspace `{src}` does not exist.").into());
+            print_content(&crate::tr("std.err.workspace.not_found").replace("{name}", &src).into());
             return Ok(());
         }
         if t.exists() {
-            print_content(&format!("[!] Workspace `{target}` already exists.").into());
+            print_content(
+                &crate::tr("std.err.workspace.already_exists").replace("{target}", &target).into(),
+            );
             return Ok(());
         }
         crate::local::copy_dir(&s, &t)?;
-        print_content(&format!("[*] Workspace `{src}` cloned to `{target}`.").into());
+        print_content(
+            &crate::tr("std.prompt.workspace.cloned")
+                .replace("{src}", &src)
+                .replace("{target}", &target)
+                .into(),
+        );
         Ok(())
     }
 }
@@ -41,7 +48,9 @@ impl CommandExecutor for CloneCommand {
         let source = matches.get_one::<String>("source").cloned();
         let target = matches
             .get_one::<String>("target")
-            .ok_or_else(|| anyhow!("Missing required argument: target"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "target"))
+            })?
             .clone();
         self.execute(source, target)
     }

@@ -24,7 +24,12 @@ impl CommandExecutor for UnloadCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let namespace_name = matches
             .get_one::<String>("namespace_name")
-            .ok_or_else(|| anyhow!("Missing required argument: namespace_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "namespace_name")
+                )
+            })?
             .clone();
         self.execute(namespace_name)
     }

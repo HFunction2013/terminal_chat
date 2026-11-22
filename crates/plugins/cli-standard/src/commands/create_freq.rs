@@ -28,7 +28,9 @@ impl CreateFreqCommand {
             }
         };
         let max_people = match max_people {
-            Some(s) => Some(s.parse::<i32>().map_err(|_| anyhow!("invalid max-people `{s}`"))?),
+            Some(s) => Some(s.parse::<i32>().map_err(|_| {
+                anyhow!("{}", crate::tr("std.err.freq.invalid_max_people").replace("{s}", &s))
+            })?),
             None => None,
         };
         let resp: protos::frequency::basic::CreateFreqResponse = crate::connection::rpc(
@@ -61,7 +63,9 @@ impl CommandExecutor for CreateFreqCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let freq = matches
             .get_one::<String>("freq")
-            .ok_or_else(|| anyhow!("Missing required argument: freq"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "freq"))
+            })?
             .clone();
         let password = matches.get_one::<String>("password").cloned();
         let p = matches.get_flag("p");

@@ -3,8 +3,8 @@ use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
 use cli_core_types::{
-    GetAllPluginsFn, IsConnectedFn, IsInCmdFn, LoadPluginFn, PluginMetadata, RunCommandFn,
-    SetCurrentFreqFn, SetInterruptedFn, plugin_fn_types::ListRemoteDirFn,
+    GetAllPluginsFn, GetCurrentLangFn, IsConnectedFn, IsInCmdFn, LoadPluginFn, PluginMetadata,
+    RunCommandFn, SetCurrentFreqFn, SetInterruptedFn, plugin_fn_types::ListRemoteDirFn,
 };
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -59,6 +59,44 @@ fn get_cli_core() -> &'static Library {
             FindError::Ambiguous(v) => panic!("AmbiguousError: {:?}", v),
         },
     }
+}
+
+/// 非 panic 路径定位 cli-core 动态库；测试 / 旧核心环境缺失时返回 `None`，
+/// 供语言探测等可选符号使用，不阻断启动与单测。
+fn try_get_cli_core() -> Option<&'static Library> {
+    static LIB: OnceLock<Option<Library>> = OnceLock::new();
+    LIB.get_or_init(|| {
+        FindLibBuilder::new().find("cli_core").and_then(|p| unsafe { Library::new(p).ok() })
+    })
+    .as_ref()
+}
+
+/// core `get_current_lang` 符号缓存；旧核心无此符号时为 `None`，回退英文。
+static CURRENT_LANG_FN: OnceLock<Option<GetCurrentLangFn>> = OnceLock::new();
+
+fn current_lang_fn() -> Option<GetCurrentLangFn> {
+    *CURRENT_LANG_FN.get_or_init(|| {
+        let lib = try_get_cli_core()?;
+        unsafe { lib.get::<GetCurrentLangFn>(b"get_current_lang\0").ok().map(|s| *s) }
+    })
+}
+
+/// 宿主翻译辅助：经 core `get_current_lang` 取当前语言序号（`1`→中文，其余→英文），
+/// 再查编译期词典；符号缺失回退英文。REPL 与 TUI 两条路径共用，`setg LANGUAGE`
+/// 后由 core 现场解析，下次调用即取到新语言。
+pub(crate) fn tr(key: &str) -> &str {
+    let lang = match current_lang_fn() {
+        Some(f) => {
+            let mut ord: i32 = 0;
+            let _ = f(Out::from(&mut ord));
+            match ord {
+                1 => crate::i18n::Lang::Zh,
+                _ => crate::i18n::Lang::En,
+            }
+        }
+        None => crate::i18n::Lang::En,
+    };
+    crate::i18n::t_lang(lang, key)
 }
 
 /// cli-core 导出：取走异步推送队列（safer_ffi Vec<String>，C ABI）。
@@ -126,11 +164,12 @@ fn install_ctrlc_handler() {
             let _ = execute!(stdout(), Show);
             std::process::exit(0);
         }
-        let _ = eprintln!("{}", crate::i18n::t("repl.interrupt_hint"));
+        let _ = eprintln!("{}", crate::tr("repl.interrupt_hint"));
     })
     .expect("failed to install Ctrl+C handler");
 }
 
+#[allow(dead_code)] // `t` / `detect_lang_env` 保留供测试与兜底，生产路径走 `tr()`。
 mod i18n {
     include!(concat!(env!("OUT_DIR"), "/i18n_cli.rs"));
 }
@@ -471,7 +510,7 @@ pub(crate) fn welcome_text(b: bool) -> String {
     );
     s.push_str(&format!("\n[{}] on {}", built_info::RUSTC_VERSION, built_info::CFG_OS));
     if b {
-        s.push_str(&format!("\n{}", crate::i18n::t("repl.welcome_tip")));
+        s.push_str(&format!("\n{}", crate::tr("repl.welcome_tip")));
     }
     s
 }
@@ -538,7 +577,7 @@ pub(crate) fn saying_text() -> Option<String> {
 
 /// 内置 / 常用命令帮助文本；供 REPL 终端输出与 TUI 帮助弹窗复用。
 pub(crate) fn builtin_help_lines() -> Vec<String> {
-    let t = crate::i18n::t;
+    let t = crate::tr;
     vec![
         t("help.line1").to_string(),
         t("help.line2").to_string(),
@@ -579,7 +618,7 @@ impl Drop for AtExit {
 
 fn prepare_startup() -> String {
     // TODO: stub tasks.
-    let t = crate::i18n::t;
+    let t = crate::tr;
     let tasks: Vec<(String, u64)> = vec![
         (t("start.loading_config").to_string(), 10),
         (t("start.initializing_modules").to_string(), 10),
@@ -615,7 +654,7 @@ fn prepare_startup() -> String {
         let mut rng = rand::thread_rng();
         let mut i: u64 = rng.r#gen();
         let freq = 10;
-        let note = String::from(crate::i18n::t("start.starting_note"));
+        let note = String::from(crate::tr("start.starting_note"));
         let mut cfg = Config { speed: 4000.0, ..Default::default() };
         let mut display = note.clone();
 
@@ -664,7 +703,7 @@ fn prepare_startup() -> String {
             }
         }
 
-        pb_task.finish_with_message(crate::i18n::t("start.all_systems_ready"));
+        pb_task.finish_with_message(crate::tr("start.all_systems_ready"));
         running.store(false, Ordering::SeqCst);
     });
 
@@ -977,7 +1016,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
             Err(ReadlineError::Eof) => {
-                println!("{}", crate::i18n::t("repl.bye"));
+                println!("{}", crate::tr("repl.bye"));
                 break;
             }
             Err(err) => {
@@ -1009,7 +1048,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         match input {
             "exit" | "quit" | "q" => {
-                println!("{}", crate::i18n::t("repl.bye"));
+                println!("{}", crate::tr("repl.bye"));
                 break;
             }
             "clear" => {
@@ -1068,7 +1107,7 @@ Because everyone deserves a good cup of coffee."
             "saying" => {
                 match saying_text() {
                     Some(msg) => println!("{msg}"),
-                    None => eprintln!("{}", crate::i18n::t("repl.saying_error")),
+                    None => eprintln!("{}", crate::tr("repl.saying_error")),
                 }
                 continue;
             }
@@ -1086,11 +1125,11 @@ Because everyone deserves a good cup of coffee."
         // 投递到后台 worker 线程执行，不阻塞 readline；单命令串行槽位，
         // 上一条命令未跑完则提示等待，避免并发 FFI / 连接竞争。
         if cmd_running.load(Ordering::SeqCst) {
-            eprintln!("{}", crate::i18n::t("repl.prev_still_running"));
+            eprintln!("{}", crate::tr("repl.prev_still_running"));
             continue;
         }
         if cmd_tx.send(args).is_err() {
-            eprintln!("{}", crate::i18n::t("repl.worker_unavailable"));
+            eprintln!("{}", crate::tr("repl.worker_unavailable"));
         }
     }
 

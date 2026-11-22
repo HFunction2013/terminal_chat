@@ -3,6 +3,10 @@
 //! 42 个表单规格登记在 cli-core 注册表：先 `register_form_spec` 登记标题 / 命令 /
 //! 前缀，再 `register_form_field` 按命令追加字段。表单字段的补全类别序号对齐
 //! `cli_core_types::ui::ui_field_kind`；宿主 TUI 按注册表规格渲染表单。
+//!
+//! 表内标题 / 字段标签存的是 i18n key；注册时不固化译文快照，查询时由 core 按
+//! 当前语言现译。`cmd` / `prefill` / `required` / `secret` / `kind` 等非译字段
+//! 原样登记。
 
 use cli_core_types::ui::{ui_action_kind, ui_field_kind as k};
 use libloading::Library;
@@ -34,12 +38,17 @@ const OPTION_KEY: i32 = k::OPTION_KEY;
 const FORM_SPECS: &[FormSpecDef] = &[
     FormSpecDef {
         cmd: "join_freq",
-        title: "Join Frequency",
+        title: "std.form.join_freq.title",
         prefill: "join_freq ",
         fields: &[
-            FormFieldDef { label: "Frequency ID:", required: true, secret: false, kind: PLAIN },
             FormFieldDef {
-                label: "Password (optional):",
+                label: "std.field.join_freq.freq_id",
+                required: true,
+                secret: false,
+                kind: PLAIN,
+            },
+            FormFieldDef {
+                label: "std.field.join_freq.password",
                 required: false,
                 secret: true,
                 kind: PLAIN,
@@ -48,10 +57,10 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "workspace switch",
-        title: "Switch Workspace",
+        title: "std.form.workspace_switch.title",
         prefill: "workspace switch ",
         fields: &[FormFieldDef {
-            label: "Workspace name:",
+            label: "std.field.workspace_switch.name",
             required: true,
             secret: false,
             kind: PLAIN,
@@ -59,10 +68,10 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "workspace new",
-        title: "New Workspace",
+        title: "std.form.workspace_new.title",
         prefill: "workspace new ",
         fields: &[FormFieldDef {
-            label: "Workspace name (optional):",
+            label: "std.field.workspace_new.name",
             required: false,
             secret: false,
             kind: PLAIN,
@@ -70,12 +79,17 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "create_freq",
-        title: "Create Frequency",
+        title: "std.form.create_freq.title",
         prefill: "create_freq ",
         fields: &[
-            FormFieldDef { label: "Frequency ID:", required: true, secret: false, kind: PLAIN },
             FormFieldDef {
-                label: "Password (optional):",
+                label: "std.field.create_freq.freq_id",
+                required: true,
+                secret: false,
+                kind: PLAIN,
+            },
+            FormFieldDef {
+                label: "std.field.create_freq.password",
                 required: false,
                 secret: true,
                 kind: PLAIN,
@@ -84,66 +98,106 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "msg",
-        title: "Send Message",
+        title: "std.form.msg.title",
         prefill: "msg -m ",
         fields: &[
             FormFieldDef {
-                label: "Users (optional):",
+                label: "std.field.msg.users",
                 required: false,
                 secret: false,
                 kind: MEMBER,
             },
-            FormFieldDef { label: "Message:", required: true, secret: false, kind: PLAIN },
+            FormFieldDef {
+                label: "std.field.msg.message",
+                required: true,
+                secret: false,
+                kind: PLAIN,
+            },
         ],
     },
     FormSpecDef {
         cmd: "reply",
-        title: "Reply",
+        title: "std.form.reply.title",
         prefill: "reply ",
-        fields: &[FormFieldDef { label: "Message:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef {
+            label: "std.field.reply.message",
+            required: true,
+            secret: false,
+            kind: PLAIN,
+        }],
     },
     FormSpecDef {
         cmd: "call",
-        title: "Call User",
+        title: "std.form.call.title",
         prefill: "call ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.call.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "mute",
-        title: "Mute User",
+        title: "std.form.mute.title",
         prefill: "mute ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.mute.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "unmute",
-        title: "Unmute User",
+        title: "std.form.unmute.title",
         prefill: "unmute ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.unmute.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "ignore",
-        title: "Ignore User",
+        title: "std.form.ignore.title",
         prefill: "ignore ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.ignore.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "kick",
-        title: "Kick User",
+        title: "std.form.kick.title",
         prefill: "kick ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.kick.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "ban",
-        title: "Ban User",
+        title: "std.form.ban.title",
         prefill: "ban ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.ban.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "ls",
-        title: "List Remote Files",
+        title: "std.form.ls.title",
         prefill: "ls ",
         fields: &[FormFieldDef {
-            label: "Directory (optional):",
+            label: "std.field.ls.dir",
             required: false,
             secret: false,
             kind: REMOTE_PATH,
@@ -151,12 +205,17 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "upload",
-        title: "Upload",
+        title: "std.form.upload.title",
         prefill: "upload ",
         fields: &[
-            FormFieldDef { label: "Local path:", required: true, secret: false, kind: LOCAL_PATH },
             FormFieldDef {
-                label: "Remote path (optional):",
+                label: "std.field.upload.local_path",
+                required: true,
+                secret: false,
+                kind: LOCAL_PATH,
+            },
+            FormFieldDef {
+                label: "std.field.upload.remote_path",
                 required: false,
                 secret: false,
                 kind: REMOTE_PATH,
@@ -165,17 +224,17 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "download",
-        title: "Download",
+        title: "std.form.download.title",
         prefill: "download ",
         fields: &[
             FormFieldDef {
-                label: "Remote path:",
+                label: "std.field.download.remote_path",
                 required: true,
                 secret: false,
                 kind: REMOTE_PATH,
             },
             FormFieldDef {
-                label: "Local path (optional):",
+                label: "std.field.download.local_path",
                 required: false,
                 secret: false,
                 kind: LOCAL_PATH,
@@ -184,10 +243,10 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "rm",
-        title: "Remove Remote File",
+        title: "std.form.rm.title",
         prefill: "rm ",
         fields: &[FormFieldDef {
-            label: "Remote path:",
+            label: "std.field.rm.remote_path",
             required: true,
             secret: false,
             kind: REMOTE_PATH,
@@ -195,34 +254,59 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "mv",
-        title: "Move Remote File",
+        title: "std.form.mv.title",
         prefill: "mv ",
         fields: &[
-            FormFieldDef { label: "From:", required: true, secret: false, kind: REMOTE_PATH },
-            FormFieldDef { label: "To:", required: true, secret: false, kind: REMOTE_PATH },
+            FormFieldDef {
+                label: "std.field.mv.from",
+                required: true,
+                secret: false,
+                kind: REMOTE_PATH,
+            },
+            FormFieldDef {
+                label: "std.field.mv.to",
+                required: true,
+                secret: false,
+                kind: REMOTE_PATH,
+            },
         ],
     },
     FormSpecDef {
         cmd: "cp",
-        title: "Copy Remote File",
+        title: "std.form.cp.title",
         prefill: "cp ",
         fields: &[
-            FormFieldDef { label: "From:", required: true, secret: false, kind: REMOTE_PATH },
-            FormFieldDef { label: "To:", required: true, secret: false, kind: REMOTE_PATH },
+            FormFieldDef {
+                label: "std.field.cp.from",
+                required: true,
+                secret: false,
+                kind: REMOTE_PATH,
+            },
+            FormFieldDef {
+                label: "std.field.cp.to",
+                required: true,
+                secret: false,
+                kind: REMOTE_PATH,
+            },
         ],
     },
     FormSpecDef {
         cmd: "load",
-        title: "Load Plugin",
+        title: "std.form.load.title",
         prefill: "load ",
-        fields: &[FormFieldDef { label: "Plugin:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef {
+            label: "std.field.load.plugin",
+            required: true,
+            secret: false,
+            kind: PLAIN,
+        }],
     },
     FormSpecDef {
         cmd: "unload",
-        title: "Unload Plugin",
+        title: "std.form.unload.title",
         prefill: "unload ",
         fields: &[FormFieldDef {
-            label: "Plugin name:",
+            label: "std.field.unload.plugin",
             required: true,
             secret: false,
             kind: PLAIN,
@@ -230,52 +314,87 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "shell",
-        title: "Local Shell",
+        title: "std.form.shell.title",
         prefill: "shell ",
-        fields: &[FormFieldDef { label: "Command:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef {
+            label: "std.field.shell.command",
+            required: true,
+            secret: false,
+            kind: PLAIN,
+        }],
     },
     FormSpecDef {
         cmd: "unban",
-        title: "Unban User",
+        title: "std.form.unban.title",
         prefill: "unban ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.unban.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "unignore",
-        title: "Unignore User",
+        title: "std.form.unignore.title",
         prefill: "unignore ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.unignore.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "op",
-        title: "Grant Moderator",
+        title: "std.form.op.title",
         prefill: "op ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.op.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "deop",
-        title: "Revoke Moderator",
+        title: "std.form.deop.title",
         prefill: "deop ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.deop.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "trop",
-        title: "Transfer Creator",
+        title: "std.form.trop.title",
         prefill: "trop ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.trop.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "user_info",
-        title: "User Info",
+        title: "std.form.user_info.title",
         prefill: "user_info ",
-        fields: &[FormFieldDef { label: "User:", required: true, secret: false, kind: MEMBER }],
+        fields: &[FormFieldDef {
+            label: "std.field.user_info.user",
+            required: true,
+            secret: false,
+            kind: MEMBER,
+        }],
     },
     FormSpecDef {
         cmd: "mkdir",
-        title: "Make Remote Directory",
+        title: "std.form.mkdir.title",
         prefill: "mkdir ",
         fields: &[FormFieldDef {
-            label: "Directory:",
+            label: "std.field.mkdir.dir",
             required: true,
             secret: false,
             kind: REMOTE_PATH,
@@ -283,10 +402,10 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "cd",
-        title: "Change Remote Directory",
+        title: "std.form.cd.title",
         prefill: "cd ",
         fields: &[FormFieldDef {
-            label: "Directory:",
+            label: "std.field.cd.dir",
             required: true,
             secret: false,
             kind: REMOTE_PATH,
@@ -294,10 +413,10 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "checksum",
-        title: "File Checksum",
+        title: "std.form.checksum.title",
         prefill: "checksum ",
         fields: &[FormFieldDef {
-            label: "File:",
+            label: "std.field.checksum.file",
             required: true,
             secret: false,
             kind: REMOTE_PATH,
@@ -305,10 +424,10 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "file_info",
-        title: "File Info",
+        title: "std.form.file_info.title",
         prefill: "file_info ",
         fields: &[FormFieldDef {
-            label: "File:",
+            label: "std.field.file_info.file",
             required: true,
             secret: false,
             kind: REMOTE_PATH,
@@ -316,18 +435,23 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "schedule_msg",
-        title: "Schedule Message",
+        title: "std.form.schedule_msg.title",
         prefill: "schedule_msg ",
         fields: &[
             FormFieldDef {
-                label: "Time (+30s / HH:MM):",
+                label: "std.field.schedule_msg.time",
                 required: true,
                 secret: false,
                 kind: PLAIN,
             },
-            FormFieldDef { label: "Message:", required: true, secret: false, kind: PLAIN },
             FormFieldDef {
-                label: "Users (optional):",
+                label: "std.field.schedule_msg.message",
+                required: true,
+                secret: false,
+                kind: PLAIN,
+            },
+            FormFieldDef {
+                label: "std.field.schedule_msg.users",
                 required: false,
                 secret: false,
                 kind: MEMBER,
@@ -336,45 +460,80 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "cancel",
-        title: "Cancel Task",
+        title: "std.form.cancel.title",
         prefill: "cancel ",
-        fields: &[FormFieldDef { label: "Task ID:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef {
+            label: "std.field.cancel.task_id",
+            required: true,
+            secret: false,
+            kind: PLAIN,
+        }],
     },
     FormSpecDef {
         cmd: "load namespace",
-        title: "Load Namespace",
+        title: "std.form.load_namespace.title",
         prefill: "load namespace ",
-        fields: &[FormFieldDef { label: "Namespace:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef {
+            label: "std.field.load_namespace.namespace",
+            required: true,
+            secret: false,
+            kind: PLAIN,
+        }],
     },
     FormSpecDef {
         cmd: "unload namespace",
-        title: "Unload Namespace",
+        title: "std.form.unload_namespace.title",
         prefill: "unload namespace ",
-        fields: &[FormFieldDef { label: "Namespace:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef {
+            label: "std.field.unload_namespace.namespace",
+            required: true,
+            secret: false,
+            kind: PLAIN,
+        }],
     },
     FormSpecDef {
         cmd: "set",
-        title: "Set Session Option",
+        title: "std.form.set.title",
         prefill: "set ",
         fields: &[
-            FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY },
-            FormFieldDef { label: "Value:", required: true, secret: false, kind: PLAIN },
+            FormFieldDef {
+                label: "std.field.set.key",
+                required: true,
+                secret: false,
+                kind: OPTION_KEY,
+            },
+            FormFieldDef {
+                label: "std.field.set.value",
+                required: true,
+                secret: false,
+                kind: PLAIN,
+            },
         ],
     },
     FormSpecDef {
         cmd: "get",
-        title: "Get Session Option",
+        title: "std.form.get.title",
         prefill: "get ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
+        fields: &[FormFieldDef {
+            label: "std.field.get.key",
+            required: true,
+            secret: false,
+            kind: OPTION_KEY,
+        }],
     },
     FormSpecDef {
         cmd: "setg",
-        title: "Set Global Option",
+        title: "std.form.setg.title",
         prefill: "setg ",
         fields: &[
-            FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY },
             FormFieldDef {
-                label: "Value (optional):",
+                label: "std.field.setg.key",
+                required: true,
+                secret: false,
+                kind: OPTION_KEY,
+            },
+            FormFieldDef {
+                label: "std.field.setg.value",
                 required: false,
                 secret: false,
                 kind: PLAIN,
@@ -383,28 +542,43 @@ const FORM_SPECS: &[FormSpecDef] = &[
     },
     FormSpecDef {
         cmd: "getg",
-        title: "Get Global Option",
+        title: "std.form.getg.title",
         prefill: "getg ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
+        fields: &[FormFieldDef {
+            label: "std.field.getg.key",
+            required: true,
+            secret: false,
+            kind: OPTION_KEY,
+        }],
     },
     FormSpecDef {
         cmd: "unset",
-        title: "Unset Session Option",
+        title: "std.form.unset.title",
         prefill: "unset ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
+        fields: &[FormFieldDef {
+            label: "std.field.unset.key",
+            required: true,
+            secret: false,
+            kind: OPTION_KEY,
+        }],
     },
     FormSpecDef {
         cmd: "unsetg",
-        title: "Unset Global Option",
+        title: "std.form.unsetg.title",
         prefill: "unsetg ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
+        fields: &[FormFieldDef {
+            label: "std.field.unsetg.key",
+            required: true,
+            secret: false,
+            kind: OPTION_KEY,
+        }],
     },
     FormSpecDef {
         cmd: "freq_info",
-        title: "Frequency Info",
+        title: "std.form.freq_info.title",
         prefill: "freq_info ",
         fields: &[FormFieldDef {
-            label: "Frequency (optional):",
+            label: "std.field.freq_info.freq",
             required: false,
             secret: false,
             kind: PLAIN,
@@ -433,7 +607,7 @@ pub fn register_forms(lib: &Library) {
     }
 }
 
-/// 表单类菜单项：标签 / 分组 / 组助记符 / 关联表单命令名。
+/// 表单类菜单项：标签 key / 分组 key / 组助记符 / 关联表单命令名。
 pub struct FormEntry {
     pub label: &'static str,
     pub group: &'static str,
@@ -444,64 +618,259 @@ pub struct FormEntry {
 /// 表单类菜单项（动作类别 FORM）；`form_cmd` 关联 [`FORM_SPECS`] 中的规格。
 pub const FORM_ENTRIES: &[FormEntry] = &[
     // Workspace (W)
-    FormEntry { label: "Switch...", group: "Workspace", accel: "W", form_cmd: "workspace switch" },
-    FormEntry { label: "New...", group: "Workspace", accel: "W", form_cmd: "workspace new" },
-    // Frequency (F)
-    FormEntry { label: "Join...", group: "Frequency", accel: "F", form_cmd: "join_freq" },
-    FormEntry { label: "Create...", group: "Frequency", accel: "F", form_cmd: "create_freq" },
-    FormEntry { label: "Info...", group: "Frequency", accel: "F", form_cmd: "freq_info" },
-    // Message (M)
-    FormEntry { label: "Send...", group: "Message", accel: "M", form_cmd: "msg" },
-    FormEntry { label: "Reply...", group: "Message", accel: "M", form_cmd: "reply" },
-    FormEntry { label: "Call...", group: "Message", accel: "M", form_cmd: "call" },
-    FormEntry { label: "Schedule...", group: "Message", accel: "M", form_cmd: "schedule_msg" },
-    FormEntry { label: "Cancel Task...", group: "Message", accel: "M", form_cmd: "cancel" },
-    // Moderation (O)
-    FormEntry { label: "Mute...", group: "Moderation", accel: "O", form_cmd: "mute" },
-    FormEntry { label: "Unmute...", group: "Moderation", accel: "O", form_cmd: "unmute" },
-    FormEntry { label: "Ignore...", group: "Moderation", accel: "O", form_cmd: "ignore" },
-    FormEntry { label: "Kick...", group: "Moderation", accel: "O", form_cmd: "kick" },
-    FormEntry { label: "Ban...", group: "Moderation", accel: "O", form_cmd: "ban" },
-    FormEntry { label: "Unban...", group: "Moderation", accel: "O", form_cmd: "unban" },
-    FormEntry { label: "Unignore...", group: "Moderation", accel: "O", form_cmd: "unignore" },
-    FormEntry { label: "Op...", group: "Moderation", accel: "O", form_cmd: "op" },
-    FormEntry { label: "Deop...", group: "Moderation", accel: "O", form_cmd: "deop" },
-    FormEntry { label: "Trop...", group: "Moderation", accel: "O", form_cmd: "trop" },
-    FormEntry { label: "User Info...", group: "Moderation", accel: "O", form_cmd: "user_info" },
-    // Files (L)
-    FormEntry { label: "List...", group: "Files", accel: "L", form_cmd: "ls" },
-    FormEntry { label: "Upload...", group: "Files", accel: "L", form_cmd: "upload" },
-    FormEntry { label: "Download...", group: "Files", accel: "L", form_cmd: "download" },
-    FormEntry { label: "Remove...", group: "Files", accel: "L", form_cmd: "rm" },
-    FormEntry { label: "Move...", group: "Files", accel: "L", form_cmd: "mv" },
-    FormEntry { label: "Copy...", group: "Files", accel: "L", form_cmd: "cp" },
-    FormEntry { label: "Mkdir...", group: "Files", accel: "L", form_cmd: "mkdir" },
-    FormEntry { label: "Cd...", group: "Files", accel: "L", form_cmd: "cd" },
-    FormEntry { label: "Checksum...", group: "Files", accel: "L", form_cmd: "checksum" },
-    FormEntry { label: "File Info...", group: "Files", accel: "L", form_cmd: "file_info" },
-    // Plugins (P)
-    FormEntry { label: "Load...", group: "Plugins", accel: "P", form_cmd: "load" },
-    FormEntry { label: "Unload...", group: "Plugins", accel: "P", form_cmd: "unload" },
     FormEntry {
-        label: "Load Namespace...",
-        group: "Plugins",
+        label: "std.menu.workspace.switch",
+        group: "std.group.workspace",
+        accel: "W",
+        form_cmd: "workspace switch",
+    },
+    FormEntry {
+        label: "std.menu.workspace.new",
+        group: "std.group.workspace",
+        accel: "W",
+        form_cmd: "workspace new",
+    },
+    // Frequency (F)
+    FormEntry {
+        label: "std.menu.frequency.join",
+        group: "std.group.frequency",
+        accel: "F",
+        form_cmd: "join_freq",
+    },
+    FormEntry {
+        label: "std.menu.frequency.create",
+        group: "std.group.frequency",
+        accel: "F",
+        form_cmd: "create_freq",
+    },
+    FormEntry {
+        label: "std.menu.frequency.info",
+        group: "std.group.frequency",
+        accel: "F",
+        form_cmd: "freq_info",
+    },
+    // Message (M)
+    FormEntry {
+        label: "std.menu.message.send",
+        group: "std.group.message",
+        accel: "M",
+        form_cmd: "msg",
+    },
+    FormEntry {
+        label: "std.menu.message.reply",
+        group: "std.group.message",
+        accel: "M",
+        form_cmd: "reply",
+    },
+    FormEntry {
+        label: "std.menu.message.call",
+        group: "std.group.message",
+        accel: "M",
+        form_cmd: "call",
+    },
+    FormEntry {
+        label: "std.menu.message.schedule",
+        group: "std.group.message",
+        accel: "M",
+        form_cmd: "schedule_msg",
+    },
+    FormEntry {
+        label: "std.menu.message.cancel",
+        group: "std.group.message",
+        accel: "M",
+        form_cmd: "cancel",
+    },
+    // Moderation (O)
+    FormEntry {
+        label: "std.menu.moderation.mute",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "mute",
+    },
+    FormEntry {
+        label: "std.menu.moderation.unmute",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "unmute",
+    },
+    FormEntry {
+        label: "std.menu.moderation.ignore",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "ignore",
+    },
+    FormEntry {
+        label: "std.menu.moderation.kick",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "kick",
+    },
+    FormEntry {
+        label: "std.menu.moderation.ban",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "ban",
+    },
+    FormEntry {
+        label: "std.menu.moderation.unban",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "unban",
+    },
+    FormEntry {
+        label: "std.menu.moderation.unignore",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "unignore",
+    },
+    FormEntry {
+        label: "std.menu.moderation.op",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "op",
+    },
+    FormEntry {
+        label: "std.menu.moderation.deop",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "deop",
+    },
+    FormEntry {
+        label: "std.menu.moderation.trop",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "trop",
+    },
+    FormEntry {
+        label: "std.menu.moderation.user_info",
+        group: "std.group.moderation",
+        accel: "O",
+        form_cmd: "user_info",
+    },
+    // Files (L)
+    FormEntry {
+        label: "std.menu.files.list",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "ls",
+    },
+    FormEntry {
+        label: "std.menu.files.upload",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "upload",
+    },
+    FormEntry {
+        label: "std.menu.files.download",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "download",
+    },
+    FormEntry {
+        label: "std.menu.files.remove",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "rm",
+    },
+    FormEntry {
+        label: "std.menu.files.move",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "mv",
+    },
+    FormEntry {
+        label: "std.menu.files.copy",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "cp",
+    },
+    FormEntry {
+        label: "std.menu.files.mkdir",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "mkdir",
+    },
+    FormEntry { label: "std.menu.files.cd", group: "std.group.files", accel: "L", form_cmd: "cd" },
+    FormEntry {
+        label: "std.menu.files.checksum",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "checksum",
+    },
+    FormEntry {
+        label: "std.menu.files.file_info",
+        group: "std.group.files",
+        accel: "L",
+        form_cmd: "file_info",
+    },
+    // Plugins (P)
+    FormEntry {
+        label: "std.menu.plugins.load",
+        group: "std.group.plugins",
+        accel: "P",
+        form_cmd: "load",
+    },
+    FormEntry {
+        label: "std.menu.plugins.unload",
+        group: "std.group.plugins",
+        accel: "P",
+        form_cmd: "unload",
+    },
+    FormEntry {
+        label: "std.menu.plugins.load_namespace",
+        group: "std.group.plugins",
         accel: "P",
         form_cmd: "load namespace",
     },
     FormEntry {
-        label: "Unload Namespace...",
-        group: "Plugins",
+        label: "std.menu.plugins.unload_namespace",
+        group: "std.group.plugins",
         accel: "P",
         form_cmd: "unload namespace",
     },
-    FormEntry { label: "Shell...", group: "Plugins", accel: "P", form_cmd: "shell" },
+    FormEntry {
+        label: "std.menu.plugins.shell",
+        group: "std.group.plugins",
+        accel: "P",
+        form_cmd: "shell",
+    },
     // Settings (S)
-    FormEntry { label: "Set...", group: "Settings", accel: "S", form_cmd: "set" },
-    FormEntry { label: "Get...", group: "Settings", accel: "S", form_cmd: "get" },
-    FormEntry { label: "Set Global...", group: "Settings", accel: "S", form_cmd: "setg" },
-    FormEntry { label: "Get Global...", group: "Settings", accel: "S", form_cmd: "getg" },
-    FormEntry { label: "Unset...", group: "Settings", accel: "S", form_cmd: "unset" },
-    FormEntry { label: "Unset Global...", group: "Settings", accel: "S", form_cmd: "unsetg" },
+    FormEntry {
+        label: "std.menu.settings.set",
+        group: "std.group.settings",
+        accel: "S",
+        form_cmd: "set",
+    },
+    FormEntry {
+        label: "std.menu.settings.get",
+        group: "std.group.settings",
+        accel: "S",
+        form_cmd: "get",
+    },
+    FormEntry {
+        label: "std.menu.settings.setg",
+        group: "std.group.settings",
+        accel: "S",
+        form_cmd: "setg",
+    },
+    FormEntry {
+        label: "std.menu.settings.getg",
+        group: "std.group.settings",
+        accel: "S",
+        form_cmd: "getg",
+    },
+    FormEntry {
+        label: "std.menu.settings.unset",
+        group: "std.group.settings",
+        accel: "S",
+        form_cmd: "unset",
+    },
+    FormEntry {
+        label: "std.menu.settings.unsetg",
+        group: "std.group.settings",
+        accel: "S",
+        form_cmd: "unsetg",
+    },
 ];
 
 /// 登记表单类菜单项（动作类别 FORM，关联 `form_cmd`）。

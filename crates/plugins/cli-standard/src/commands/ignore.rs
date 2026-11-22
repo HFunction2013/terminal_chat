@@ -30,7 +30,9 @@ impl CommandExecutor for IgnoreCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let user = matches
             .get_one::<String>("user")
-            .ok_or_else(|| anyhow!("Missing required argument: user"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "user"))
+            })?
             .clone();
         self.execute(user)
     }

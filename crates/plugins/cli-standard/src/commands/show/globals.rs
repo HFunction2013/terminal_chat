@@ -20,10 +20,13 @@ impl GlobalsCommand {
         let _res = get_all_options(Out::from(&mut buf));
         let ops = ManuallyDrop::into_inner(buf);
         if ops.is_empty() {
-            print_content(&"No options specified".into());
+            print_content(&crate::tr("std.prompt.setting.no_globals").into());
         } else {
             for opt in ops.iter() {
-                print_content(&format!("Option {} => {}", opt.key, opt.value).into());
+                print_content(
+                    &format!("{} {} => {}", crate::tr("std.label.option"), opt.key, opt.value)
+                        .into(),
+                );
             }
         }
         Ok(())

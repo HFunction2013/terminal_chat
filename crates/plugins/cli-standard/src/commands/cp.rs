@@ -28,11 +28,15 @@ impl CommandExecutor for CpCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let from = matches
             .get_one::<String>("from")
-            .ok_or_else(|| anyhow!("Missing required argument: from"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "from"))
+            })?
             .clone();
         let to = matches
             .get_one::<String>("to")
-            .ok_or_else(|| anyhow!("Missing required argument: to"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "to"))
+            })?
             .clone();
         self.execute(from, to)
     }

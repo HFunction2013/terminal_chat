@@ -54,9 +54,17 @@ pub(crate) fn handle_user_info(
                     .unwrap_or(false),
                 ignored_you: u.ignored.contains(&sender),
             };
-            UserInfoResponse { found: true, info: Some(info), message: "found".into() }
+            UserInfoResponse {
+                found: true,
+                info: Some(info),
+                message: crate::i18n::t("srv.common.found").to_string(),
+            }
         }
-        None => UserInfoResponse { found: false, info: None, message: "user not found".into() },
+        None => UserInfoResponse {
+            found: false,
+            info: None,
+            message: crate::i18n::t("srv.user.not_found_bare").to_string(),
+        },
     }
 }
 
@@ -69,7 +77,7 @@ pub(crate) fn handle_whoami(
         user: user_part(&sender),
         full_user: sender.clone(),
         success: true,
-        message: format!("you are {}", sender),
+        message: crate::i18n::t("srv.user.whoami").replace("{user}", &sender).to_string(),
     }
 }
 
@@ -85,11 +93,17 @@ pub(crate) fn handle_ignore(
         Err(e) => return IgnoreResponse { success: false, message: e },
     };
     if !state.users.contains_key(&target) {
-        return IgnoreResponse { success: false, message: format!("user `{}` not found", target) };
+        return IgnoreResponse {
+            success: false,
+            message: crate::i18n::t("srv.user.not_found").replace("{target}", &target).to_string(),
+        };
     }
     ensure_user(&mut state, &sender);
     state.users.get_mut(&sender).unwrap().ignored.insert(target.clone());
-    IgnoreResponse { success: true, message: format!("you are now ignoring {}", target) }
+    IgnoreResponse {
+        success: true,
+        message: crate::i18n::t("srv.user.ignoring").replace("{target}", &target).to_string(),
+    }
 }
 
 pub(crate) fn handle_unignore(
@@ -107,9 +121,9 @@ pub(crate) fn handle_unignore(
     UnignoreResponse {
         success: removed,
         message: if removed {
-            format!("you are no longer ignoring {}", target)
+            crate::i18n::t("srv.user.unignoring").replace("{target}", &target).to_string()
         } else {
-            format!("you were not ignoring {}", target)
+            crate::i18n::t("srv.user.not_ignoring").replace("{target}", &target).to_string()
         },
     }
 }
@@ -134,20 +148,30 @@ pub(crate) fn handle_set_presence(
         m.away = away.to_string();
     }
     // 主动把在线状态变更推送给同频点其他成员（替代依赖请求-响应刷新）。
-    let label = if away.is_empty() { "online" } else { away };
+    // online 走词典；away/busy 是用户状态数据，原样保留。
+    let label = if away.is_empty() { crate::i18n::t("srv.user.online") } else { away };
     if let Some(freq) = &freq {
         let who = display_user(&state, freq, &sender);
         let members: Vec<String> =
             state.freqs.get(freq).map(|r| r.members.keys().cloned().collect()).unwrap_or_default();
         for m in &members {
             if m != &sender {
-                notify(m, format!("[presence:{freq}] {who} is {label}"));
+                notify(
+                    m,
+                    crate::i18n::t("srv.notify.presence")
+                        .replace("{freq}", freq)
+                        .replace("{who}", &who)
+                        .replace("{label}", label)
+                        .to_string(),
+                );
             }
         }
     }
     SetPresenceResponse {
         success: true,
         status: req.status,
-        message: format!("presence set to `{}`", if away.is_empty() { "online" } else { away }),
+        message: crate::i18n::t("srv.user.presence_set")
+            .replace("{status}", if away.is_empty() { "online" } else { away })
+            .to_string(),
     }
 }

@@ -343,6 +343,7 @@ pub fn unregister_plugin(name: &safer_ffi::String) -> Result {
     crate::registered_options::unregister_by_owner(&meta.name.to_string());
     crate::registered_ui::unregister_by_owner(&meta.name.to_string());
     crate::registered_commands::unregister_by_owner(&meta.name.to_string());
+    crate::i18n::unregister_by_owner(&meta.name.to_string());
 
     Result::success()
 }
@@ -372,6 +373,7 @@ pub fn clear_plugins() -> Result {
     crate::registered_options::clear_all();
     crate::registered_ui::clear_all();
     crate::registered_commands::clear_all();
+    crate::i18n::clear_all();
     Result::success()
 }
 

@@ -20,7 +20,8 @@ impl AwayCommand {
             }
             _ => {
                 return Err(anyhow!(
-                    "invalid status `{status}`; available: away, busy, off, online"
+                    "{}",
+                    crate::tr("std.err.misc.invalid_status").replace("{status}", &status)
                 ));
             }
         };

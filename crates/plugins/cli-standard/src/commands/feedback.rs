@@ -16,13 +16,13 @@ impl FeedbackCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         let content = match content {
             Some(c) if !c.trim().is_empty() => c,
-            _ => return Err(anyhow!("empty feedback; use `feedback -m <content>`")),
+            _ => return Err(anyhow!("{}", crate::tr("std.err.misc.empty_feedback"))),
         };
         let path = crate::local::state_dir().join(crate::local::FEEDBACK_FILE);
         use std::io::Write;
         let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&path)?;
         writeln!(f, "{}: {content}", std::process::id())?;
-        print_content(&"[*] Thanks! Your feedback has been recorded.".into());
+        print_content(&crate::tr("std.prompt.misc.feedback_thanks").into());
         Ok(())
     }
 }

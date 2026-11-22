@@ -28,7 +28,9 @@ impl CommandExecutor for CdCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let dir = matches
             .get_one::<String>("dir")
-            .ok_or_else(|| anyhow!("Missing required argument: dir"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "dir"))
+            })?
             .clone();
         self.execute(dir)
     }

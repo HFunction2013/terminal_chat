@@ -24,7 +24,12 @@ impl CommandExecutor for UnloadCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let plugin_name = matches
             .get_one::<String>("plugin_name")
-            .ok_or_else(|| anyhow!("Missing required argument: plugin_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "plugin_name")
+                )
+            })?
             .clone();
         self.execute(plugin_name)
     }

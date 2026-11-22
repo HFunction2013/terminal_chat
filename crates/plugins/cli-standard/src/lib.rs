@@ -1,11 +1,37 @@
 use cli_core_types::Result as CmdResult;
-use cli_core_types::{HostMetadata, PluginMetadata, PluginResult};
+use cli_core_types::{HostMetadata, LookupI18nFn, PluginMetadata, PluginResult};
 use libloading::Library;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 use std::sync::LazyLock;
 use std::sync::OnceLock;
+
+#[allow(dead_code)] // 生成模块的 t / t_lang / Lang 保留供测试与兜底，生产路径走 `tr()`。
+mod i18n {
+    include!(concat!(env!("OUT_DIR"), "/i18n_std.rs"));
+}
+
+/// core `lookup_i18n` 符号缓存；旧核心无此符号时为 `None`，译文回退 key 本身。
+static LOOKUP_I18N: OnceLock<Option<LookupI18nFn>> = OnceLock::new();
+
+fn lookup_fn() -> Option<LookupI18nFn> {
+    *LOOKUP_I18N.get_or_init(|| {
+        let lib = LIB.get()?;
+        unsafe { lib.get::<LookupI18nFn>(b"lookup_i18n\0").ok().map(|s| *s) }
+    })
+}
+
+/// 插件侧翻译辅助：经 core `lookup_i18n` 按当前语言取译文；符号缺失 / 未知 key
+/// 回退 key 本身。供本批次 UI 与下一批命令提示复用。
+pub(crate) fn tr(key: &str) -> String {
+    let Some(f) = lookup_fn() else { return key.to_string() };
+    let mut buf: ManuallyDrop<safer_ffi::String> =
+        ManuallyDrop::new(safer_ffi::String::from(String::new()));
+    let _ = f(&key.into(), Out::from(&mut buf));
+    ManuallyDrop::into_inner(buf).to_string()
+}
 
 static METADATA: LazyLock<PluginMetadata> = LazyLock::new(|| PluginMetadata {
     command_yaml: include_str!("../commands.yaml").into(),
@@ -61,15 +87,24 @@ pub fn get_plugin_metadata(out: Out<'_, PluginMetadata>) -> CmdResult {
 
 /// 本插件认识的内置选项 key（与代码读取处保持同步）。
 const BUILTIN_OPTIONS: &[&str] =
-    &["SERVER", "PORT", "USERNAME", "QUIET", "PREFER_COMMAND_LINE", "EDITOR"];
+    &["SERVER", "PORT", "USERNAME", "QUIET", "PREFER_COMMAND_LINE", "EDITOR", "LANGUAGE"];
 
 #[ffi_export]
 pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
     let lib = init_library(&h_meta.cli_core_path);
     // 把内置选项登记进宿主注册表；未注册的 key 在 set/setg 时会被拒绝。
-    cli_core_macros::load_core_symbols!(lib, register_option);
+    cli_core_macros::load_core_symbols!(lib, register_option, register_i18n_entry);
     for key in BUILTIN_OPTIONS {
         let _ = register_option(&safer_ffi::String::from(*key));
+    }
+    // 上报编译期词典条目；归属由 core 初始化上下文记为 `cli-standard`，
+    // 卸载时随 `unregister_by_owner` 一并清理，插件侧不手写清理表。
+    for (key, en, zh) in crate::i18n::entries() {
+        let _ = register_i18n_entry(
+            &safer_ffi::String::from(*key),
+            &safer_ffi::String::from(*en),
+            &safer_ffi::String::from(*zh),
+        );
     }
     menu::register_menu(lib);
     forms::register_forms(lib);
@@ -77,6 +112,23 @@ pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
     sidebar::register_sidebar(lib);
     statusbar::register_statusbar(lib);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
+}
+
+#[cfg(test)]
+mod i18n_tests {
+    use super::i18n::{Lang, t_lang};
+
+    #[test]
+    fn prompt_entries_lookup_both_languages() {
+        assert_eq!(t_lang(Lang::En, "std.prompt.task.cancelled"), "[*] Task #{id} cancelled.");
+        assert_eq!(t_lang(Lang::Zh, "std.prompt.task.cancelled"), "[*] 任务 #{id} 已取消。");
+    }
+
+    #[test]
+    fn unknown_key_falls_back_to_key() {
+        assert_eq!(t_lang(Lang::En, "std.prompt.missing.key"), "std.prompt.missing.key");
+        assert_eq!(t_lang(Lang::Zh, "std.prompt.missing.key"), "std.prompt.missing.key");
+    }
 }
 
 /// 取走异步推送队列（QUIET on 时静默），供 cli 主程序后台线程显示。

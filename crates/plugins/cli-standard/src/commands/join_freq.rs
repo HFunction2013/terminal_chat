@@ -34,7 +34,9 @@ impl CommandExecutor for JoinFreqCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let freq = matches
             .get_one::<String>("freq")
-            .ok_or_else(|| anyhow!("Missing required argument: freq"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "freq"))
+            })?
             .clone();
         let password = matches.get_one::<String>("password").cloned();
         self.execute(freq, password)

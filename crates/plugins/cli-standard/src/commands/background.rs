@@ -19,9 +19,11 @@ impl BackgroundCommand {
         if let Some(freq) = crate::session::background_current() {
             let _resp: protos::frequency::basic::LeaveFreqResponse =
                 crate::connection::rpc("leave_freq", &protos::utils::empty::Empty {})?;
-            print_content(&format!("[!] session `{freq}` backgrounded (left freq)").into());
+            print_content(
+                &crate::tr("std.prompt.session.backgrounded").replace("{freq}", &freq).into(),
+            );
         } else {
-            print_content(&"[!] no active session to background".into());
+            print_content(&crate::tr("std.prompt.session.no_active").into());
         }
         Ok(())
     }

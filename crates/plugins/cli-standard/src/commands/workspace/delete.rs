@@ -17,19 +17,26 @@ impl DeleteCommand {
         let name = workspace_name.unwrap_or_else(crate::local::current_workspace);
         let dir = crate::local::workspace_path(&name);
         if !dir.is_dir() {
-            print_content(&format!("[!] Workspace `{name}` does not exist.").into());
+            print_content(
+                &crate::tr("std.err.workspace.not_found").replace("{name}", &name).into(),
+            );
             return Ok(());
         }
         if !force {
-            print_content(&format!("[!] Workspace `{name}` contains {} files; use `workspace delete --force` to confirm.",
-                std::fs::read_dir(&dir).map(|rd| rd.count()).unwrap_or(0)).into());
+            let count = std::fs::read_dir(&dir).map(|rd| rd.count()).unwrap_or(0);
+            print_content(
+                &crate::tr("std.err.workspace.needs_force")
+                    .replace("{name}", &name)
+                    .replace("{count}", &count.to_string())
+                    .into(),
+            );
             return Ok(());
         }
         std::fs::remove_dir_all(&dir)?;
         if crate::local::current_workspace() == name {
             crate::local::set_current_workspace("default")?;
         }
-        print_content(&format!("[*] Workspace `{name}` deleted.").into());
+        print_content(&crate::tr("std.prompt.workspace.deleted").replace("{name}", &name).into());
         Ok(())
     }
 }

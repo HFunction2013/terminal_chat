@@ -441,6 +441,7 @@ dependencies = [
  "cli-core-macros",
  "cli-core-types",
  "humantime",
+ "i18n-build",
  "libloading",
  "prost",
  "protos",
@@ -2559,6 +2560,7 @@ name = "srv-standard"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "i18n-build",
  "libloading",
  "prost",
  "protos",

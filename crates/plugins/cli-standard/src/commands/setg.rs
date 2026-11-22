@@ -24,19 +24,14 @@ impl SetgCommand {
         );
 
         if option_is_registered(&key.clone().into()).code != 0 {
-            print_content(
-                &format!("This option has not been registered, use `unset(g) {key}` to unset it.")
-                    .into(),
-            );
+            print_content(&crate::tr("std.err.setting.unregistered").replace("{key}", &key).into());
             return Ok(());
         }
 
         let value = if password {
             rpassword::prompt_password(format!("Enter value for '{key}': "))?.trim().to_string()
         } else {
-            value
-            .ok_or_else(|| anyhow!("Missing required argument: value. Use --password flag if you want to input securely."))?
-            .clone()
+            value.ok_or_else(|| anyhow!("{}", crate::tr("std.err.setting.missing_value")))?.clone()
         };
 
         let option = GlobalOption::new(&key, &value);
@@ -60,7 +55,9 @@ impl CommandExecutor for SetgCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches
             .get_one::<String>("key")
-            .ok_or_else(|| anyhow!("Missing required argument: key"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "key"))
+            })?
             .clone();
         let value = matches.get_one::<String>("value").cloned();
         let password = matches.get_flag("password");

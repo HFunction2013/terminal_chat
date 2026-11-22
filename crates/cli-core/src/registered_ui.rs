@@ -6,6 +6,11 @@
 //! 受当前 safer_ffi 版本限制，ReprC 结构体内不能内嵌 `Vec`（`String` 为 Opaque），
 //! 故条目模型保留在本模块内部；跨 FFI 注册原语只收标量 / 字符串，查询经
 //! `Out<Vec<String>>` 回传扁平记录行（字段以 `|` 分隔）。
+//!
+//! 可译字段（菜单 label/group、表单 title/field label、侧栏 title/label、底部
+//! 静态片段 label）存的是 i18n key；注册时不固化译文快照，查询时按当前语言
+//! 经 [`crate::i18n::translate`] 现译。命令名、选项 key、前缀符号、命令行参数、
+//! 标识符等非译字段原样存储与输出。
 
 use ::safer_ffi::prelude::*;
 use cli_core_types::Result;
@@ -252,7 +257,15 @@ fn get_menu_items(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Resul
                     (cli_core_types::ui::ui_action_kind::FORM, String::new(), spec.cmd.clone())
                 }
             };
-            format!("{}|{}|{}|{}|{}|{}", item.label, item.group, item.accel, kind, argv, form_cmd)
+            format!(
+                "{}|{}|{}|{}|{}|{}",
+                crate::i18n::translate(&item.label),
+                crate::i18n::translate(&item.group),
+                item.accel,
+                kind,
+                argv,
+                form_cmd
+            )
         })
         .collect();
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
@@ -267,7 +280,15 @@ fn get_side_sections(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Re
     let sections = SIDE_SECTIONS.lock().unwrap();
     let rows: Vec<String> = sections
         .iter()
-        .map(|s| format!("{}|{}|{}|{}", s.id, s.title, i32::from(s.default_open), s.source))
+        .map(|s| {
+            format!(
+                "{}|{}|{}|{}",
+                s.id,
+                crate::i18n::translate(&s.title),
+                i32::from(s.default_open),
+                s.source
+            )
+        })
         .collect();
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
         rows.into_iter().map(|r| r.into()).collect::<Vec<_>>().into();
@@ -282,7 +303,14 @@ fn get_side_items(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Resul
     let rows: Vec<String> = items
         .iter()
         .map(|i| {
-            format!("{}|{}|{}|{}|{}", i.section, i.prefix, i.label, i32::from(i.highlight), i.line)
+            format!(
+                "{}|{}|{}|{}|{}",
+                i.section,
+                i.prefix,
+                crate::i18n::translate(&i.label),
+                i32::from(i.highlight),
+                i.line
+            )
         })
         .collect();
     let vec: safer_ffi::vec::Vec<safer_ffi::String> =
@@ -294,8 +322,12 @@ fn get_side_items(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Resul
 /// 列出全部已注册底部片段：静态登记文本 + 各逐帧回调当前返回的非空文本；每行 `label`。
 #[register_hook]
 fn get_bottom_fragments(out: Out<'_, safer_ffi::vec::Vec<safer_ffi::String>>) -> Result {
-    let mut rows: Vec<String> =
-        BOTTOM_FRAGMENTS.lock().unwrap().iter().map(|(label, _)| label.clone()).collect();
+    let mut rows: Vec<String> = BOTTOM_FRAGMENTS
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(label, _)| crate::i18n::translate(label))
+        .collect();
     for (cb, _) in BOTTOM_FRAGMENT_FNS.lock().unwrap().iter() {
         let text = unsafe { cb() }.to_string();
         if !text.trim().is_empty() {
@@ -318,11 +350,16 @@ fn get_form_spec(
     let specs = FORM_SPECS.lock().unwrap();
     let mut rows: Vec<String> = Vec::new();
     if let Some(spec) = specs.get(&form_cmd.to_string()) {
-        rows.push(format!("SPEC|{}|{}|{}", spec.title, spec.cmd, spec.prefill));
+        rows.push(format!(
+            "SPEC|{}|{}|{}",
+            crate::i18n::translate(&spec.title),
+            spec.cmd,
+            spec.prefill
+        ));
         for f in &spec.fields {
             rows.push(format!(
                 "FIELD|{}|{}|{}|{}",
-                f.label,
+                crate::i18n::translate(&f.label),
                 i32::from(f.required),
                 i32::from(f.secret),
                 f.kind
@@ -360,73 +397,121 @@ mod tests {
     use super::*;
     use std::mem::ManuallyDrop;
 
-    #[test]
-    fn register_menu_item_is_idempotent() {
-        unsafe {
-            let _ = register_menu_item(
-                &"Connect".into(),
-                &"Connection".into(),
-                &"C".into(),
-                &cli_core_types::ui::ui_action_kind::RUN,
-                &"connect".into(),
-                &"".into(),
-            );
-            let _ = register_menu_item(
-                &"Connect".into(),
-                &"Connection".into(),
-                &"C".into(),
-                &cli_core_types::ui::ui_action_kind::RUN,
-                &"connect".into(),
-                &"".into(),
-            );
-        }
+    fn set_lang(value: &str) {
+        crate::global_settings::set_raw_option("LANGUAGE", value);
+    }
+
+    fn clear_lang() {
+        crate::global_settings::remove_raw_option("LANGUAGE");
+    }
+
+    fn menu_rows() -> Vec<String> {
         let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
             ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
         unsafe {
             let _ = get_menu_items(Out::from(&mut buf));
         }
-        let got: Vec<String> =
-            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
-        assert_eq!(got.len(), 1);
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    fn spec_rows(form_cmd: &str) -> Vec<String> {
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        unsafe {
+            let _ = get_form_spec(&form_cmd.into(), Out::from(&mut buf));
+        }
+        ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn register_menu_item_is_idempotent() {
+        clear_lang();
+        crate::i18n::register_entry("ui-test", "menu.connect", "Connect", "连接");
+        crate::i18n::register_entry("ui-test", "menu.group.conn", "Connection", "连接组");
+        set_lang("en");
+        unsafe {
+            let _ = register_menu_item(
+                &"menu.connect".into(),
+                &"menu.group.conn".into(),
+                &"C".into(),
+                &cli_core_types::ui::ui_action_kind::RUN,
+                &"connect".into(),
+                &"".into(),
+            );
+            let _ = register_menu_item(
+                &"menu.connect".into(),
+                &"menu.group.conn".into(),
+                &"C".into(),
+                &cli_core_types::ui::ui_action_kind::RUN,
+                &"connect".into(),
+                &"".into(),
+            );
+        }
+        let rows = menu_rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0], "Connect|Connection|C|0|connect|");
+
+        set_lang("zh");
+        let rows = menu_rows();
+        assert_eq!(rows[0], "连接|连接组|C|0|connect|");
+
+        clear_lang();
+        unregister_by_owner("ui-test");
+        crate::i18n::unregister_by_owner("ui-test");
     }
 
     #[test]
     fn form_fields_aggregate_by_cmd() {
         unsafe {
-            let _ = register_form_field(&"join_freq".into(), &"Frequency ID:".into(), &1, &0, &0);
-            let _ = register_form_field(&"join_freq".into(), &"Password:".into(), &0, &1, &0);
+            let _ = register_form_field(&"join_freq".into(), &"field.freq_id".into(), &1, &0, &0);
+            let _ = register_form_field(&"join_freq".into(), &"field.password".into(), &0, &1, &0);
         }
         let specs = FORM_SPECS.lock().unwrap();
         let spec = specs.get("join_freq").expect("form spec created");
         assert_eq!(spec.fields.len(), 2);
         assert!(spec.fields[0].required);
         assert!(spec.fields[1].secret);
+        // 内部模型保存的是 i18n key，不是译文快照。
+        assert_eq!(spec.fields[0].label, "field.freq_id");
     }
 
     #[test]
     fn form_spec_round_trips_via_out() {
+        clear_lang();
+        crate::i18n::register_entry("ui-test", "spec.join", "Join Frequency", "加入频道");
+        crate::i18n::register_entry("ui-test", "field.freq_id", "Frequency ID:", "频道 ID:");
+        set_lang("en");
         unsafe {
-            let _ =
-                register_form_spec(&"Join Frequency".into(), &"join_rt".into(), &"join_rt ".into());
-            let _ = register_form_field(&"join_rt".into(), &"Frequency ID:".into(), &1, &0, &0);
+            let _ = register_form_spec(&"spec.join".into(), &"join_rt".into(), &"join_rt ".into());
+            let _ = register_form_field(&"join_rt".into(), &"field.freq_id".into(), &1, &0, &0);
         }
-        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
-            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
-        unsafe {
-            let _ = get_form_spec(&"join_rt".into(), Out::from(&mut buf));
-        }
-        let rows: Vec<String> =
-            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+        let rows = spec_rows("join_rt");
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0], "SPEC|Join Frequency|join_rt|join_rt ");
         assert_eq!(rows[1], "FIELD|Frequency ID:|1|0|0");
+
+        set_lang("zh");
+        let rows = spec_rows("join_rt");
+        assert_eq!(rows[0], "SPEC|加入频道|join_rt|join_rt ");
+        assert_eq!(rows[1], "FIELD|频道 ID:|1|0|0");
+
+        clear_lang();
+        unregister_by_owner("ui-test");
+        crate::i18n::unregister_by_owner("ui-test");
     }
 
     #[test]
     fn side_item_templates_round_trip_via_out() {
+        clear_lang();
+        crate::i18n::register_entry("ui-test", "side.plugin", "Plugin", "插件");
+        set_lang("en");
         unsafe {
-            let _ =
-                register_side_section(&"sec-rt".into(), &"Plugin".into(), &1, &"plugins".into());
+            let _ = register_side_section(
+                &"sec-rt".into(),
+                &"side.plugin".into(),
+                &1,
+                &"plugins".into(),
+            );
             let _ = register_side_item(&"sec-rt".into(), &" • ".into(), &"{name}".into(), &0, &0);
             let _ =
                 register_side_item(&"sec-rt".into(), &" : ".into(), &"{namespace}".into(), &0, &1);
@@ -438,30 +523,52 @@ mod tests {
         }
         let rows: Vec<String> =
             ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+        // 占位符 key 未收录时原样回传；prefix 符号不译。
         let matched: Vec<&String> = rows.iter().filter(|r| r.starts_with("sec-rt|")).collect();
         assert_eq!(matched.len(), 2);
         assert_eq!(matched[0], "sec-rt| • |{name}|0|0");
         assert_eq!(matched[1], "sec-rt| : |{namespace}|0|1");
+
+        set_lang("zh");
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        unsafe {
+            let _ = get_side_sections(Out::from(&mut buf));
+        }
+        let rows: Vec<String> =
+            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect();
+        assert!(rows.iter().any(|r| r == "sec-rt|插件|1|plugins"));
+
+        clear_lang();
+        unregister_by_owner("ui-test");
+        crate::i18n::unregister_by_owner("ui-test");
     }
 
     #[test]
-    fn unregister_by_owner_removes_owner_ui_entries() {
+    fn unregister_by_owner_removes_owner_ui_and_dict_entries() {
+        clear_lang();
         unsafe {
             crate::plugins::set_current_owner(Some("ui-plug-a".to_string()));
+            crate::i18n::register_entry("ui-plug-a", "menu.a", "Owner A Menu", "A 菜单");
             let _ = register_menu_item(
-                &"Owner A Menu".into(),
-                &"G".into(),
+                &"menu.a".into(),
+                &"menu.g".into(),
                 &"".into(),
                 &cli_core_types::ui::ui_action_kind::RUN,
                 &"connect".into(),
                 &"".into(),
             );
-            let _ =
-                register_side_section(&"sec-owner-a".into(), &"A".into(), &1, &"plugins".into());
+            let _ = register_side_section(
+                &"sec-owner-a".into(),
+                &"side.a".into(),
+                &1,
+                &"plugins".into(),
+            );
             crate::plugins::set_current_owner(Some("ui-plug-b".to_string()));
+            crate::i18n::register_entry("ui-plug-b", "menu.b", "Owner B Menu", "B 菜单");
             let _ = register_menu_item(
-                &"Owner B Menu".into(),
-                &"G".into(),
+                &"menu.b".into(),
+                &"menu.g".into(),
                 &"".into(),
                 &cli_core_types::ui::ui_action_kind::RUN,
                 &"join".into(),
@@ -470,24 +577,26 @@ mod tests {
             crate::plugins::set_current_owner(None);
         }
 
-        fn menu_rows() -> Vec<String> {
-            let mut buf: ManuallyDrop<safer_ffi::vec::Vec<safer_ffi::String>> =
-                ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
-            unsafe {
-                let _ = get_menu_items(Out::from(&mut buf));
-            }
-            ManuallyDrop::into_inner(buf).iter().map(|s| s.to_string()).collect()
-        }
+        set_lang("en");
+        let rows = menu_rows();
+        assert!(rows.iter().any(|r| r.starts_with("Owner A Menu|")));
+        assert!(rows.iter().any(|r| r.starts_with("Owner B Menu|")));
 
-        assert!(menu_rows().iter().any(|r| r.starts_with("Owner A Menu|")));
-        assert!(menu_rows().iter().any(|r| r.starts_with("Owner B Menu|")));
-
+        // 对齐 `plugins::unregister_plugin`：UI 注册表与词典表按归属一并清理。
         unregister_by_owner("ui-plug-a");
+        crate::i18n::unregister_by_owner("ui-plug-a");
         let rows = menu_rows();
         assert!(!rows.iter().any(|r| r.starts_with("Owner A Menu|")));
         assert!(rows.iter().any(|r| r.starts_with("Owner B Menu|")));
+        // 归属插件的词典条目一并移除：未知 key 回退自身。
+        assert_eq!(crate::i18n::translate("menu.a"), "menu.a");
+        assert_eq!(crate::i18n::translate("menu.b"), "Owner B Menu");
 
         unregister_by_owner("ui-plug-b");
+        crate::i18n::unregister_by_owner("ui-plug-b");
         assert!(!menu_rows().iter().any(|r| r.starts_with("Owner B Menu|")));
+        assert_eq!(crate::i18n::translate("menu.b"), "menu.b");
+
+        clear_lang();
     }
 }

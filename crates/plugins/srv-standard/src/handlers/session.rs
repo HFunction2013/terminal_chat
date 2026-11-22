@@ -18,7 +18,7 @@ pub(crate) fn handle_status(
         nonce: req.nonce,
         rtt_ms: 1,
         server_version: env!("CARGO_PKG_VERSION").to_string(),
-        message: format!("pong from srv-standard (hi {sender})"),
+        message: crate::i18n::t("srv.session.pong").replace("{user}", &sender).to_string(),
     }
 }
 
@@ -31,7 +31,7 @@ pub(crate) fn handle_route(
         server: "srv-standard".to_string(),
         hops: vec![],
         success: true,
-        message: "direct connection (1 hop)".to_string(),
+        message: crate::i18n::t("srv.session.direct").to_string(),
     }
 }
 
@@ -56,5 +56,9 @@ pub(crate) fn handle_notifications(
             }
         })
         .collect();
-    NotificationsResponse { success: true, items, message: "notifications".into() }
+    NotificationsResponse {
+        success: true,
+        items,
+        message: crate::i18n::t("srv.session.notifications").to_string(),
+    }
 }

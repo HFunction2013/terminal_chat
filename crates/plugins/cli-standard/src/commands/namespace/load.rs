@@ -24,7 +24,12 @@ impl CommandExecutor for LoadCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let namespace = matches
             .get_one::<String>("namespace")
-            .ok_or_else(|| anyhow!("Missing required argument: namespace"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "namespace")
+                )
+            })?
             .clone();
         self.execute(namespace)
     }

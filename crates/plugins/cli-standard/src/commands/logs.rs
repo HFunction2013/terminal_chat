@@ -19,14 +19,19 @@ impl LogsCommand {
             "open" => {
                 std::fs::write(crate::local::state_dir().join(crate::local::LOGGING_FILE), "on")
                     .ok();
-                print_content(&"[*] Logging opened.".into());
+                print_content(&crate::tr("std.prompt.misc.logs_opened").into());
             }
             "close" => {
                 std::fs::write(crate::local::state_dir().join(crate::local::LOGGING_FILE), "off")
                     .ok();
-                print_content(&"[*] Logging closed.".into());
+                print_content(&crate::tr("std.prompt.misc.logs_closed").into());
             }
-            _ => return Err(anyhow!("invalid operation `{op}`; use open or close")),
+            _ => {
+                return Err(anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.invalid_operation").replace("{op}", &op)
+                ));
+            }
         }
         Ok(())
     }

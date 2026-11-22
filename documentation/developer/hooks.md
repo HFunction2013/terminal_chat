@@ -41,8 +41,8 @@ Unguarded keys are rejected by `set`/`setg`, so a plugin that introduces its own
 
 ```
 fn(
-    label: &String,        // visible menu label
-    group: &String,        // menu group (top-level menu name)
+    label: &String,        // i18n key for the visible menu label
+    group: &String,        // i18n key for the menu group
     accel: &String,        // group mnemonic letter (underlined Alt+key)
     action_kind: &i32,     // ui_action_kind::RUN or FORM
     argv: &String,         // whitespace-separated command line (RUN action)
@@ -63,9 +63,9 @@ Action kinds (`cli_core_types::ui::ui_action_kind`):
 
 | Hook | Signature | Purpose |
 | --- | --- | --- |
-| `register_form_spec` | `fn(title: &String, cmd: &String, prefill: &String) -> Result` | Register a form skeleton: title, the submit command, and the input-box prefix |
-| `register_form_field` | `fn(form_cmd: &String, label: &String, required: &i32, secret: &i32, kind: &i32) -> Result` | Append a field to the form identified by `form_cmd` |
-| `get_form_spec` | `fn(form_cmd: &String, Out<Vec<String>>) -> Result` | Fetch a form spec: first row `SPEC|title|cmd|prefill`, then `FIELD|label|required|secret|kind` rows |
+| `register_form_spec` | `fn(title: &String, cmd: &String, prefill: &String) -> Result` | Register a form skeleton: `title` is an i18n key, along with the submit command and the input-box prefix |
+| `register_form_field` | `fn(form_cmd: &String, label: &String, required: &i32, secret: &i32, kind: &i32) -> Result` | Append a field to the form identified by `form_cmd`; `label` is an i18n key |
+| `get_form_spec` | `fn(form_cmd: &String, Out<Vec<String>>) -> Result` | Fetch a form spec: first row `SPEC|title|cmd|prefill`, then `FIELD|label|required|secret|kind` rows; title/label are translated at query time |
 
 Field completion kinds (`cli_core_types::ui::ui_field_kind`):
 
@@ -87,8 +87,8 @@ Field completion kinds (`cli_core_types::ui::ui_field_kind`):
 
 | Hook | Signature | Purpose |
 | --- | --- | --- |
-| `register_side_section` | `fn(id: &String, title: &String, default_open: &i32, source: &String) -> Result` | Register a collapsible section shell. `source` names the snapshot it backfills (`sessions`/`members`/`plugins`) |
-| `register_side_item` | `fn(section: &String, prefix: &String, label: &String, highlight: &i32, line: &i32) -> Result` | Register an entry template under a section. `label` uses `{name}`/`{namespace}` placeholders; `highlight` marks the current/highlighted entry; `line` 0 = primary row, 1 = secondary row |
+| `register_side_section` | `fn(id: &String, title: &String, default_open: &i32, source: &String) -> Result` | Register a collapsible section shell. `title` is an i18n key; `source` names the snapshot it backfills (`sessions`/`members`/`plugins`) |
+| `register_side_item` | `fn(section: &String, prefix: &String, label: &String, highlight: &i32, line: &i32) -> Result` | Register an entry template under a section. `label` is an i18n key and may use `{name}`/`{namespace}` placeholders; `prefix` is a non-translated symbol; `highlight` marks the current/highlighted entry; `line` 0 = primary row, 1 = secondary row |
 | `get_side_sections` | `fn(Out<Vec<String>>) -> Result` | Rows: `id|title|default_open|source` |
 | `get_side_items` | `fn(Out<Vec<String>>) -> Result` | Rows: `section|prefix|label|highlight|line` |
 
@@ -98,11 +98,25 @@ The host fills actual entry names from its sidebar snapshots; the plugin supplie
 
 | Hook | Signature | Purpose |
 | --- | --- | --- |
-| `register_bottom` | `fn(label: &String) -> Result` | Register a static status-bar fragment |
+| `register_bottom` | `fn(label: &String) -> Result` | Register a static status-bar fragment; `label` is an i18n key |
 | `register_bottom_callback` | `fn(&BottomFragmentFn) -> Result` | Register a per-frame callback returning the current fragment text; empty string means no fragment this frame |
 | `get_bottom_fragments` | `fn(Out<Vec<String>>) -> Result` | Static fragments plus non-empty callback results |
 
 `BottomFragmentFn` is `unsafe extern "C" fn() -> safer_ffi::String`. Function-pointer deduplication uses `std::ptr::fn_addr_eq`.
+
+## i18n dictionary
+
+Core keeps a runtime dictionary keyed by i18n key. Plugins report their compiled-in entries during `on_init_plugin`; UI registry entries store keys rather than translated snapshots, and query hooks translate them on every read using the current language.
+
+| Hook | Signature | Purpose |
+| --- | --- | --- |
+| `register_i18n_entry` | `fn(key: &String, en: &String, zh: &String) -> Result` | Register one dictionary entry. Owner comes from the internal plugin context; an empty owner is recorded as `host`. Same owner+key overwrites |
+| `lookup_i18n` | `fn(key: &String, Out<String>) -> Result` | Translate a key for the current language; an unknown key is returned verbatim; an empty `zh` falls back to `en` |
+| `get_current_lang` | `fn(Out<i32>) -> Result` | Current language ordinal: `0` = English, `1` = Simplified Chinese |
+
+Language resolution: the global option `LANGUAGE` wins when set and parseable (`zh*` → Chinese, anything else → English); otherwise the process environment is consulted in order `LANG`, then `LC_ALL`, falling back to English. UI fields that carry keys: menu `label`/`group`, form `title`/field `label`, sidebar `title`/`label`, static bottom-fragment `label`. Commands, option keys, prefix symbols, identifiers and plugin/namespace names are not translated.
+
+Dictionary entries owned by a plugin are dropped on unload alongside its options/UI entries; `clear_plugins` empties the whole dictionary.
 
 ## State & query
 
@@ -134,13 +148,13 @@ These query symbols back host-side command and argument completion. The host rea
 | Hook | Signature | Purpose |
 | --- | --- | --- |
 | `register_plugin` | `fn(&PluginMetadata) -> Result` | Register plugin metadata (core-internal; standard plugins register through the load flow) |
-| `unregister_plugin` | `fn(&String) -> Result` | Call the plugin's `on_shutdown_plugin`, then remove its metadata/namespace/global-command entries and unregister every option/UI entry owned by it |
+| `unregister_plugin` | `fn(&String) -> Result` | Call the plugin's `on_shutdown_plugin`, then remove its metadata/namespace/global-command entries and unregister every option/UI/i18n entry owned by it |
 | `get_plugin` | by name / command name | Look up a registered plugin metadata clone |
 | `get_all_plugins` | `fn(Out<Vec<PluginMetadata>>) -> Result` | List all registered plugins |
 | `load_plugin` | `fn(&String) -> PluginResult` | Locate and load a plugin by name |
 | `is_plugin_name_registered` / `is_plugin_command_name_registered` | `fn(&String) -> Result` | Existence checks for completion |
 
-Registered entries (option keys, menu items, form specs/fields, sidebar sections/items, bottom fragments and per-frame callbacks) record the owning plugin through an internal core owner context set during `on_init_plugin`; the FFI registration primitives take no owner parameter. On unload, entries matching that owner are dropped; persisted aliases are user configuration and are not removed.
+Registered entries (option keys, menu items, form specs/fields, sidebar sections/items, bottom fragments, per-frame callbacks and i18n dictionary entries) record the owning plugin through an internal core owner context set during `on_init_plugin`; the FFI registration primitives take no owner parameter. On unload, entries matching that owner are dropped; persisted aliases are user configuration and are not removed.
 
 ## Server hooks
 

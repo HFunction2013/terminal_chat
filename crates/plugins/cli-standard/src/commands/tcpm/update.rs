@@ -20,7 +20,7 @@ impl UpdateCommand {
     ) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        print_content(&"[!] registry is not enabled in this build; plugin management without registry works via `install -l <path>` / `load plugin <name>`.".into());
+        print_content(&crate::tr("std.err.plugin.registry_disabled").into());
         Ok(())
     }
 }
@@ -34,7 +34,9 @@ impl CommandExecutor for UpdateCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let plugin = matches
             .get_one::<String>("plugin")
-            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "plugin"))
+            })?
             .clone();
         let registry = matches.get_one::<String>("registry").cloned();
         let reload = matches.get_flag("reload");

@@ -23,6 +23,7 @@ This guide is for everyday users. After reading it you should be able to connect
 | `QUIET` | Set to `true` to silence background pushes and reduce screen noise |
 | `PREFER_COMMAND_LINE` | Set to `true` so parameterized commands go straight to the terminal input instead of opening a parameter form |
 | `EDITOR` | External editor invoked when composing long messages/macros |
+| `LANGUAGE` | Client interface language: `zh` (Simplified Chinese) or `en` (English); set with `setg LANGUAGE zh`. Takes effect without restarting the TUI |
 
 ## Choosing an interface
 
@@ -33,13 +34,17 @@ Launch without arguments for the REPL; pass `--tui` for the TUI.
 
 ## Interface language
 
-Built-in client and server messages ship in two languages: English and Simplified Chinese. The active language is picked from environment variables, in this order:
+Built-in client and server messages ship in two languages: English (`en`) and Simplified Chinese (`zh`).
 
-1. `TC_LANGUAGE` — explicit override: `en` or `zh`.
-2. `LANG`, then `LC_ALL` — a value starting with `zh` selects Chinese; otherwise English.
+**Client (cli).** The active language is resolved in this order:
+
+1. Global option `LANGUAGE` — set it with `setg LANGUAGE zh` or `setg LANGUAGE en`. In the TUI the menu, forms, sidebar and status bar refresh immediately; no restart is needed.
+2. Environment variable `LANG`, then `LC_ALL` — a value starting with `zh` (e.g. `zh`, `zh-cn`, `zh-hans`, `zh_CN.UTF-8`) selects Chinese; anything else selects English.
 3. If none is set, English is the default.
 
-Only built-in host and server handshake strings are translated in this release; plugin command and menu text may still appear in English.
+**Server (srv).** Server-pushed response messages follow the server process's own locale only: `LANG`, then `LC_ALL`, falling back to English. The client does not send its language to the server, and the handshake protocol is unchanged.
+
+Command names, option keys, paths, identifiers, plugin/namespace names and server console logs stay in English; only human-readable labels and messages are translated.
 
 ## Five-step walkthrough
 

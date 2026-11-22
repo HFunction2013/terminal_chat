@@ -24,9 +24,9 @@ impl VariablesCommand {
             ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
         let _res = get_all_session_options(Out::from(&mut local_buf));
         let locals = ManuallyDrop::into_inner(local_buf);
-        print_content(&"--- local (session) variables ---".into());
+        print_content(&crate::tr("std.prompt.setting.section_local").into());
         if locals.is_empty() {
-            print_content(&"  (none)".into());
+            print_content(&crate::tr("std.prompt.setting.none").into());
         } else {
             for opt in locals.iter() {
                 print_content(&format!("  {} => {}", opt.key, opt.value).into());
@@ -37,9 +37,9 @@ impl VariablesCommand {
             ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
         let _res = get_all_options(Out::from(&mut global_buf));
         let globals = ManuallyDrop::into_inner(global_buf);
-        print_content(&"--- global variables ---".into());
+        print_content(&crate::tr("std.prompt.setting.section_global").into());
         if globals.is_empty() {
-            print_content(&"  (none)".into());
+            print_content(&crate::tr("std.prompt.setting.none").into());
         } else {
             for opt in globals.iter() {
                 print_content(&format!("  {} => {}", opt.key, opt.value).into());

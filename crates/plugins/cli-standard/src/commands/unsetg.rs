@@ -24,11 +24,13 @@ impl UnsetgCommand {
 
         if all {
             let _res = clear_all_options();
-            print_content(&"All global variables have been cleared.".into());
+            print_content(&crate::tr("std.prompt.setting.cleared_global").into());
             return Ok(());
         }
 
-        let key = key.ok_or_else(|| anyhow!("Missing required argument: key"))?;
+        let key = key.ok_or_else(|| {
+            anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "key"))
+        })?;
 
         let key_for_display = key.clone();
         let mut buf: ManuallyDrop<TaggedOption<safer_ffi::String>> =
@@ -36,9 +38,17 @@ impl UnsetgCommand {
         let _res = remove_global_option(&key.into(), Out::from(&mut buf));
         let val = ManuallyDrop::into_inner(buf);
         if let TaggedOption::Some(_) = val {
-            print_content(&format!("Global variable '{key_for_display}' has been removed.").into());
+            print_content(
+                &crate::tr("std.prompt.setting.removed_global")
+                    .replace("{key}", &key_for_display)
+                    .into(),
+            );
         } else {
-            print_content(&format!("Key {key_for_display} doesn't exist.").into());
+            print_content(
+                &crate::tr("std.err.setting.key_not_found")
+                    .replace("{key}", &key_for_display)
+                    .into(),
+            );
         }
 
         Ok(())

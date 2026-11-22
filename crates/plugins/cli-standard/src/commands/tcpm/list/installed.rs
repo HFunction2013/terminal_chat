@@ -16,7 +16,7 @@ impl InstalledCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         let installed = crate::local::read_installed();
         if installed.is_empty() {
-            print_content(&"no plugins installed locally.".into());
+            print_content(&crate::tr("std.prompt.plugin.no_installed").into());
             return Ok(());
         }
         for n in installed {

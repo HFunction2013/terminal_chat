@@ -137,3 +137,51 @@ zh = "命令：connect  连接 | msg -m <文本>  发送消息 | join_freq <频�
 [help.line4]
 en = "          show active_users | show active_freqs | workspace list | ls | upload | download"
 zh = "          show active_users | show active_freqs | workspace list | ls | upload | download"
+
+[tui.interrupt]
+en = "^C Interrupting current command."
+zh = "^C 正在中断当前命令。"
+
+[tui.none]
+en = "(none)"
+zh = "（无）"
+
+[tui.not_joined]
+en = "(not joined)"
+zh = "（未加入）"
+
+[tui.not_connected]
+en = "Not connected. Run `connect` first."
+zh = "尚未连接，请先运行 `connect`。"
+
+[tui.animated_in_tui]
+en = "`{cmd}` is an animated terminal command; run it in the REPL, not the TUI."
+zh = "`{cmd}` 是终端动画命令，请在 REPL 中运行，不要在 TUI 内运行。"
+
+[tui.sleep_in_tui]
+en = "`sleep` blocks the TUI event loop; run it in the REPL, not the TUI."
+zh = "`sleep` 会阻塞 TUI 事件循环，请在 REPL 中运行。"
+
+[tui.worker_busy]
+en = "A command is still running; wait for it to finish."
+zh = "上一条命令仍在运行，请等待其结束。"
+
+[confirm.disband]
+en = "Really disband this frequency? This cannot be undone."
+zh = "确定解散此频点吗？此操作不可撤销。"
+
+[confirm.kick]
+en = "Really kick {target}?"
+zh = "确定踢出 {target} 吗？"
+
+[confirm.ban]
+en = "Really ban {target}?"
+zh = "确定封禁 {target} 吗？"
+
+[confirm.rm]
+en = "Really remove remote file {target}?"
+zh = "确定删除远端文件 {target} 吗？"
+
+[confirm.run]
+en = "Really run: {argv}?"
+zh = "确定执行：{argv} 吗？"

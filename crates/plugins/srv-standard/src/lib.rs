@@ -10,6 +10,10 @@
 //!
 //! 用户身份：`packet.sender` 由 srv 主程序规范化为 `user@ip` 形式。
 
+mod i18n {
+    include!(concat!(env!("OUT_DIR"), "/i18n_srv_std.rs"));
+}
+
 use libloading::{Library, Symbol};
 use prost::Message;
 use safer_ffi::ffi_export;
@@ -182,7 +186,7 @@ pub(crate) fn display_user(state: &ServerState, freq: &str, user: &str) -> Strin
 pub(crate) fn resolve_user(state: &ServerState, freq: &str, name: &str) -> Result<String, String> {
     let name_trim = name.trim();
     if name_trim.is_empty() {
-        return Err("empty user".into());
+        return Err(crate::i18n::t("srv.user.empty").to_string());
     }
     if name_trim.contains('@') {
         return Ok(name_trim.to_string());
@@ -203,9 +207,12 @@ pub(crate) fn resolve_user(state: &ServerState, freq: &str, name: &str) -> Resul
         }
     }
     match cands.len() {
-        0 => Err(format!("user `{name}` not found")),
+        0 => Err(crate::i18n::t("srv.user.not_found").replace("{target}", name_trim).to_string()),
         1 => Ok(cands[0].clone()),
-        _ => Err(format!("user `{name}` is ambiguous ({}); use full user@ip", cands.join(", "))),
+        _ => Err(crate::i18n::t("srv.user.ambiguous")
+            .replace("{target}", name_trim)
+            .replace("{list}", &cands.join(", "))
+            .to_string()),
     }
 }
 
@@ -733,4 +740,37 @@ pub fn on_init_plugin(h_meta: SrvHostMetadata) -> SrvPluginResult {
 #[ffi_export]
 pub fn on_shutdown_plugin() -> SrvPluginResult {
     SrvPluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::i18n::{Lang, t, t_lang};
+
+    #[test]
+    fn i18n_selects_en_and_zh() {
+        assert_eq!(t_lang(Lang::En, "srv.bye"), "bye");
+        assert_eq!(t_lang(Lang::Zh, "srv.bye"), "再见");
+        // Placeholders survive lookup for the caller to fill with replace.
+        assert!(t_lang(Lang::Zh, "srv.welcome").contains("{ip}"));
+        assert!(t_lang(Lang::En, "srv.freq.joined").contains("{count}"));
+    }
+
+    #[test]
+    fn i18n_unknown_key_returns_key() {
+        assert_eq!(t_lang(Lang::En, "srv.no.such.key"), "srv.no.such.key");
+        assert_eq!(t_lang(Lang::Zh, "srv.no.such.key"), "srv.no.such.key");
+    }
+
+    #[test]
+    fn i18n_missing_zh_falls_back_to_en() {
+        // Probe entry ships with an empty zh to exercise the en fallback.
+        assert_eq!(t_lang(Lang::En, "srv.test.zh_fallback_probe"), "fallback probe");
+        assert_eq!(t_lang(Lang::Zh, "srv.test.zh_fallback_probe"), "fallback probe");
+    }
+
+    #[test]
+    fn i18n_t_resolves_known_key() {
+        // `t()` goes through the env-locale detector; known keys resolve either way.
+        assert!(!t("srv.session.direct").is_empty());
+    }
 }

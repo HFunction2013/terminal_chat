@@ -24,7 +24,9 @@ impl CommandExecutor for LoadCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let plugin = matches
             .get_one::<String>("plugin")
-            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "plugin"))
+            })?
             .clone();
         self.execute(plugin)
     }

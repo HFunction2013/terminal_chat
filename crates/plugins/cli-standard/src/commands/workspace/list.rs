@@ -17,12 +17,14 @@ impl ListCommand {
         let current = crate::local::current_workspace();
         let names = crate::local::list_workspaces();
         if names.is_empty() {
-            print_content(&"no workspaces yet; use `workspace new <name>`.".into());
+            print_content(&crate::tr("std.prompt.workspace.none").into());
             return Ok(());
         }
         for n in names {
             if n == current {
-                print_content(&format!("  * {} (current)", n).into());
+                print_content(
+                    &crate::tr("std.prompt.workspace.list_current").replace("{name}", &n).into(),
+                );
             } else {
                 print_content(&format!("  - {}", n).into());
             }

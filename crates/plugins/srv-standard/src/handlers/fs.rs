@@ -22,7 +22,7 @@ pub(crate) fn handle_remote_pwd(
             return PwdResponse {
                 directory: String::new(),
                 success: false,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -46,7 +46,7 @@ pub(crate) fn handle_remote_ls(
                 directory: String::new(),
                 entries: vec![],
                 success: false,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -67,7 +67,9 @@ pub(crate) fn handle_remote_ls(
                         modified_at: e.modified_at as i64,
                     }],
                     success: true,
-                    message: format!("{target} is a file"),
+                    message: crate::i18n::t("srv.fs.is_file")
+                        .replace("{target}", &target)
+                        .to_string(),
                 };
             }
             None => {
@@ -75,7 +77,9 @@ pub(crate) fn handle_remote_ls(
                     directory: target.clone(),
                     entries: vec![],
                     success: false,
-                    message: format!("`{target}` not found"),
+                    message: crate::i18n::t("srv.fs.not_found")
+                        .replace("{target}", &target)
+                        .to_string(),
                 };
             }
             _ => {}
@@ -107,7 +111,7 @@ pub(crate) fn handle_remote_ls(
         directory: target.clone(),
         entries,
         success: true,
-        message: format!("listing {target}"),
+        message: crate::i18n::t("srv.fs.listing").replace("{target}", &target).to_string(),
     }
 }
 
@@ -119,7 +123,12 @@ pub(crate) fn handle_remote_rm(
     use protos::remote::fs::RemoteRmResponse;
     let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
         Some(f) => f,
-        None => return RemoteRmResponse { success: false, message: "not in any freq".into() },
+        None => {
+            return RemoteRmResponse {
+                success: false,
+                message: crate::i18n::t("srv.fs.not_in_freq_bare").to_string(),
+            };
+        }
     };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
@@ -129,23 +138,36 @@ pub(crate) fn handle_remote_rm(
     if target == "/" {
         return RemoteRmResponse {
             success: false,
-            message: "cannot remove the root directory".into(),
+            message: crate::i18n::t("srv.fs.cannot_remove_root").to_string(),
         };
     }
     match vfs.files.get(&target) {
-        None => RemoteRmResponse { success: false, message: format!("`{target}` not found") },
+        None => RemoteRmResponse {
+            success: false,
+            message: crate::i18n::t("srv.fs.not_found").replace("{target}", &target).to_string(),
+        },
         Some(e) if e.is_dir && !req.recursive => RemoteRmResponse {
             success: false,
-            message: format!("`{target}` is a directory (use `-r` to remove recursively)"),
+            message: crate::i18n::t("srv.fs.is_dir_recursive")
+                .replace("{target}", &target)
+                .to_string(),
         },
         Some(e) if e.is_dir => {
             let prefix = format!("{}/", target.trim_end_matches('/'));
             vfs.files.retain(|k, _| k != &target && !k.starts_with(&prefix));
-            RemoteRmResponse { success: true, message: format!("removed directory {target}") }
+            RemoteRmResponse {
+                success: true,
+                message: crate::i18n::t("srv.fs.removed_dir")
+                    .replace("{target}", &target)
+                    .to_string(),
+            }
         }
         Some(_) => {
             vfs.files.remove(&target);
-            RemoteRmResponse { success: true, message: format!("removed {target}") }
+            RemoteRmResponse {
+                success: true,
+                message: crate::i18n::t("srv.fs.removed").replace("{target}", &target).to_string(),
+            }
         }
     }
 }
@@ -158,7 +180,12 @@ pub(crate) fn handle_remote_mv(
     use protos::remote::fs::RemoteMvResponse;
     let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
         Some(f) => f,
-        None => return RemoteMvResponse { success: false, message: "not in any freq".into() },
+        None => {
+            return RemoteMvResponse {
+                success: false,
+                message: crate::i18n::t("srv.fs.not_in_freq_bare").to_string(),
+            };
+        }
     };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
@@ -169,14 +196,20 @@ pub(crate) fn handle_remote_mv(
     if from == to {
         return RemoteMvResponse {
             success: false,
-            message: "source and destination are the same".into(),
+            message: crate::i18n::t("srv.fs.same_source_dest").to_string(),
         };
     }
     if !vfs.files.contains_key(&from) {
-        return RemoteMvResponse { success: false, message: format!("`{from}` not found") };
+        return RemoteMvResponse {
+            success: false,
+            message: crate::i18n::t("srv.fs.not_found").replace("{target}", &from).to_string(),
+        };
     }
     if vfs.files.contains_key(&to) {
-        return RemoteMvResponse { success: false, message: format!("`{to}` already exists") };
+        return RemoteMvResponse {
+            success: false,
+            message: crate::i18n::t("srv.fs.dest_exists").replace("{to}", &to).to_string(),
+        };
     }
     // 收集源路径（含目录的子项）并迁移。
     let prefix = format!("{}/", from.trim_end_matches('/'));
@@ -195,7 +228,13 @@ pub(crate) fn handle_remote_mv(
         vfs.files.insert(new_key, e);
         vfs.files.remove(&k);
     }
-    RemoteMvResponse { success: true, message: format!("moved {from} -> {to}") }
+    RemoteMvResponse {
+        success: true,
+        message: crate::i18n::t("srv.fs.moved")
+            .replace("{from}", &from)
+            .replace("{to}", &to)
+            .to_string(),
+    }
 }
 
 /// 远程 cp：复制（目录连带子项复制）。
@@ -206,7 +245,12 @@ pub(crate) fn handle_remote_cp(
     use protos::remote::fs::RemoteCpResponse;
     let freq = match user_freq(&STATE.lock().unwrap(), &sender) {
         Some(f) => f,
-        None => return RemoteCpResponse { success: false, message: "not in any freq".into() },
+        None => {
+            return RemoteCpResponse {
+                success: false,
+                message: crate::i18n::t("srv.fs.not_in_freq_bare").to_string(),
+            };
+        }
     };
     let mut all_vfs = VFS.lock().unwrap();
     let vfs = all_vfs
@@ -217,14 +261,20 @@ pub(crate) fn handle_remote_cp(
     if from == to {
         return RemoteCpResponse {
             success: false,
-            message: "source and destination are the same".into(),
+            message: crate::i18n::t("srv.fs.same_source_dest").to_string(),
         };
     }
     if !vfs.files.contains_key(&from) {
-        return RemoteCpResponse { success: false, message: format!("`{from}` not found") };
+        return RemoteCpResponse {
+            success: false,
+            message: crate::i18n::t("srv.fs.not_found").replace("{target}", &from).to_string(),
+        };
     }
     if vfs.files.contains_key(&to) {
-        return RemoteCpResponse { success: false, message: format!("`{to}` already exists") };
+        return RemoteCpResponse {
+            success: false,
+            message: crate::i18n::t("srv.fs.dest_exists").replace("{to}", &to).to_string(),
+        };
     }
     let prefix = format!("{}/", from.trim_end_matches('/'));
     let copied: Vec<(String, VfsEntry)> = vfs
@@ -239,7 +289,14 @@ pub(crate) fn handle_remote_cp(
         vfs.files.insert(new_key, e);
         count += 1;
     }
-    RemoteCpResponse { success: true, message: format!("copied {from} -> {to} ({count} entries)") }
+    RemoteCpResponse {
+        success: true,
+        message: crate::i18n::t("srv.fs.copied")
+            .replace("{from}", &from)
+            .replace("{to}", &to)
+            .replace("{count}", &count.to_string())
+            .to_string(),
+    }
 }
 
 /// 远程 tree：以缩进文本展示目录树。
@@ -254,7 +311,7 @@ pub(crate) fn handle_remote_tree(
             return RemoteTreeResponse {
                 success: false,
                 root: String::new(),
-                text: "not in any freq".into(),
+                text: crate::i18n::t("srv.fs.tree_not_in_freq").to_string(),
             };
         }
     };
@@ -265,7 +322,7 @@ pub(crate) fn handle_remote_tree(
             return RemoteTreeResponse {
                 success: false,
                 root: String::new(),
-                text: "empty directory".into(),
+                text: crate::i18n::t("srv.fs.tree_empty").to_string(),
             };
         }
     };
@@ -274,7 +331,7 @@ pub(crate) fn handle_remote_tree(
         return RemoteTreeResponse {
             success: false,
             root: target.clone(),
-            text: format!("`{target}` not found"),
+            text: crate::i18n::t("srv.fs.tree_not_found").replace("{target}", &target).to_string(),
         };
     }
     let prefix =
@@ -321,7 +378,7 @@ pub(crate) fn handle_remote_cd(
             return CdResponse {
                 directory: String::new(),
                 success: false,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -336,11 +393,15 @@ pub(crate) fn handle_remote_cd(
         return CdResponse {
             directory: vfs.cwd.clone(),
             success: false,
-            message: format!("`{target}`: no such directory"),
+            message: crate::i18n::t("srv.fs.no_such_dir").replace("{target}", &target).to_string(),
         };
     }
     vfs.cwd = target.clone();
-    CdResponse { directory: target.clone(), success: true, message: format!("now at {target}") }
+    CdResponse {
+        directory: target.clone(),
+        success: true,
+        message: crate::i18n::t("srv.fs.now_at").replace("{target}", &target).to_string(),
+    }
 }
 
 pub(crate) fn handle_remote_mkdir(
@@ -354,7 +415,7 @@ pub(crate) fn handle_remote_mkdir(
         None => {
             return MkdirResponse {
                 success: false,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -364,11 +425,17 @@ pub(crate) fn handle_remote_mkdir(
         .or_insert_with(|| VfsUser { cwd: "/".to_string(), files: HashMap::new() });
     let target = norm_path(&vfs.cwd, &req.directory);
     if vfs.files.contains_key(&target) {
-        return MkdirResponse { success: false, message: format!("`{target}` already exists") };
+        return MkdirResponse {
+            success: false,
+            message: crate::i18n::t("srv.fs.dir_exists").replace("{target}", &target).to_string(),
+        };
     }
     let now = now_ts();
     vfs_ensure_dirs(&mut vfs, &target, now);
-    MkdirResponse { success: true, message: format!("created directory {target}") }
+    MkdirResponse {
+        success: true,
+        message: crate::i18n::t("srv.fs.dir_created").replace("{target}", &target).to_string(),
+    }
 }
 
 pub(crate) fn handle_file_info(
@@ -383,7 +450,7 @@ pub(crate) fn handle_file_info(
             return RemoteFileInfoResponse {
                 found: false,
                 info: None,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -406,7 +473,7 @@ pub(crate) fn handle_file_info(
         None => RemoteFileInfoResponse {
             found: false,
             info: None,
-            message: format!("`{target}` not found"),
+            message: crate::i18n::t("srv.fs.not_found").replace("{target}", &target).to_string(),
         },
     }
 }
@@ -423,7 +490,7 @@ pub(crate) fn handle_remote_checksum(
             return RemoteChecksumResponse {
                 checksum: String::new(),
                 found: false,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -444,12 +511,12 @@ pub(crate) fn handle_remote_checksum(
         Some(_) => RemoteChecksumResponse {
             checksum: String::new(),
             found: false,
-            message: "cannot checksum a directory".into(),
+            message: crate::i18n::t("srv.fs.cannot_checksum_dir").to_string(),
         },
         None => RemoteChecksumResponse {
             checksum: String::new(),
             found: false,
-            message: format!("`{target}` not found"),
+            message: crate::i18n::t("srv.fs.not_found").replace("{target}", &target).to_string(),
         },
     }
 }
@@ -467,7 +534,7 @@ pub(crate) fn handle_upload(
                 remote_path: String::new(),
                 received_bytes: 0,
                 success: false,
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
             };
         }
     };
@@ -484,7 +551,7 @@ pub(crate) fn handle_upload(
                 remote_path: target.clone(),
                 received_bytes: 0,
                 success: false,
-                message: format!("`{target}` is a directory"),
+                message: crate::i18n::t("srv.fs.is_dir").replace("{target}", &target).to_string(),
             };
         }
     }
@@ -508,7 +575,10 @@ pub(crate) fn handle_upload(
         remote_path: target.clone(),
         received_bytes: req.content.len() as i64,
         success: true,
-        message: format!("uploaded {} bytes to {target}", req.content.len()),
+        message: crate::i18n::t("srv.fs.uploaded_bytes")
+            .replace("{bytes}", &req.content.len().to_string())
+            .replace("{target}", &target)
+            .to_string(),
     }
 }
 
@@ -525,7 +595,7 @@ pub(crate) fn handle_download(
                 total_size: 0,
                 found: false,
                 content: Vec::new(),
-                message: "not in any freq; join or create one first".into(),
+                message: crate::i18n::t("srv.fs.not_in_freq").to_string(),
                 files: Vec::new(),
             };
         }
@@ -540,7 +610,10 @@ pub(crate) fn handle_download(
             total_size: e.size as i64,
             found: true,
             content: e.content.clone(),
-            message: format!("{} bytes at {target}", e.size),
+            message: crate::i18n::t("srv.fs.file_bytes")
+                .replace("{size}", &e.size.to_string())
+                .replace("{target}", &target)
+                .to_string(),
             files: Vec::new(),
         },
         Some(_) if req.recursive => {
@@ -566,7 +639,11 @@ pub(crate) fn handle_download(
                 total_size: total,
                 found: true,
                 content: Vec::new(),
-                message: format!("{} files ({} bytes) in directory {target}", entries.len(), total),
+                message: crate::i18n::t("srv.fs.dir_listing")
+                    .replace("{entries}", &entries.len().to_string())
+                    .replace("{total}", &total.to_string())
+                    .replace("{target}", &target)
+                    .to_string(),
                 files: entries,
             }
         }
@@ -574,14 +651,14 @@ pub(crate) fn handle_download(
             total_size: 0,
             found: false,
             content: Vec::new(),
-            message: "cannot download a directory (use `-r` to download recursively)".into(),
+            message: crate::i18n::t("srv.fs.cannot_download_dir").to_string(),
             files: Vec::new(),
         },
         None => DownloadResponse {
             total_size: 0,
             found: false,
             content: Vec::new(),
-            message: format!("`{target}` not found"),
+            message: crate::i18n::t("srv.fs.not_found").replace("{target}", &target).to_string(),
             files: Vec::new(),
         },
     }

@@ -44,7 +44,9 @@ impl RunCommand {
                 }
             }
         } else {
-            print_content(&format!("Macro {macro_name_display} doesn't exists.").into());
+            print_content(
+                &crate::tr("std.err.macro.not_found").replace("{name}", &macro_name_display).into(),
+            );
         }
         Ok(())
     }
@@ -58,7 +60,12 @@ impl CommandExecutor for RunCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let macro_name = matches
             .get_one::<String>("macro_name")
-            .ok_or_else(|| anyhow!("Missing required argument: macro_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "macro_name")
+                )
+            })?
             .clone();
         self.execute(macro_name)
     }

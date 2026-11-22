@@ -25,14 +25,16 @@ impl InstallCommand {
         let local_path = match local {
             Some(p) => p,
             None => {
-                print_content(
-                    &"[!] registry install is not enabled; use `install -l <local-path>`.".into(),
-                );
+                print_content(&crate::tr("std.err.plugin.local_install_only").into());
                 return Ok(());
             }
         };
         if !std::path::Path::new(&local_path).is_file() {
-            print_content(&format!("[!] `{local_path}` not found.").into());
+            print_content(
+                &crate::tr("std.err.plugin.local_not_found")
+                    .replace("{local_path}", &local_path)
+                    .into(),
+            );
             return Ok(());
         }
         let file_name = std::path::Path::new(&local_path)
@@ -46,7 +48,12 @@ impl InstallCommand {
             installed.push(file_name.clone());
             crate::local::write_installed(&installed)?;
         }
-        print_content(&format!("[*] Plugin `{file_name}` installed to {}.", dest.display()).into());
+        print_content(
+            &crate::tr("std.prompt.plugin.installed")
+                .replace("{file_name}", &file_name)
+                .replace("{dest}", &dest.display().to_string())
+                .into(),
+        );
         if uload {
             cli_core_macros::load_core_symbols!(lib, load_plugin);
             let res = load_plugin(&file_name.into());
@@ -72,7 +79,9 @@ impl CommandExecutor for InstallCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let plugin = matches
             .get_one::<String>("plugin")
-            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "plugin"))
+            })?
             .clone();
         let registry = matches.get_one::<String>("registry").cloned();
         let uload = matches.get_flag("uload");

@@ -17,7 +17,7 @@ impl ActiveFreqsCommand {
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if resp.freqs.is_empty() {
-            print_content(&"no active freqs.".into());
+            print_content(&crate::tr("std.prompt.freq.no_active").into());
         }
         for f in resp.freqs {
             print_content(

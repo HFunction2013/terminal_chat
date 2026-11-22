@@ -23,7 +23,12 @@ impl AliasCommand {
         let mut buf: ManuallyDrop<AliasDef> = ManuallyDrop::new(alias_def.clone());
         let _res = set_alias(&alias_def, Out::from(&mut buf));
         let _ = ManuallyDrop::into_inner(buf);
-        print_content(&format!("Alias {alias} => {cmd} created.").into());
+        print_content(
+            &crate::tr("std.prompt.alias.created")
+                .replace("{alias}", &alias)
+                .replace("{cmd}", &cmd)
+                .into(),
+        );
         Ok(())
     }
 }
@@ -37,11 +42,15 @@ impl CommandExecutor for AliasCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let cmd = matches
             .get_one::<String>("cmd")
-            .ok_or_else(|| anyhow!("Missing required argument: cmd"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "cmd"))
+            })?
             .clone();
         let alias = matches
             .get_one::<String>("alias")
-            .ok_or_else(|| anyhow!("Missing required argument: alias"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "alias"))
+            })?
             .clone();
         self.execute(cmd, alias)
     }

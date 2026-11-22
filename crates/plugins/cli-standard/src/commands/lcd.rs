@@ -15,7 +15,9 @@ impl LcdCommand {
         let cwd = std::env::current_dir().map_err(|e| anyhow!("cannot get cwd: {e}"))?;
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        print_content(&format!("now at {}", cwd.display()).into());
+        print_content(
+            &crate::tr("std.prompt.fs.now_at").replace("{dir}", &cwd.display().to_string()).into(),
+        );
         Ok(())
     }
 }

@@ -15,7 +15,11 @@ impl ImportCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if !std::path::Path::new(&workspace_file).is_file() {
-            print_content(&format!("[!] `{workspace_file}` not found.").into());
+            print_content(
+                &crate::tr("std.err.workspace.file_not_found")
+                    .replace("{workspace_file}", &workspace_file)
+                    .into(),
+            );
             return Ok(());
         }
         let status = std::process::Command::new("tar")
@@ -23,10 +27,14 @@ impl ImportCommand {
             .arg(crate::local::workspaces_dir())
             .status()?;
         if !status.success() {
-            print_content(&"[!] Import failed (expected a .tar.gz workspace archive).".into());
+            print_content(&crate::tr("std.err.workspace.import_failed").into());
             return Ok(());
         }
-        print_content(&format!("[*] Workspace imported from `{workspace_file}`.").into());
+        print_content(
+            &crate::tr("std.prompt.workspace.imported")
+                .replace("{workspace_file}", &workspace_file)
+                .into(),
+        );
         Ok(())
     }
 }
@@ -40,7 +48,12 @@ impl CommandExecutor for ImportCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let workspace_file = matches
             .get_one::<String>("workspace_file")
-            .ok_or_else(|| anyhow!("Missing required argument: workspace_file"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "workspace_file")
+                )
+            })?
             .clone();
         self.execute(workspace_file)
     }

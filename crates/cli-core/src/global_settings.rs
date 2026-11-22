@@ -8,6 +8,21 @@ use std::sync::{LazyLock, Mutex};
 
 static MAP: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// 内部直读：按 key 取全局选项原值（不经 FFI 出参包装）；不存在返回 `None`。
+pub(crate) fn raw_option(key: &str) -> Option<String> {
+    MAP.lock().unwrap().get(key).cloned()
+}
+
+#[cfg(test)]
+pub(crate) fn set_raw_option(key: &str, value: &str) {
+    MAP.lock().unwrap().insert(key.to_string(), value.to_string());
+}
+
+#[cfg(test)]
+pub(crate) fn remove_raw_option(key: &str) {
+    MAP.lock().unwrap().remove(key);
+}
+
 /// 内部直读：`QUIET` 是否开启（供宿主静音判定，不经 FFI 出参包装）。
 pub(crate) fn quiet_enabled() -> bool {
     let map = MAP.lock().unwrap();

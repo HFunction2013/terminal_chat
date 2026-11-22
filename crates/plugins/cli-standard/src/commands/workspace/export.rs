@@ -17,7 +17,9 @@ impl ExportCommand {
         let name = workspace_name.unwrap_or_else(crate::local::current_workspace);
         let dir = crate::local::workspace_path(&name);
         if !dir.is_dir() {
-            print_content(&format!("[!] Workspace `{name}` does not exist.").into());
+            print_content(
+                &crate::tr("std.err.workspace.not_found").replace("{name}", &name).into(),
+            );
             return Ok(());
         }
         let out = output.unwrap_or_else(|| format!("{name}.tar.gz"));
@@ -27,10 +29,15 @@ impl ExportCommand {
             .arg(&name)
             .status()?;
         if !status.success() {
-            print_content(&"[!] Export failed.".into());
+            print_content(&crate::tr("std.err.workspace.export_failed").into());
             return Ok(());
         }
-        print_content(&format!("[*] Workspace `{name}` exported to `{out}`.").into());
+        print_content(
+            &crate::tr("std.prompt.workspace.exported")
+                .replace("{name}", &name)
+                .replace("{out}", &out)
+                .into(),
+        );
         Ok(())
     }
 }

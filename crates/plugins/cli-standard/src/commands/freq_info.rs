@@ -24,13 +24,20 @@ impl FreqInfoCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         match resp.info {
             Some(info) => {
-                print_content(&format!("Freq:    {}", info.freq).into());
+                print_content(&format!("{}:    {}", crate::tr("std.label.freq"), info.freq).into());
                 print_content(
-                    &format!("Creator: {} ({})", info.creator_nickname, info.creator_ip).into(),
+                    &format!(
+                        "{}: {} ({})",
+                        crate::tr("std.label.creator"),
+                        info.creator_nickname,
+                        info.creator_ip
+                    )
+                    .into(),
                 );
                 print_content(
                     &format!(
-                        "Members: {}/{}",
+                        "{}: {}/{}",
+                        crate::tr("std.label.members"),
                         info.current_members,
                         if info.max_members == 0 {
                             "inf".to_string()
@@ -41,13 +48,24 @@ impl FreqInfoCommand {
                     .into(),
                 );
                 print_content(
-                    &format!("Password: {}", if info.has_password { "yes" } else { "no" }).into(),
+                    &format!(
+                        "{}: {}",
+                        crate::tr("std.label.password"),
+                        if info.has_password {
+                            crate::tr("std.common.yes")
+                        } else {
+                            crate::tr("std.common.no")
+                        }
+                    )
+                    .into(),
                 );
                 for m in info.members {
                     print_content(&format!("  - {} ({})", m.nickname, m.ip_address).into());
                 }
             }
-            None => print_content(&format!("freq `{frequency}` not found").into()),
+            None => print_content(
+                &crate::tr("std.err.freq.not_found").replace("{frequency}", &frequency).into(),
+            ),
         }
         Ok(())
     }
@@ -62,7 +80,12 @@ impl CommandExecutor for FreqInfoCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let frequency = matches
             .get_one::<String>("frequency")
-            .ok_or_else(|| anyhow!("Missing required argument: frequency"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "frequency")
+                )
+            })?
             .clone();
         self.execute(frequency)
     }

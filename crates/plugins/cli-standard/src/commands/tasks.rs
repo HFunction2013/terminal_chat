@@ -16,7 +16,7 @@ impl TasksCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         let tasks = crate::local::read_tasks();
         if tasks.is_empty() {
-            print_content(&"no scheduled tasks.".into());
+            print_content(&crate::tr("std.prompt.task.none").into());
             return Ok(());
         }
         let now = std::time::SystemTime::now()

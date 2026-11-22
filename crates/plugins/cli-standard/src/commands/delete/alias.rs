@@ -24,9 +24,15 @@ impl AliasCommand {
         let _res = remove_alias(&alias.into(), Out::from(&mut buf));
         let removed = !matches!(ManuallyDrop::into_inner(buf), TaggedOption::None);
         if removed {
-            print_content(&format!("Alias {alias_for_display} deleted.").into());
+            print_content(
+                &crate::tr("std.prompt.alias.deleted")
+                    .replace("{alias}", &alias_for_display)
+                    .into(),
+            );
         } else {
-            print_content(&format!("Alias {alias_for_display} doesn't exist.").into());
+            print_content(
+                &crate::tr("std.err.alias.not_found").replace("{alias}", &alias_for_display).into(),
+            );
         }
         Ok(())
     }
@@ -41,7 +47,9 @@ impl CommandExecutor for AliasCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let alias = matches
             .get_one::<String>("alias")
-            .ok_or_else(|| anyhow!("Missing required argument: alias"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "alias"))
+            })?
             .clone();
         self.execute(alias)
     }

@@ -23,13 +23,13 @@ impl SessionsCommand {
         // `sessions -i <freq>` 真正切换到目标会话；`sessions -k <freq>` 丢弃后台会话。
         if let Some(s) = interact {
             if crate::session::current().as_deref() == Some(s.as_str()) {
-                print_content(&format!("[!] session `{s}` is already the current session").into());
+                print_content(
+                    &crate::tr("std.err.session.already_current").replace("{s}", &s).into(),
+                );
                 return Ok(());
             }
             if !crate::session::take_background(&s) {
-                print_content(
-                    &format!("[!] no such session `{s}`; run `sessions -l` to list").into(),
-                );
+                print_content(&crate::tr("std.err.session.not_found").replace("{s}", &s).into());
                 return Ok(());
             }
             let resp: protos::frequency::basic::JoinFreqResponse = crate::connection::rpc(
@@ -38,7 +38,7 @@ impl SessionsCommand {
             )?;
             if resp.status == protos::frequency::basic::FreqStatus::FreqIdle as i32 {
                 crate::session::set_current(&s);
-                print_content(&format!("[*] switched to session `{s}`").into());
+                print_content(&crate::tr("std.prompt.session.switched").replace("{s}", &s).into());
             } else {
                 // 恢复失败则放回后台列表，避免会话丢失。
                 crate::session::background_current();
@@ -48,24 +48,33 @@ impl SessionsCommand {
         }
         if let Some(s) = kill {
             if crate::session::current().as_deref() == Some(s.as_str()) {
-                print_content(&format!("[!] cannot kill the current session `{s}`; use `leave_freq` or `background`").into());
+                print_content(
+                    &crate::tr("std.err.session.cannot_kill_current").replace("{s}", &s).into(),
+                );
                 return Ok(());
             }
             if crate::session::take_background(&s) {
-                print_content(&format!("[*] session `{s}` dropped").into());
+                print_content(&crate::tr("std.prompt.session.dropped").replace("{s}", &s).into());
             } else {
-                print_content(&format!("[!] no such background session `{s}`").into());
+                print_content(&crate::tr("std.err.session.bg_not_found").replace("{s}", &s).into());
             }
             return Ok(());
         }
         let _ = list;
         let (cur, bg) = crate::session::all();
         match &cur {
-            Some(f) => print_content(&format!("  [0] session `{f}` (current)").into()),
-            None => print_content(&"  [0] main console (no freq session)".into()),
+            Some(f) => print_content(
+                &crate::tr("std.prompt.session.list_current").replace("{f}", f).into(),
+            ),
+            None => print_content(&crate::tr("std.prompt.session.main_console").into()),
         }
         for (i, f) in bg.iter().enumerate() {
-            print_content(&format!("  [{}] session `{f}` (background)", i + 1).into());
+            print_content(
+                &crate::tr("std.prompt.session.list_bg")
+                    .replace("{i}", &(i + 1).to_string())
+                    .replace("{f}", f)
+                    .into(),
+            );
         }
         Ok(())
     }

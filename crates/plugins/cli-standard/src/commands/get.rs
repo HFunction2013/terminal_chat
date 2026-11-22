@@ -25,7 +25,9 @@ impl GetCommand {
         if let TaggedOption::Some(v) = val {
             print_content(&format!("{key} => {v}").into());
         } else {
-            print_content(&format!("Key {key} doesn't exists").into());
+            print_content(
+                &crate::tr("std.err.setting.key_not_found").replace("{key}", &key).into(),
+            );
         }
         Ok(())
     }
@@ -40,7 +42,9 @@ impl CommandExecutor for GetCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let key = matches
             .get_one::<String>("key")
-            .ok_or_else(|| anyhow!("Missing required argument: key"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "key"))
+            })?
             .clone();
         self.execute(key)
     }

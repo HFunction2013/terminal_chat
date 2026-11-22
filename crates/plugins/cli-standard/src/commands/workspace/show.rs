@@ -17,17 +17,34 @@ impl ShowCommand {
         let name = workspace_name.unwrap_or_else(crate::local::current_workspace);
         let dir = crate::local::workspace_path(&name);
         if !dir.is_dir() {
-            print_content(&format!("[!] Workspace `{name}` does not exist.").into());
+            print_content(
+                &crate::tr("std.err.workspace.not_found").replace("{name}", &name).into(),
+            );
             return Ok(());
         }
         let files = std::fs::read_dir(&dir).map(|rd| rd.count()).unwrap_or(0);
         let size = crate::local::dir_size(&dir);
-        print_content(&format!("Workspace: {}", name).into());
-        print_content(&format!("Path:      {}", dir.display()).into());
-        print_content(&format!("Entries:   {}", files).into());
-        print_content(&format!("Size:      {} bytes", size).into());
+        print_content(&format!("{}: {}", crate::tr("std.label.workspace"), name).into());
+        print_content(&format!("{}:      {}", crate::tr("std.label.path"), dir.display()).into());
+        print_content(&format!("{}:   {}", crate::tr("std.label.entries"), files).into());
+        print_content(
+            &format!(
+                "{}:      {} {}",
+                crate::tr("std.label.size"),
+                size,
+                crate::tr("std.common.bytes")
+            )
+            .into(),
+        );
         if name == crate::local::current_workspace() {
-            print_content(&"Status:    current".into());
+            print_content(
+                &format!(
+                    "{}:    {}",
+                    crate::tr("std.label.status"),
+                    crate::tr("std.status.current")
+                )
+                .into(),
+            );
         }
         Ok(())
     }

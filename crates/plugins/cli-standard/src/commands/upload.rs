@@ -67,7 +67,11 @@ impl UploadCommand {
                 ok += 1;
             }
             print_content(
-                &format!("[*] uploaded {ok} files from `{local_path}` to `{base}/`").into(),
+                &crate::tr("std.prompt.fs.uploaded_dir")
+                    .replace("{count}", &ok.to_string())
+                    .replace("{local_path}", &local_path)
+                    .replace("{base}", &base)
+                    .into(),
             );
             Ok(())
         } else {
@@ -77,7 +81,12 @@ impl UploadCommand {
                 print_content(&format!("[!] {}", resp.message).into());
                 return Ok(());
             }
-            print_content(&format!("[*] uploaded `{local_path}` to `{remote}`").into());
+            print_content(
+                &crate::tr("std.prompt.fs.uploaded_one")
+                    .replace("{local_path}", &local_path)
+                    .replace("{remote}", &remote)
+                    .into(),
+            );
             Ok(())
         }
     }
@@ -92,7 +101,12 @@ impl CommandExecutor for UploadCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let local_path = matches
             .get_one::<String>("local_path")
-            .ok_or_else(|| anyhow!("Missing required argument: local_path"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "local_path")
+                )
+            })?
             .clone();
         let remote_path = matches.get_one::<String>("remote_path").cloned();
         self.execute(local_path, remote_path)

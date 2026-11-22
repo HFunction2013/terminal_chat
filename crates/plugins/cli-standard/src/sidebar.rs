@@ -28,11 +28,26 @@ struct SideItemDef {
     line: i32,
 }
 
-/// 三段侧栏栏目壳（标题 / 默认展开 / 快照数据源一一对应）。
+/// 三段侧栏栏目壳（标题 key / 默认展开 / 快照数据源一一对应）。
 const SIDE_SECTIONS: &[SideSectionDef] = &[
-    SideSectionDef { id: "sec-freq", title: "Session", source: "sessions", default_open: true },
-    SideSectionDef { id: "sec-members", title: "Members", source: "members", default_open: true },
-    SideSectionDef { id: "sec-plugins", title: "Plugin", source: "plugins", default_open: true },
+    SideSectionDef {
+        id: "sec-freq",
+        title: "std.side.sessions",
+        source: "sessions",
+        default_open: true,
+    },
+    SideSectionDef {
+        id: "sec-members",
+        title: "std.side.members",
+        source: "members",
+        default_open: true,
+    },
+    SideSectionDef {
+        id: "sec-plugins",
+        title: "std.side.plugins",
+        source: "plugins",
+        default_open: true,
+    },
 ];
 
 /// 侧栏条目模板：会话当前 / 普通两行变体；成员单行；插件主行 + 命名空间次行。

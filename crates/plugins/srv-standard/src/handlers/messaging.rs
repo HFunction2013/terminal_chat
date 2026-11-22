@@ -31,7 +31,7 @@ pub(crate) fn handle_send_message(
         None => {
             return SendMessageResponse {
                 result: R::SendMessageNotInFreq as i32,
-                message: "you are not in any freq; use `join_freq` or `create_freq` first".into(),
+                message: crate::i18n::t("srv.msg.not_in_freq").to_string(),
             };
         }
     };
@@ -41,7 +41,7 @@ pub(crate) fn handle_send_message(
     {
         return SendMessageResponse {
             result: R::SendMessageMuted as i32,
-            message: "you are muted in this freq".into(),
+            message: crate::i18n::t("srv.msg.muted").to_string(),
         };
     }
     let targets: Vec<String> = req.users.iter().map(|u| u.to_string()).collect();
@@ -81,7 +81,10 @@ pub(crate) fn handle_send_message(
             if !room.members.contains_key(t) {
                 return SendMessageResponse {
                     result: R::SendMessageUserNotFound as i32,
-                    message: format!("user `{t}` is not in freq `{freq}`"),
+                    message: crate::i18n::t("srv.msg.target_not_in_freq")
+                        .replace("{target}", t)
+                        .replace("{freq}", &freq)
+                        .to_string(),
                 };
             }
         }
@@ -112,7 +115,7 @@ pub(crate) fn handle_reply_message(
         None => {
             return ReplyMessageResponse {
                 result: R::SendMessageNotInFreq as i32,
-                message: "you are not in any freq".into(),
+                message: crate::i18n::t("srv.common.not_in_freq").to_string(),
             };
         }
     };
@@ -122,7 +125,7 @@ pub(crate) fn handle_reply_message(
     {
         return ReplyMessageResponse {
             result: R::SendMessageMuted as i32,
-            message: "you are muted in this freq".into(),
+            message: crate::i18n::t("srv.msg.muted").to_string(),
         };
     }
     let target = match state.last_speaker.get(&freq) {
@@ -130,7 +133,7 @@ pub(crate) fn handle_reply_message(
         _ => {
             return ReplyMessageResponse {
                 result: R::SendMessageError as i32,
-                message: "no one to reply to in this freq".into(),
+                message: crate::i18n::t("srv.msg.no_reply_target").to_string(),
             };
         }
     };
@@ -157,7 +160,9 @@ pub(crate) fn handle_call_user(
             if left > 0 {
                 return CallResponse {
                     result: R::CallError as i32,
-                    message: format!("call cooldown: try again in {}s", left),
+                    message: crate::i18n::t("srv.msg.call_cooldown")
+                        .replace("{left}", &left.to_string())
+                        .to_string(),
                 };
             }
         }
@@ -170,7 +175,7 @@ pub(crate) fn handle_call_user(
         None => {
             return CallResponse {
                 result: R::CallError as i32,
-                message: "call only works inside a freq; use `join_freq` first".into(),
+                message: crate::i18n::t("srv.msg.call_not_in_freq").to_string(),
             };
         }
     };
@@ -180,13 +185,13 @@ pub(crate) fn handle_call_user(
     {
         return CallResponse {
             result: R::CallError as i32,
-            message: "you are muted in this freq".into(),
+            message: crate::i18n::t("srv.msg.muted").to_string(),
         };
     }
     if !req.freq.is_empty() && req.freq != scope {
         return CallResponse {
             result: R::CallError as i32,
-            message: format!("you can only call inside your current freq `{scope}`"),
+            message: crate::i18n::t("srv.msg.call_scope").replace("{freq}", &scope).to_string(),
         };
     }
     let target = match resolve_user(&state, &scope, &req.user) {
@@ -197,7 +202,7 @@ pub(crate) fn handle_call_user(
     if target == sender {
         return CallResponse {
             result: R::CallError as i32,
-            message: "you cannot call yourself".into(),
+            message: crate::i18n::t("srv.msg.call_self").to_string(),
         };
     }
     // 目标必须存在且在线。
@@ -206,20 +211,27 @@ pub(crate) fn handle_call_user(
         None => {
             return CallResponse {
                 result: R::CallUserNotFound as i32,
-                message: format!("user `{target}` not found"),
+                message: crate::i18n::t("srv.user.not_found")
+                    .replace("{target}", &target)
+                    .to_string(),
             };
         }
     };
     if !profile.online {
         return CallResponse {
             result: R::CallUserOffline as i32,
-            message: format!("user `{target}` is offline"),
+            message: crate::i18n::t("srv.msg.target_offline")
+                .replace("{target}", &target)
+                .to_string(),
         };
     }
     if !profile.away.is_empty() {
         return CallResponse {
             result: R::CallUserBusy as i32,
-            message: format!("user `{target}` is {} (auto-reply: contact me later)", profile.away),
+            message: crate::i18n::t("srv.msg.target_busy")
+                .replace("{target}", &target)
+                .replace("{away}", &profile.away)
+                .to_string(),
         };
     }
     let freq = profile.freq.clone();
@@ -234,5 +246,11 @@ pub(crate) fn handle_call_user(
     };
     println!("[srv-standard] @{target} -> {msg}");
     notify(&target, msg.clone());
-    CallResponse { result: R::CallRinging as i32, message: format!("calling {target} ... {msg}") }
+    CallResponse {
+        result: R::CallRinging as i32,
+        message: crate::i18n::t("srv.msg.calling")
+            .replace("{target}", &target)
+            .replace("{msg}", &msg)
+            .to_string(),
+    }
 }

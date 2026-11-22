@@ -12,7 +12,7 @@ impl ShellCommand {
         let lib = crate::LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if command.is_empty() {
-            print_content(&"[!] usage: shell <command...>".into());
+            print_content(&crate::tr("std.err.misc.usage_shell").into());
             return Ok(());
         }
         let cmdline = command.join(" ");
@@ -32,7 +32,9 @@ impl ShellCommand {
 
         let status = status?;
         let code = status.code().unwrap_or(-1);
-        print_content(&format!("[shell] exit code {code}").into());
+        print_content(
+            &crate::tr("std.prompt.misc.shell_exit").replace("{code}", &code.to_string()).into(),
+        );
         Ok(())
     }
 }

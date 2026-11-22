@@ -105,7 +105,7 @@ fn server_config() -> Result<(String, String)> {
     let raw = match read_global("SERVER") {
         Some(v) => v.to_string(),
         None => {
-            return Err(anyhow!("SERVER not set; use `setg SERVER <address>` first"));
+            return Err(anyhow!("{}", crate::tr("std.err.conn.server_not_set")));
         }
     };
     let (host, embedded_port) = split_host_port(&raw);
@@ -121,7 +121,7 @@ pub fn connect_now() -> Result<()> {
     cli_core_macros::load_core_symbols!(lib, print_content);
 
     if CONNECTION.lock().unwrap().is_some() {
-        print_content(&"Already connected.".into());
+        print_content(&crate::tr("std.prompt.conn.already_connected").into());
         return Ok(());
     }
 
@@ -197,7 +197,7 @@ pub fn connect_now() -> Result<()> {
     // 清掉上一条连接遗留的响应帧，避免旧 seq 帧混入新会话的匹配。
     RESP_QUEUE.lock().unwrap().clear();
     *CONNECTION.lock().unwrap() = Some(stream);
-    print_content(&format!("Connected to {addr}.").into());
+    print_content(&crate::tr("std.prompt.conn.connected").replace("{addr}", &addr).into());
     Ok(())
 }
 
@@ -214,11 +214,11 @@ pub fn disconnect_now() -> Result<()> {
             // 读线程收到 DisconnectResponse 后读到 EOF 自然退出；
             // 这里稍等让响应帧有机会到达，再关闭连接。
             std::thread::sleep(std::time::Duration::from_millis(100));
-            print_content(&"Disconnected.".into());
+            print_content(&crate::tr("std.prompt.conn.disconnected").into());
             Ok(())
         }
         None => {
-            print_content(&"Not connected.".into());
+            print_content(&crate::tr("std.prompt.conn.not_connected").into());
             Ok(())
         }
     }
@@ -233,12 +233,12 @@ fn require_username() -> Result<String> {
         Some(v) => {
             let name = v.to_string();
             if name.trim().is_empty() {
-                Err(anyhow!("USERNAME is empty; use `setg USERNAME <name>` first"))
+                Err(anyhow!("{}", crate::tr("std.err.conn.username_empty")))
             } else {
                 Ok(name)
             }
         }
-        None => Err(anyhow!("USERNAME not set; use `setg USERNAME <name>` first")),
+        None => Err(anyhow!("{}", crate::tr("std.err.conn.username_not_set"))),
     }
 }
 
@@ -249,7 +249,8 @@ fn require_username() -> Result<String> {
 /// - 返回：响应 proto 的编码字节。
 pub fn send_request(channel: &str, payload: &[u8]) -> Result<Vec<u8>> {
     let mut guard = CONNECTION.lock().unwrap();
-    let stream = guard.as_mut().ok_or_else(|| anyhow!("Not connected. Use `connect` first."))?;
+    let stream =
+        guard.as_mut().ok_or_else(|| anyhow!("{}", crate::tr("std.err.conn.not_connected")))?;
     // 未设置 USERNAME 不允许参与任何云端操作（加入约束）。
     let user = require_username()?;
 

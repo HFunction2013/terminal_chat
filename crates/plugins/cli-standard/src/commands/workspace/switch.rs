@@ -20,7 +20,11 @@ impl SwitchCommand {
             if workspace_name == "default" {
                 std::fs::create_dir_all(&dir)?;
             } else {
-                print_content(&format!("[!] Workspace `{workspace_name}` does not exist.").into());
+                print_content(
+                    &crate::tr("std.err.workspace.not_found")
+                        .replace("{name}", &workspace_name)
+                        .into(),
+                );
                 return Ok(());
             }
         }
@@ -33,7 +37,9 @@ impl SwitchCommand {
         let _ = reload_aliases();
         let _ = reload_macros();
         print_content(
-            &format!("[*] Switched to workspace `{workspace_name}` (home: {}).", home.display())
+            &crate::tr("std.prompt.workspace.switched")
+                .replace("{name}", &workspace_name)
+                .replace("{home}", &home.display().to_string())
                 .into(),
         );
         Ok(())
@@ -49,7 +55,12 @@ impl CommandExecutor for SwitchCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let workspace_name = matches
             .get_one::<String>("workspace_name")
-            .ok_or_else(|| anyhow!("Missing required argument: workspace_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "workspace_name")
+                )
+            })?
             .clone();
         self.execute(workspace_name)
     }

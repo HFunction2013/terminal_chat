@@ -33,7 +33,7 @@ impl MacroCommand {
             fs::read_to_string(&path)?
         };
         if code.is_empty() {
-            print_content(&"Macro body not specified. Cannot create macro.".into());
+            print_content(&crate::tr("std.err.macro.no_body").into());
             return Ok(());
         }
 
@@ -42,7 +42,7 @@ impl MacroCommand {
         let mut buf: ManuallyDrop<MacroDef> = ManuallyDrop::new(macro_def.clone());
         let _res = set_macro(&macro_def, Out::from(&mut buf));
         let _ = ManuallyDrop::into_inner(buf);
-        print_content(&format!("Macro {macro_name} created.").into());
+        print_content(&crate::tr("std.prompt.macro.created").replace("{name}", &macro_name).into());
         Ok(())
     }
 }
@@ -55,7 +55,12 @@ impl CommandExecutor for MacroCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let macro_name = matches
             .get_one::<String>("macro_name")
-            .ok_or_else(|| anyhow!("Missing required argument: macro_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "macro_name")
+                )
+            })?
             .clone();
         let macro_body = matches.get_one::<String>("macro_body").cloned();
         self.execute(macro_name, macro_body)

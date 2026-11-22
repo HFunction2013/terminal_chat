@@ -27,7 +27,7 @@ impl OptionsCommand {
         let _res = get_registered_options(Out::from(&mut reg_buf));
         let registered = ManuallyDrop::into_inner(reg_buf);
 
-        print_content(&"Registered options (set/setg):".into());
+        print_content(&crate::tr("std.prompt.setting.registered_options").into());
         for key in registered.iter() {
             print_content(&format!("  {key}").into());
         }
@@ -38,7 +38,7 @@ impl OptionsCommand {
         let _res = get_all_options(Out::from(&mut set_buf));
         let set = ManuallyDrop::into_inner(set_buf);
         if !set.is_empty() {
-            print_content(&"Currently set (setg):".into());
+            print_content(&crate::tr("std.prompt.setting.currently_set").into());
             for o in set.iter() {
                 print_content(&format!("  {} = {}", o.key, o.value).into());
             }

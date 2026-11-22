@@ -31,7 +31,7 @@ pub(crate) fn handle_kick(
             None => {
                 return KickResponse {
                     result: R::KickError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -41,13 +41,13 @@ pub(crate) fn handle_kick(
     if !state.freqs.contains_key(&freq) {
         return KickResponse {
             result: R::KickUserNotFound as i32,
-            message: format!("freq `{freq}` not found"),
+            message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
         };
     }
     if !mod_auth(&state, &freq, &sender) {
         return KickResponse {
             result: R::KickAccessDenied as i32,
-            message: "you are not a moderator".into(),
+            message: crate::i18n::t("srv.mod.not_moderator").to_string(),
         };
     }
     {
@@ -55,13 +55,15 @@ pub(crate) fn handle_kick(
         if room.creator == target {
             return KickResponse {
                 result: R::KickCannotKickCreator as i32,
-                message: "cannot kick the creator".into(),
+                message: crate::i18n::t("srv.mod.cannot_kick_creator").to_string(),
             };
         }
         if room.members.remove(&target).is_none() {
             return KickResponse {
                 result: R::KickUserNotFound as i32,
-                message: format!("user `{}` not in freq", target),
+                message: crate::i18n::t("srv.mod.target_not_in_freq")
+                    .replace("{target}", &target)
+                    .to_string(),
             };
         }
     }
@@ -69,11 +71,17 @@ pub(crate) fn handle_kick(
     println!("[srv-standard] {freq}: {} kicked {}", user_part(&sender), user_part(&target));
     notify(
         &target,
-        format!("[kick:{freq}] you were kicked by {}", display_user(&state, &freq, &sender)),
+        crate::i18n::t("srv.notify.kicked")
+            .replace("{freq}", &freq)
+            .replace("{who}", &display_user(&state, &freq, &sender))
+            .to_string(),
     );
     KickResponse {
         result: R::KickSuccess as i32,
-        message: format!("kicked {} from {freq}", target),
+        message: crate::i18n::t("srv.mod.kicked")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
     }
 }
 
@@ -99,7 +107,7 @@ pub(crate) fn handle_ban(
             None => {
                 return BanResponse {
                     result: R::BanError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -109,19 +117,19 @@ pub(crate) fn handle_ban(
     if !state.freqs.contains_key(&freq) {
         return BanResponse {
             result: R::BanUserNotFound as i32,
-            message: format!("freq `{freq}` not found"),
+            message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
         };
     }
     if !mod_auth(&state, &freq, &sender) {
         return BanResponse {
             result: R::BanAccessDenied as i32,
-            message: "you are not a moderator".into(),
+            message: crate::i18n::t("srv.mod.not_moderator").to_string(),
         };
     }
     if !state.users.contains_key(&target) {
         return BanResponse {
             result: R::BanUserNotFound as i32,
-            message: format!("user `{}` not found", target),
+            message: crate::i18n::t("srv.user.not_found").replace("{target}", &target).to_string(),
         };
     }
     {
@@ -129,7 +137,7 @@ pub(crate) fn handle_ban(
         if room.creator == target {
             return BanResponse {
                 result: R::BanCannotBanCreator as i32,
-                message: "cannot ban the creator".into(),
+                message: crate::i18n::t("srv.mod.cannot_ban_creator").to_string(),
             };
         }
         room.banned.insert(target.clone());
@@ -139,9 +147,18 @@ pub(crate) fn handle_ban(
     println!("[srv-standard] {freq}: {} banned {}", user_part(&sender), user_part(&target));
     notify(
         &target,
-        format!("[ban:{freq}] you were banned by {}", display_user(&state, &freq, &sender)),
+        crate::i18n::t("srv.notify.banned")
+            .replace("{freq}", &freq)
+            .replace("{who}", &display_user(&state, &freq, &sender))
+            .to_string(),
     );
-    BanResponse { result: R::BanSuccess as i32, message: format!("banned {} from {freq}", target) }
+    BanResponse {
+        result: R::BanSuccess as i32,
+        message: crate::i18n::t("srv.mod.banned")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
+    }
 }
 
 pub(crate) fn handle_unban(
@@ -166,7 +183,7 @@ pub(crate) fn handle_unban(
             None => {
                 return UnbanResponse {
                     result: R::UnbanError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -176,25 +193,28 @@ pub(crate) fn handle_unban(
     if !state.freqs.contains_key(&freq) {
         return UnbanResponse {
             result: R::UnbanUserNotFound as i32,
-            message: format!("freq `{freq}` not found"),
+            message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
         };
     }
     if !mod_auth(&state, &freq, &sender) {
         return UnbanResponse {
             result: R::UnbanAccessDenied as i32,
-            message: "you are not a moderator".into(),
+            message: crate::i18n::t("srv.mod.not_moderator").to_string(),
         };
     }
     let room = state.freqs.get_mut(&freq).expect("checked above");
     if room.banned.remove(&target) {
         UnbanResponse {
             result: R::UnbanSuccess as i32,
-            message: format!("unbanned {} from {freq}", target),
+            message: crate::i18n::t("srv.mod.unbanned")
+                .replace("{target}", &target)
+                .replace("{freq}", &freq)
+                .to_string(),
         }
     } else {
         UnbanResponse {
             result: R::UnbanUserNotFound as i32,
-            message: format!("user `{}` is not banned", target),
+            message: crate::i18n::t("srv.mod.not_banned").replace("{target}", &target).to_string(),
         }
     }
 }
@@ -221,7 +241,7 @@ pub(crate) fn handle_mute(
             None => {
                 return MuteResponse {
                     result: R::MuteError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -231,20 +251,20 @@ pub(crate) fn handle_mute(
     if !state.freqs.contains_key(&freq) {
         return MuteResponse {
             result: R::MuteUserNotFound as i32,
-            message: format!("freq `{freq}` not found"),
+            message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
         };
     }
     if !mod_auth(&state, &freq, &sender) {
         return MuteResponse {
             result: R::MuteAccessDenied as i32,
-            message: "you are not a moderator".into(),
+            message: crate::i18n::t("srv.mod.not_moderator").to_string(),
         };
     }
     let room = state.freqs.get_mut(&freq).expect("checked above");
     if room.creator == target {
         return MuteResponse {
             result: R::MuteCannotMuteCreator as i32,
-            message: "cannot mute the creator".into(),
+            message: crate::i18n::t("srv.mod.cannot_mute_creator").to_string(),
         };
     }
     let member = match room.members.get_mut(&target) {
@@ -252,7 +272,9 @@ pub(crate) fn handle_mute(
         None => {
             return MuteResponse {
                 result: R::MuteUserNotFound as i32,
-                message: format!("user `{}` not in freq", target),
+                message: crate::i18n::t("srv.mod.target_not_in_freq")
+                    .replace("{target}", &target)
+                    .to_string(),
             };
         }
     };
@@ -263,9 +285,18 @@ pub(crate) fn handle_mute(
     println!("[srv-standard] {freq}: {} muted {}", user_part(&sender), user_part(&target));
     notify(
         &target,
-        format!("[mute:{freq}] you were muted by {}", display_user(&state, &freq, &sender)),
+        crate::i18n::t("srv.notify.muted")
+            .replace("{freq}", &freq)
+            .replace("{who}", &display_user(&state, &freq, &sender))
+            .to_string(),
     );
-    MuteResponse { result: R::MuteSuccess as i32, message: format!("muted {} in {freq}", target) }
+    MuteResponse {
+        result: R::MuteSuccess as i32,
+        message: crate::i18n::t("srv.mod.muted")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
+    }
 }
 
 pub(crate) fn handle_unmute(
@@ -290,7 +321,7 @@ pub(crate) fn handle_unmute(
             None => {
                 return UnmuteResponse {
                     result: R::UnmuteError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -300,13 +331,13 @@ pub(crate) fn handle_unmute(
     if !state.freqs.contains_key(&freq) {
         return UnmuteResponse {
             result: R::UnmuteError as i32,
-            message: format!("freq `{freq}` not found"),
+            message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
         };
     }
     if !mod_auth(&state, &freq, &sender) {
         return UnmuteResponse {
             result: R::UnmuteAccessDenied as i32,
-            message: "you are not a moderator".into(),
+            message: crate::i18n::t("srv.mod.not_moderator").to_string(),
         };
     }
     let room = state.freqs.get_mut(&freq).expect("checked above");
@@ -315,20 +346,25 @@ pub(crate) fn handle_unmute(
         None => {
             return UnmuteResponse {
                 result: R::UnmuteUserNotMuted as i32,
-                message: format!("user `{}` not in freq", target),
+                message: crate::i18n::t("srv.mod.target_not_in_freq")
+                    .replace("{target}", &target)
+                    .to_string(),
             };
         }
     };
     if member.muted_until == 0 {
         return UnmuteResponse {
             result: R::UnmuteUserNotMuted as i32,
-            message: format!("user `{}` is not muted", target),
+            message: crate::i18n::t("srv.mod.not_muted").replace("{target}", &target).to_string(),
         };
     }
     member.muted_until = 0;
     UnmuteResponse {
         result: R::UnmuteSuccess as i32,
-        message: format!("unmuted {} in {freq}", target),
+        message: crate::i18n::t("srv.mod.unmuted")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
     }
 }
 
@@ -354,7 +390,7 @@ pub(crate) fn handle_op(
             None => {
                 return OpResponse {
                     result: R::OpError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -366,7 +402,7 @@ pub(crate) fn handle_op(
         None => {
             return OpResponse {
                 result: R::OpUserNotFound as i32,
-                message: format!("freq `{freq}` not found"),
+                message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
             };
         }
     };
@@ -374,7 +410,7 @@ pub(crate) fn handle_op(
     if room.creator != sender {
         return OpResponse {
             result: R::OpAccessDenied as i32,
-            message: "only the creator can grant mod".into(),
+            message: crate::i18n::t("srv.mod.only_creator_op").to_string(),
         };
     }
     let member = match room.members.get_mut(&target) {
@@ -382,21 +418,28 @@ pub(crate) fn handle_op(
         None => {
             return OpResponse {
                 result: R::OpUserNotFound as i32,
-                message: format!("user `{}` not in freq", target),
+                message: crate::i18n::t("srv.mod.target_not_in_freq")
+                    .replace("{target}", &target)
+                    .to_string(),
             };
         }
     };
     if member.is_moderator {
         return OpResponse {
             result: R::OpAlreadyModerator as i32,
-            message: format!("{} is already a moderator", target),
+            message: crate::i18n::t("srv.mod.already_moderator")
+                .replace("{target}", &target)
+                .to_string(),
         };
     }
     member.is_moderator = true;
     println!("[srv-standard] {freq}: {} opped {}", user_part(&sender), user_part(&target));
     OpResponse {
         result: R::OpSuccess as i32,
-        message: format!("{} is now a moderator of {freq}", target),
+        message: crate::i18n::t("srv.mod.opped")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
     }
 }
 
@@ -422,7 +465,7 @@ pub(crate) fn handle_deop(
             None => {
                 return DeopResponse {
                     result: R::DeopError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -434,20 +477,20 @@ pub(crate) fn handle_deop(
         None => {
             return DeopResponse {
                 result: R::DeopUserNotFound as i32,
-                message: format!("freq `{freq}` not found"),
+                message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
             };
         }
     };
     if room.creator != sender {
         return DeopResponse {
             result: R::DeopAccessDenied as i32,
-            message: "only the creator can revoke mod".into(),
+            message: crate::i18n::t("srv.mod.only_creator_deop").to_string(),
         };
     }
     if room.creator == target {
         return DeopResponse {
             result: R::DeopCannotDeopCreator as i32,
-            message: "cannot deop the creator".into(),
+            message: crate::i18n::t("srv.mod.cannot_deop_creator").to_string(),
         };
     }
     let member = match room.members.get_mut(&target) {
@@ -455,20 +498,27 @@ pub(crate) fn handle_deop(
         None => {
             return DeopResponse {
                 result: R::DeopUserNotFound as i32,
-                message: format!("user `{}` not in freq", target),
+                message: crate::i18n::t("srv.mod.target_not_in_freq")
+                    .replace("{target}", &target)
+                    .to_string(),
             };
         }
     };
     if !member.is_moderator {
         return DeopResponse {
             result: R::DeopNotModerator as i32,
-            message: format!("{} is not a moderator", target),
+            message: crate::i18n::t("srv.mod.not_moderator_target")
+                .replace("{target}", &target)
+                .to_string(),
         };
     }
     member.is_moderator = false;
     DeopResponse {
         result: R::DeopSuccess as i32,
-        message: format!("{} is no longer a moderator of {freq}", target),
+        message: crate::i18n::t("srv.mod.deopped")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
     }
 }
 
@@ -494,7 +544,7 @@ pub(crate) fn handle_trop(
             None => {
                 return TropResponse {
                     result: R::TropError as i32,
-                    message: "you are not in any freq".into(),
+                    message: crate::i18n::t("srv.common.not_in_freq").to_string(),
                 };
             }
         }
@@ -506,26 +556,28 @@ pub(crate) fn handle_trop(
         None => {
             return TropResponse {
                 result: R::TropUserNotFound as i32,
-                message: format!("freq `{freq}` not found"),
+                message: crate::i18n::t("srv.freq.not_found").replace("{freq}", &freq).to_string(),
             };
         }
     };
     if room.creator != sender {
         return TropResponse {
             result: R::TropAccessDenied as i32,
-            message: "only the creator can transfer ownership".into(),
+            message: crate::i18n::t("srv.mod.only_creator_trop").to_string(),
         };
     }
     if room.creator == target {
         return TropResponse {
             result: R::TropSelfTransfer as i32,
-            message: "you are already the creator".into(),
+            message: crate::i18n::t("srv.mod.self_transfer").to_string(),
         };
     }
     if !room.members.contains_key(&target) {
         return TropResponse {
             result: R::TropUserNotFound as i32,
-            message: format!("user `{}` not in freq", target),
+            message: crate::i18n::t("srv.mod.target_not_in_freq")
+                .replace("{target}", &target)
+                .to_string(),
         };
     }
     room.creator = target.clone();
@@ -535,6 +587,9 @@ pub(crate) fn handle_trop(
     println!("[srv-standard] {freq}: creator transferred to {}", user_part(&target));
     TropResponse {
         result: R::TropSuccess as i32,
-        message: format!("{} is now the creator of {freq}", target),
+        message: crate::i18n::t("srv.mod.trop_success")
+            .replace("{target}", &target)
+            .replace("{freq}", &freq)
+            .to_string(),
     }
 }

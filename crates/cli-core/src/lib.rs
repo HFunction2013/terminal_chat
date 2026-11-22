@@ -2,6 +2,7 @@ mod aliases;
 mod cmd_state;
 mod freq_state;
 mod global_settings;
+mod i18n;
 mod init;
 mod macros;
 mod plugins;

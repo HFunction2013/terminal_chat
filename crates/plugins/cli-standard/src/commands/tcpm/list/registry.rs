@@ -14,7 +14,7 @@ impl RegistryCommand {
     pub fn execute(&self) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        print_content(&"[!] registry is not enabled in this build; plugin management without registry works via `install -l <path>` / `load plugin <name>`.".into());
+        print_content(&crate::tr("std.err.plugin.registry_disabled").into());
         Ok(())
     }
 }

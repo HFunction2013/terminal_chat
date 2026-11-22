@@ -1,14 +1,17 @@
 //! 菜单注册表登记（#90）。
 //!
 //! 本模块把可被插件调度的命令菜单条目登记进 cli-core 注册表；宿主 TUI 按注册表
-//! 驱动渲染菜单。内置退出 / 信息弹窗命令（exit / about / copyright / license /
+//! 驱动渲染。内置退出 / 信息弹窗命令（exit / about / copyright / license /
 //! help 等）由宿主本地分发，不在此登记。
+//!
+//! 表内 `label` / `group` 存的是 i18n key；注册时不固化译文快照，查询时由 core
+//! 按当前语言现译。`accel` / `argv` 等非译字段原样登记。
 
 use cli_core_types::ui::ui_action_kind;
 use libloading::Library;
 use safer_ffi::prelude::*;
 
-/// 一条 Run 类菜单项：标签 / 分组 / 组助记符 / 命令行参数（空格分隔）。
+/// 一条 Run 类菜单项：标签 key / 分组 key / 组助记符 / 命令行参数（空格分隔）。
 struct RunEntry {
     label: &'static str,
     group: &'static str,
@@ -19,36 +22,136 @@ struct RunEntry {
 /// 由插件 dispatch 的 Run 类菜单项；表单类菜单项随批次 2 迁移。
 const RUN_ENTRIES: &[RunEntry] = &[
     // Connection (C)
-    RunEntry { label: "Connect", group: "Connection", accel: "C", argv: "connect" },
-    RunEntry { label: "Reconnect", group: "Connection", accel: "C", argv: "reconnect" },
-    RunEntry { label: "Disconnect", group: "Connection", accel: "C", argv: "disconnect" },
-    RunEntry { label: "Whoami", group: "Connection", accel: "C", argv: "whoami" },
-    RunEntry { label: "Status", group: "Connection", accel: "C", argv: "status" },
-    RunEntry { label: "Route", group: "Connection", accel: "C", argv: "route" },
+    RunEntry {
+        label: "std.menu.connection.connect",
+        group: "std.group.connection",
+        accel: "C",
+        argv: "connect",
+    },
+    RunEntry {
+        label: "std.menu.connection.reconnect",
+        group: "std.group.connection",
+        accel: "C",
+        argv: "reconnect",
+    },
+    RunEntry {
+        label: "std.menu.connection.disconnect",
+        group: "std.group.connection",
+        accel: "C",
+        argv: "disconnect",
+    },
+    RunEntry {
+        label: "std.menu.connection.whoami",
+        group: "std.group.connection",
+        accel: "C",
+        argv: "whoami",
+    },
+    RunEntry {
+        label: "std.menu.connection.status",
+        group: "std.group.connection",
+        accel: "C",
+        argv: "status",
+    },
+    RunEntry {
+        label: "std.menu.connection.route",
+        group: "std.group.connection",
+        accel: "C",
+        argv: "route",
+    },
     // Workspace (W)
-    RunEntry { label: "List", group: "Workspace", accel: "W", argv: "workspace list" },
-    RunEntry { label: "Show", group: "Workspace", accel: "W", argv: "workspace show" },
+    RunEntry {
+        label: "std.menu.workspace.list",
+        group: "std.group.workspace",
+        accel: "W",
+        argv: "workspace list",
+    },
+    RunEntry {
+        label: "std.menu.workspace.show",
+        group: "std.group.workspace",
+        accel: "W",
+        argv: "workspace show",
+    },
     // Frequency (F)
-    RunEntry { label: "Leave", group: "Frequency", accel: "F", argv: "leave_freq" },
-    RunEntry { label: "Background", group: "Frequency", accel: "F", argv: "background" },
-    RunEntry { label: "Foreground", group: "Frequency", accel: "F", argv: "foreground" },
-    RunEntry { label: "Away", group: "Frequency", accel: "F", argv: "away" },
-    RunEntry { label: "Notifications", group: "Frequency", accel: "F", argv: "notifications" },
-    RunEntry { label: "Sessions", group: "Frequency", accel: "F", argv: "sessions -l" },
-    RunEntry { label: "Disband", group: "Frequency", accel: "F", argv: "disband" },
-    RunEntry { label: "Active freqs", group: "Frequency", accel: "F", argv: "show active_freqs" },
-    RunEntry { label: "Active users", group: "Frequency", accel: "F", argv: "show active_users" },
+    RunEntry {
+        label: "std.menu.frequency.leave",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "leave_freq",
+    },
+    RunEntry {
+        label: "std.menu.frequency.background",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "background",
+    },
+    RunEntry {
+        label: "std.menu.frequency.foreground",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "foreground",
+    },
+    RunEntry {
+        label: "std.menu.frequency.away",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "away",
+    },
+    RunEntry {
+        label: "std.menu.frequency.notifications",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "notifications",
+    },
+    RunEntry {
+        label: "std.menu.frequency.sessions",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "sessions -l",
+    },
+    RunEntry {
+        label: "std.menu.frequency.disband",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "disband",
+    },
+    RunEntry {
+        label: "std.menu.frequency.active_freqs",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "show active_freqs",
+    },
+    RunEntry {
+        label: "std.menu.frequency.active_users",
+        group: "std.group.frequency",
+        accel: "F",
+        argv: "show active_users",
+    },
     // Files (L)
-    RunEntry { label: "Tree", group: "Files", accel: "L", argv: "tree" },
-    RunEntry { label: "Pwd (remote)", group: "Files", accel: "L", argv: "pwd" },
-    RunEntry { label: "Local Pwd", group: "Files", accel: "L", argv: "lpwd" },
-    RunEntry { label: "Local List", group: "Files", accel: "L", argv: "lls" },
-    RunEntry { label: "Local Cd...", group: "Files", accel: "L", argv: "lcd" },
+    RunEntry { label: "std.menu.files.tree", group: "std.group.files", accel: "L", argv: "tree" },
+    RunEntry { label: "std.menu.files.pwd", group: "std.group.files", accel: "L", argv: "pwd" },
+    RunEntry { label: "std.menu.files.lpwd", group: "std.group.files", accel: "L", argv: "lpwd" },
+    RunEntry { label: "std.menu.files.lls", group: "std.group.files", accel: "L", argv: "lls" },
+    RunEntry { label: "std.menu.files.lcd", group: "std.group.files", accel: "L", argv: "lcd" },
     // Plugins (P)
-    RunEntry { label: "Show", group: "Plugins", accel: "P", argv: "show plugins" },
+    RunEntry {
+        label: "std.menu.plugins.show",
+        group: "std.group.plugins",
+        accel: "P",
+        argv: "show plugins",
+    },
     // Settings (S)
-    RunEntry { label: "Options", group: "Settings", accel: "S", argv: "show options" },
-    RunEntry { label: "Locals", group: "Settings", accel: "S", argv: "show locals" },
+    RunEntry {
+        label: "std.menu.settings.options",
+        group: "std.group.settings",
+        accel: "S",
+        argv: "show options",
+    },
+    RunEntry {
+        label: "std.menu.settings.locals",
+        group: "std.group.settings",
+        accel: "S",
+        argv: "show locals",
+    },
 ];
 
 /// 向 cli-core 注册表登记本插件的 Run 类菜单项。

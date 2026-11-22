@@ -30,7 +30,12 @@ impl CommandExecutor for MkdirCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let directory = matches
             .get_one::<String>("directory")
-            .ok_or_else(|| anyhow!("Missing required argument: directory"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "directory")
+                )
+            })?
             .clone();
         self.execute(directory)
     }

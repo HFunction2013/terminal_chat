@@ -22,9 +22,13 @@ impl MacroCommand {
         let _res = remove_macro(&macro_name.into(), Out::from(&mut buf));
         let removed = !matches!(ManuallyDrop::into_inner(buf), TaggedOption::None);
         if removed {
-            print_content(&format!("Macro {name_for_display} deleted.").into());
+            print_content(
+                &crate::tr("std.prompt.macro.deleted").replace("{name}", &name_for_display).into(),
+            );
         } else {
-            print_content(&format!("Macro {name_for_display} doesn't exist.").into());
+            print_content(
+                &crate::tr("std.err.macro.not_found").replace("{name}", &name_for_display).into(),
+            );
         }
         Ok(())
     }
@@ -38,7 +42,12 @@ impl CommandExecutor for MacroCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let macro_name = matches
             .get_one::<String>("macro_name")
-            .ok_or_else(|| anyhow!("Missing required argument: macro_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "macro_name")
+                )
+            })?
             .clone();
         self.execute(macro_name)
     }

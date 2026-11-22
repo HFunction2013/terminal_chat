@@ -25,7 +25,7 @@ impl ForegroundCommand {
             }
             print_content(&resp.message.clone().into());
         } else {
-            print_content(&"[!] no background session; use `join_freq <freq>` first".into());
+            print_content(&crate::tr("std.prompt.session.no_background").into());
         }
         Ok(())
     }

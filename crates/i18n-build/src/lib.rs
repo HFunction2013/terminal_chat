@@ -81,12 +81,13 @@ pub fn generate(toml: &str) -> String {
     out.push_str("#[derive(Clone, Copy, PartialEq, Eq, Debug)]\npub enum Lang { En, Zh }\n\n");
 
     out.push_str(
-        r#"pub fn detect_lang() -> Lang {
+        r#"/// Detect the active language from the process environment (`LANG`, then
+/// `LC_ALL`); empty values are skipped, any non-Chinese variant falls back
+/// to English. Cached behind a `OnceLock`.
+pub fn detect_lang_env() -> Lang {
     static LANG: std::sync::OnceLock<Lang> = std::sync::OnceLock::new();
     *LANG.get_or_init(|| {
-        // Explicit override wins, then the system locale; anything that is
-        // not a Chinese variant falls back to English.
-        for var in ["TC_LANGUAGE", "LANG", "LC_ALL"] {
+        for var in ["LANG", "LC_ALL"] {
             if let Ok(v) = std::env::var(var) {
                 let v = v.trim().to_ascii_lowercase();
                 if v.is_empty() {
@@ -109,10 +110,17 @@ pub fn generate(toml: &str) -> String {
     out.push_str("];\n\n");
 
     out.push_str(
-        r#"/// Look up a message for the active language. Unknown keys return the key
+        r#"/// Compiled-in dictionary entries: `(key, en, zh)`. Hosts / plugins report
+/// these to the core at init so the runtime registry can translate by key.
+#[allow(dead_code)]
+pub fn entries() -> &'static [(&'static str, &'static str, &'static str)] {
+    TABLE
+}
+
+/// Look up a message for the active language. Unknown keys return the key
 /// itself; a missing `zh` entry falls back to `en`.
 pub fn t(key: &str) -> &str {
-    t_lang(detect_lang(), key)
+    t_lang(detect_lang_env(), key)
 }
 
 /// Look up a message for an explicit language (mainly for tests).
@@ -144,6 +152,24 @@ mod tests {
         let code = generate(src);
         assert!(code.contains("\"menu.file\""));
         assert!(code.contains("\"文件\""));
+    }
+
+    #[test]
+    fn entries_accessor_emits_table_reference() {
+        let src = "[menu.file]\nen = \"File\"\nzh = \"文件\"\n";
+        let code = generate(src);
+        assert!(
+            code.contains(
+                "pub fn entries() -> &'static [(&'static str, &'static str, &'static str)]"
+            )
+        );
+        assert!(code.contains("TABLE"));
+        // The backing parse keeps the (key, en, zh) triples intact.
+        let parsed = parse(src);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].key, "menu.file");
+        assert_eq!(parsed[0].en, "File");
+        assert_eq!(parsed[0].zh, "文件");
     }
 
     #[test]

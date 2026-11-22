@@ -30,7 +30,9 @@ impl CommandExecutor for RmCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let path = matches
             .get_one::<String>("path")
-            .ok_or_else(|| anyhow!("Missing required argument: path"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "path"))
+            })?
             .clone();
         let recursive = matches.get_flag("recursive");
         self.execute(path, recursive)

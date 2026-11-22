@@ -17,7 +17,7 @@ impl DownloadedCommand {
         let rd = match std::fs::read_dir(crate::local::plugins_dir()) {
             Ok(rd) => rd,
             Err(_) => {
-                print_content(&"no plugins downloaded.".into());
+                print_content(&crate::tr("std.prompt.plugin.no_downloaded").into());
                 return Ok(());
             }
         };
@@ -34,7 +34,7 @@ impl DownloadedCommand {
             .collect();
         names.sort();
         if names.is_empty() {
-            print_content(&"no plugins downloaded.".into());
+            print_content(&crate::tr("std.prompt.plugin.no_downloaded").into());
             return Ok(());
         }
         for n in names {

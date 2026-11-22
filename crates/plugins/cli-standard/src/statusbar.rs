@@ -93,7 +93,18 @@ fn read_freq() -> Option<String> {
     }
 }
 
+/// 状态栏静态词标签：回调经 [`crate::tr`] 取当前语言译文；纯函数测试直接注入
+/// 英文标签，不依赖 core 运行时词典。
+struct StatusLabels {
+    guest: String,
+    offline: String,
+    sound: String,
+    quiet: String,
+    freq: String,
+}
+
 /// 拼接待渲染的状态栏整行（纯函数，便于单测覆盖空值回退口径）。
+/// 用户名 / 服务器 / 端口 / 频点 / 时间戳等数据原样拼接；静态词取自 `labels`。
 fn compose_status_line(
     username: &str,
     server: &str,
@@ -101,17 +112,18 @@ fn compose_status_line(
     quiet: bool,
     freq: &str,
     ts: u64,
+    labels: &StatusLabels,
 ) -> String {
-    let who = if username.is_empty() { "guest" } else { username };
+    let who = if username.is_empty() { &labels.guest } else { username };
     let host = if server.is_empty() {
-        "offline".to_string()
+        labels.offline.clone()
     } else if port.is_empty() {
         server.to_string()
     } else {
         format!("{server}:{port}")
     };
-    let quiet_label = if quiet { "QUIET" } else { "sound" };
-    format!("{who}@{host} | freq {freq} | {quiet_label} | {ts}")
+    let quiet_label = if quiet { &labels.quiet } else { &labels.sound };
+    format!("{who}@{host} | {} {freq} | {quiet_label} | {ts}", labels.freq)
 }
 
 /// 逐帧底部回调：取当前状态拼成整行文本；空串表示本帧无片段。
@@ -122,7 +134,14 @@ pub unsafe extern "C" fn status_bar_callback() -> safer_ffi::String {
     let quiet = is_truthy(&read_effective("QUIET"));
     let freq = read_freq().unwrap_or_else(|| "-".to_string());
     let ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    compose_status_line(&username, &server, &port, quiet, &freq, ts).into()
+    let labels = StatusLabels {
+        guest: crate::tr("std.status.guest"),
+        offline: crate::tr("std.status.offline"),
+        sound: crate::tr("std.status.sound"),
+        quiet: crate::tr("std.status.quiet"),
+        freq: crate::tr("std.status.freq"),
+    };
+    compose_status_line(&username, &server, &port, quiet, &freq, ts, &labels).into()
 }
 
 /// 向 cli-core 注册表登记底部整行回调。
@@ -137,22 +156,40 @@ pub fn register_statusbar(lib: &Library) {
 mod tests {
     use super::*;
 
+    fn english_labels() -> StatusLabels {
+        StatusLabels {
+            guest: "guest".into(),
+            offline: "offline".into(),
+            sound: "sound".into(),
+            quiet: "QUIET".into(),
+            freq: "freq".into(),
+        }
+    }
+
     #[test]
     fn compose_line_falls_back_to_defaults() {
         // 全空：guest@offline | freq - | sound | 0
-        let line = compose_status_line("", "", "", false, "-", 0);
+        let line = compose_status_line("", "", "", false, "-", 0, &english_labels());
         assert_eq!(line, "guest@offline | freq - | sound | 0");
     }
 
     #[test]
     fn compose_line_renders_host_and_quiet() {
-        let line = compose_status_line("alice", "127.0.0.1", "50051", true, "lobby", 1700);
+        let line = compose_status_line(
+            "alice",
+            "127.0.0.1",
+            "50051",
+            true,
+            "lobby",
+            1700,
+            &english_labels(),
+        );
         assert_eq!(line, "alice@127.0.0.1:50051 | freq lobby | QUIET | 1700");
     }
 
     #[test]
     fn compose_line_omits_port_when_empty() {
-        let line = compose_status_line("bob", "example.com", "", false, "-", 1);
+        let line = compose_status_line("bob", "example.com", "", false, "-", 1, &english_labels());
         assert_eq!(line, "bob@example.com | freq - | sound | 1");
     }
 }

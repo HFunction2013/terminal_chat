@@ -28,6 +28,7 @@ libloading = { workspace = true }
 
 [build-dependencies]
 yaml2cmd-build = { workspace = true }
+i18n-build = { path = "../../i18n-build" }
 
 [lints]
 workspace = true

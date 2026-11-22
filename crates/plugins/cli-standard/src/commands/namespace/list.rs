@@ -26,7 +26,7 @@ impl ListCommand {
         let namespaces: BTreeSet<String> =
             plugins.iter().map(|p| p.command_name.to_string()).collect();
         if namespaces.is_empty() {
-            print_content(&"  (no namespaces loaded)".into());
+            print_content(&crate::tr("std.prompt.plugin.no_namespaces").into());
             return Ok(());
         }
         for ns in namespaces {

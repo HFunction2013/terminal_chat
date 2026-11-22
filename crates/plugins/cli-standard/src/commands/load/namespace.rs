@@ -25,29 +25,32 @@ impl NamespaceCommand {
         let _ = get_all_plugins(Out::from(&mut buf));
         let loaded = ManuallyDrop::into_inner(buf);
         if loaded.iter().any(|p| p.command_name.to_string() == namespace) {
-            print_content(&format!("[*] Namespace `{namespace}` is already loaded.").into());
+            print_content(
+                &crate::tr("std.prompt.plugin.already_loaded")
+                    .replace("{namespace}", &namespace)
+                    .into(),
+            );
             return Ok(());
         }
 
         // 未加载：按该名称走既有插件库查找与加载路径（与 `load plugin` 同一发现路径）。
         // 注意：若某插件的 command_name 与库名不同且尚未加载，需用 `load plugin <库名>`。
         let res = load_plugin(&namespace.clone().into());
+        let msg = res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default();
         if res.success == 1 {
             print_content(
-                &format!(
-                    "[*] Namespace `{namespace}` loaded: {}",
-                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default()
-                )
-                .into(),
+                &crate::tr("std.prompt.plugin.ns_loaded")
+                    .replace("{namespace}", &namespace)
+                    .replace("{msg}", &msg)
+                    .into(),
             );
         } else {
             print_content(
-                &format!(
-                    "[!] Namespace `{namespace}` not found among loaded plugins or installed libraries: {} (exit {})",
-                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default(),
-                    res.exit_code
-                )
-                .into(),
+                &crate::tr("std.err.plugin.ns_not_found")
+                    .replace("{namespace}", &namespace)
+                    .replace("{msg}", &msg)
+                    .replace("{code}", &res.exit_code.to_string())
+                    .into(),
             );
         }
         Ok(())
@@ -62,7 +65,12 @@ impl CommandExecutor for NamespaceCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let namespace = matches
             .get_one::<String>("namespace")
-            .ok_or_else(|| anyhow!("Missing required argument: namespace"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "namespace")
+                )
+            })?
             .clone();
         self.execute(namespace)
     }

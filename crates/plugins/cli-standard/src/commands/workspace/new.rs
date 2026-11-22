@@ -17,11 +17,18 @@ impl NewCommand {
         let name = workspace_name.unwrap_or_else(|| "default".to_string());
         let dir = crate::local::workspace_path(&name);
         if dir.exists() {
-            print_content(&format!("[!] Workspace `{name}` already exists.").into());
+            print_content(
+                &crate::tr("std.err.workspace.already_exists").replace("{target}", &name).into(),
+            );
         } else {
             std::fs::create_dir_all(&dir)?;
             let _ = std::fs::create_dir_all(dir.join("home"));
-            print_content(&format!("[*] Workspace `{name}` created at {}.", dir.display()).into());
+            print_content(
+                &crate::tr("std.prompt.workspace.created")
+                    .replace("{name}", &name)
+                    .replace("{dir}", &dir.display().to_string())
+                    .into(),
+            );
         }
         if let Some(e) = enter {
             if e == "1" || e.eq_ignore_ascii_case("true") || e.eq_ignore_ascii_case("yes") {
@@ -32,7 +39,9 @@ impl NewCommand {
                 let _ = reload_aliases();
                 let _ = reload_macros();
                 print_content(
-                    &format!("[*] Switched to workspace `{name}` (home: {}).", home.display())
+                    &crate::tr("std.prompt.workspace.switched")
+                        .replace("{name}", &name)
+                        .replace("{home}", &home.display().to_string())
                         .into(),
                 );
             }

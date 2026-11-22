@@ -285,7 +285,7 @@ const COMPLETION_VIEW: usize = 5;
 /// 宿主内置菜单项：退出与信息弹窗命令由本地 `try_builtin` 分发，不进注册表；
 /// 其余业务菜单全部由 cli-standard 插件经注册表登记（见 #90 / #150）。
 fn builtin_groups() -> Vec<MenuGroup> {
-    let t = crate::i18n::t;
+    let t = crate::tr;
     vec![
         MenuGroup {
             name: t("menu.file").to_string(),
@@ -556,7 +556,7 @@ struct CompletionCtx {
 impl App {
     fn new() -> Self {
         let mut log = Vec::new();
-        log.push(ChatLine { text: crate::i18n::t("tui.hint").to_string(), kind: LineKind::System });
+        log.push(ChatLine { text: crate::tr("tui.hint").to_string(), kind: LineKind::System });
         Self {
             log,
             input: String::new(),
@@ -640,7 +640,7 @@ impl App {
         if let Some(set_int) = self.set_interrupted {
             let _ = set_int(true);
         }
-        self.push_line("^C Interrupting current command.".to_string(), LineKind::System);
+        self.push_line(crate::tr("tui.interrupt").to_string(), LineKind::System);
     }
 
     /// 从一条推送文本中收集成员名，并更新当前会话快照。
@@ -1276,11 +1276,11 @@ fn is_dangerous(cmd: &str) -> bool {
 fn confirm_message(cmd: &str, argv: &[String]) -> String {
     let target = argv.get(1).cloned().unwrap_or_default();
     match cmd {
-        "disband" => "Really disband this frequency? This cannot be undone.".to_string(),
-        "kick" => format!("Really kick {target}?"),
-        "ban" => format!("Really ban {target}?"),
-        "rm" => format!("Really remove remote file {target}?"),
-        _ => format!("Really run: {}?", argv.join(" ")),
+        "disband" => crate::tr("confirm.disband").to_string(),
+        "kick" => crate::tr("confirm.kick").replace("{target}", &target),
+        "ban" => crate::tr("confirm.ban").replace("{target}", &target),
+        "rm" => crate::tr("confirm.rm").replace("{target}", &target),
+        _ => crate::tr("confirm.run").replace("{argv}", &argv.join(" ")),
     }
 }
 
@@ -1891,7 +1891,7 @@ fn draw_sidebar_registry(ctx: &mut Context, app: &mut App) {
             "members" => render_members_template(ctx, app, &templates),
             "plugins" => render_plugins_template(ctx, app, &templates),
             _ => {
-                ctx.label("none", "  (none)");
+                ctx.label("none", &format!("  {}", crate::tr("tui.none")));
             }
         }
     }
@@ -1921,7 +1921,8 @@ fn render_sessions_template(
     templates: &[ui_registry::RegSideItem],
 ) {
     if app.sessions.is_empty() {
-        let freq = app.current_freq.clone().unwrap_or_else(|| "(not joined)".to_string());
+        let freq =
+            app.current_freq.clone().unwrap_or_else(|| crate::tr("tui.not_joined").to_string());
         ctx.label("freq", &format!("  {freq}"));
         return;
     }
@@ -1958,7 +1959,7 @@ fn render_members_template(
     templates: &[ui_registry::RegSideItem],
 ) {
     if app.members.is_empty() {
-        ctx.label("none", "  (none)");
+        ctx.label("none", &format!("  {}", crate::tr("tui.none")));
         return;
     }
     ctx.list_begin("sidebar-members");
@@ -1984,7 +1985,7 @@ fn render_plugins_template(
     templates: &[ui_registry::RegSideItem],
 ) {
     if app.plugins.is_empty() {
-        ctx.label("plugin-none", "  (none)");
+        ctx.label("plugin-none", &format!("  {}", crate::tr("tui.none")));
         return;
     }
     ctx.list_begin("sidebar-plugins");
@@ -2168,8 +2169,7 @@ fn draw_dialog(
             ctx.label("info-line", line);
         }
 
-        let closed =
-            ctx.button("info-close", crate::i18n::t("dialog.close"), ButtonStyle::default());
+        let closed = ctx.button("info-close", crate::tr("dialog.close"), ButtonStyle::default());
         ctx.block_end();
         if closed {
             app.dialog = None;
@@ -2183,15 +2183,15 @@ fn draw_dialog(
 
     // 危险操作确认框：纯按钮，无文本输入。
     if let Dialog::Confirm { message, .. } = app.dialog.as_ref().unwrap() {
-        ctx.modal_begin("confirm-dialog", crate::i18n::t("dialog.confirm"));
+        ctx.modal_begin("confirm-dialog", crate::tr("dialog.confirm"));
         ctx.block_begin("content");
         ctx.inherit_focus();
         ctx.attr_padding(Rect::three(1, 2, 1));
         ctx.label("confirm-msg", message);
-        ctx.label("confirm-hint", crate::i18n::t("dialog.confirm_hint"));
+        ctx.label("confirm-hint", crate::tr("dialog.confirm_hint"));
         let confirmed = ctx.button(
             "confirm-ok",
-            crate::i18n::t("dialog.confirm"),
+            crate::tr("dialog.confirm"),
             ButtonStyle::default().bracketed(false),
         );
         ctx.block_end();
@@ -2208,10 +2208,10 @@ fn draw_dialog(
     let (title, prompt, secret) = match app.dialog.as_ref().unwrap() {
         Dialog::Connect { stage, .. } => match stage {
             DialogStage::AskServer => {
-                (crate::i18n::t("dialog.connect"), crate::i18n::t("dialog.connect_server"), false)
+                (crate::tr("dialog.connect"), crate::tr("dialog.connect_server"), false)
             }
             DialogStage::AskUser => {
-                (crate::i18n::t("dialog.nickname"), crate::i18n::t("dialog.nickname"), false)
+                (crate::tr("dialog.nickname"), crate::tr("dialog.nickname"), false)
             }
         },
         Dialog::Form(form) => {
@@ -2286,7 +2286,7 @@ fn run_action(
         }
         Action::Form(spec) => {
             if needs_connection(spec.cmd.as_str()) && !app.connected() {
-                app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
+                app.push_line(crate::tr("tui.not_connected").to_string(), LineKind::Result);
             } else if app.prefer_cli {
                 // 优先命令行：退回输入框预填前缀，交用户补全参数；
                 // 同时清掉残留表单弹窗，避免浮层挡住输入框。
@@ -2319,7 +2319,7 @@ fn execute_or_dialog(
     // 需连接的云端命令：未连接时直接提示，不发 RPC、不弹表单。
     let cmd = argv.first().map(|s| s.as_str()).unwrap_or("");
     if needs_connection(cmd) && !app.connected() {
-        app.push_line("Not connected. Run `connect` first.".to_string(), LineKind::Result);
+        app.push_line(crate::tr("tui.not_connected").to_string(), LineKind::Result);
         return;
     }
     // 带参命令在命令行偏好关闭、且未带任何参数时，打开参数表单收集；
@@ -2355,12 +2355,12 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         }
         "version" => {
             let lines = crate::welcome_text(false).lines().map(String::from).collect();
-            app.present_info(crate::i18n::t("menu.help.about").to_string(), lines);
+            app.present_info(crate::tr("menu.help.about").to_string(), lines);
             true
         }
         "build_info" => {
             let lines = crate::build_info_text().lines().map(String::from).collect();
-            app.present_info(crate::i18n::t("dialog.build_info").to_string(), lines);
+            app.present_info(crate::tr("dialog.build_info").to_string(), lines);
             true
         }
         "about" => {
@@ -2368,19 +2368,19 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
                 crate::welcome_text(false).lines().map(String::from).collect();
             lines.push(String::new());
             lines.extend(crate::build_info_text().lines().map(String::from));
-            app.present_info(crate::i18n::t("menu.help.about").to_string(), lines);
+            app.present_info(crate::tr("menu.help.about").to_string(), lines);
             true
         }
         "copyright" => {
             app.present_info(
-                crate::i18n::t("menu.help.copyright").to_string(),
+                crate::tr("menu.help.copyright").to_string(),
                 vec![crate::copyright_text()],
             );
             true
         }
         "license" => {
             let lines: Vec<String> = crate::license_text().lines().map(String::from).collect();
-            app.present_info(crate::i18n::t("menu.help.license").to_string(), lines);
+            app.present_info(crate::tr("menu.help.license").to_string(), lines);
             true
         }
         "coffee" => {
@@ -2393,33 +2393,25 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
                 true
             }
             None => {
-                app.push_line(crate::i18n::t("repl.saying_error").to_string(), LineKind::System);
+                app.push_line(crate::tr("repl.saying_error").to_string(), LineKind::System);
                 true
             }
         },
         "help" => {
             let lines: Vec<String> =
                 crate::builtin_help_lines().into_iter().map(String::from).collect();
-            app.present_info(crate::i18n::t("menu.help.help").to_string(), lines);
+            app.present_info(crate::tr("menu.help.help").to_string(), lines);
             true
         }
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。
         "banner" | "train" => {
-            app.push_line(
-                format!(
-                    "`{cmd}` is an animated terminal command; run it in the REPL, not the TUI."
-                ),
-                LineKind::System,
-            );
+            app.push_line(crate::tr("tui.animated_in_tui").replace("{cmd}", cmd), LineKind::System);
             true
         }
         // `sleep` 占用事件循环，不适合在全屏 TUI 内运行；编辑器经后台 worker
         // 拉起，前后由终端钩子离开 / 重进 alt 屏（见 #70）。
         "sleep" => {
-            app.push_line(
-                "`sleep` blocks the TUI event loop; run it in the REPL, not the TUI.".to_string(),
-                LineKind::System,
-            );
+            app.push_line(crate::tr("tui.sleep_in_tui").to_string(), LineKind::System);
             true
         }
         _ => false,
@@ -2796,10 +2788,7 @@ fn run_argv(
         // 不用新命令的口径覆盖全局标志。
         if worker.is_running() {
             if !silent {
-                app.push_line(
-                    "A command is still running; wait for it to finish.".to_string(),
-                    LineKind::System,
-                );
+                app.push_line(crate::tr("tui.worker_busy").to_string(), LineKind::System);
             }
             return;
         }
@@ -2913,6 +2902,11 @@ fn apply_member_side_effects(app: &mut App, argv: &[String], drained_text: &str,
     // 否则侧栏 / 补全会残留已不存在的插件与命名空间。
     if matches!(cmd, "plugin" | "namespace" | "load" | "unload") {
         app.pending_plugins = true;
+        app.pending_ui = true;
+    }
+    // `setg LANGUAGE <zh|en>` 切换界面语言：core 现场解析，下一空闲帧重读
+    // 菜单 / 表单 / 侧栏注册表刷新译文；底部片段逐帧回调重取，无需额外置位。
+    if cmd == "setg" && argv.get(1).map(|s| s.as_str()) == Some("LANGUAGE") {
         app.pending_ui = true;
     }
     // 加入 / 创建频点后，把自己记入成员侧栏；他人由 join/leave/msg 推送维护。

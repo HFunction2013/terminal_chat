@@ -28,10 +28,16 @@ impl UninstallCommand {
                 }
             }
             print_content(
-                &format!("[*] Plugin `{plugin}` uninstalled (local files removed).").into(),
+                &crate::tr("std.prompt.plugin.uninstalled_removed")
+                    .replace("{plugin}", &plugin)
+                    .into(),
             );
         } else {
-            print_content(&format!("[*] Plugin `{plugin}` uninstalled (files kept; use `--delete-local` to remove).").into());
+            print_content(
+                &crate::tr("std.prompt.plugin.uninstalled_kept")
+                    .replace("{plugin}", &plugin)
+                    .into(),
+            );
         }
         Ok(())
     }
@@ -46,7 +52,9 @@ impl CommandExecutor for UninstallCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let plugin = matches
             .get_one::<String>("plugin")
-            .ok_or_else(|| anyhow!("Missing required argument: plugin"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "plugin"))
+            })?
             .clone();
         let delete_local = matches.get_flag("delete_local");
         self.execute(plugin, delete_local)

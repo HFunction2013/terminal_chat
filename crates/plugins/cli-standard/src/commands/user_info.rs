@@ -18,26 +18,61 @@ impl UserInfoCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         match resp.info {
             Some(info) => {
-                print_content(&format!("User:   {}", info.user).into());
-                print_content(&format!("Name:   {}", info.nickname).into());
-                print_content(&format!("IP:     {}", info.ip_address).into());
+                print_content(&format!("{}:   {}", crate::tr("std.label.user"), info.user).into());
                 print_content(
-                    &format!("Online: {}", if info.online { "yes" } else { "no" }).into(),
+                    &format!("{}:   {}", crate::tr("std.label.name"), info.nickname).into(),
+                );
+                print_content(
+                    &format!("{}:     {}", crate::tr("std.label.ip"), info.ip_address).into(),
+                );
+                print_content(
+                    &format!(
+                        "{}: {}",
+                        crate::tr("std.label.online"),
+                        if info.online {
+                            crate::tr("std.common.yes")
+                        } else {
+                            crate::tr("std.common.no")
+                        }
+                    )
+                    .into(),
                 );
                 if !info.freq.is_empty() {
-                    print_content(&format!("Freq:   {}", info.freq).into());
+                    print_content(
+                        &format!("{}:   {}", crate::tr("std.label.freq"), info.freq).into(),
+                    );
                 }
                 print_content(
-                    &format!("Mod:    {}", if info.is_moderator { "yes" } else { "no" }).into(),
+                    &format!(
+                        "{}:    {}",
+                        crate::tr("std.label.mod"),
+                        if info.is_moderator {
+                            crate::tr("std.common.yes")
+                        } else {
+                            crate::tr("std.common.no")
+                        }
+                    )
+                    .into(),
                 );
                 print_content(
-                    &format!("Owner:  {}", if info.is_creator { "yes" } else { "no" }).into(),
+                    &format!(
+                        "{}:  {}",
+                        crate::tr("std.label.owner"),
+                        if info.is_creator {
+                            crate::tr("std.common.yes")
+                        } else {
+                            crate::tr("std.common.no")
+                        }
+                    )
+                    .into(),
                 );
                 if info.ignored_you {
-                    print_content(&"Note: they ignore you.".into());
+                    print_content(&crate::tr("std.prompt.user.ignores_you").into());
                 }
             }
-            None => print_content(&format!("user `{user}` not found").into()),
+            None => {
+                print_content(&crate::tr("std.err.user.not_found").replace("{user}", &user).into())
+            }
         }
         Ok(())
     }
@@ -52,7 +87,9 @@ impl CommandExecutor for UserInfoCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let user = matches
             .get_one::<String>("user")
-            .ok_or_else(|| anyhow!("Missing required argument: user"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "user"))
+            })?
             .clone();
         self.execute(user)
     }

@@ -23,7 +23,7 @@ impl LoadedCommand {
         let _res = get_all_plugins(Out::from(&mut buf));
         let plugins = ManuallyDrop::into_inner(buf);
         if plugins.is_empty() {
-            print_content(&"no plugins loaded.".into());
+            print_content(&crate::tr("std.prompt.plugin.no_loaded").into());
             return Ok(());
         }
         for p in plugins.iter() {

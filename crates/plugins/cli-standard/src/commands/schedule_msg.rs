@@ -15,12 +15,10 @@ impl ScheduleMsgCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if message.trim().is_empty() {
-            return Err(anyhow!("empty message; use `schedule_msg <time> -m <message>`"));
+            return Err(anyhow!("{}", crate::tr("std.err.task.empty_message")));
         }
         let at = crate::local::parse_time(&time).ok_or_else(|| {
-            anyhow!(
-                "cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds"
-            )
+            anyhow!("{}", crate::tr("std.err.misc.invalid_time").replace("{time}", &time))
         })?;
         let tasks = crate::local::read_tasks();
         let id = crate::local::next_task_id(&tasks);
@@ -35,11 +33,13 @@ impl ScheduleMsgCommand {
         })?;
         let who = if users.is_empty() { "everybody".to_string() } else { users.join(", ") };
         print_content(
-            &format!(
-                "[*] Message task #{id} scheduled at {} ({time}) to {who}: {message}",
-                crate::local::format_local(at)
-            )
-            .into(),
+            &crate::tr("std.prompt.task.scheduled_msg")
+                .replace("{id}", &id.to_string())
+                .replace("{at}", &crate::local::format_local(at))
+                .replace("{time}", &time)
+                .replace("{who}", &who)
+                .replace("{message}", &message)
+                .into(),
         );
         Ok(())
     }
@@ -54,7 +54,9 @@ impl CommandExecutor for ScheduleMsgCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let time = matches
             .get_one::<String>("time")
-            .ok_or_else(|| anyhow!("Missing required argument: time"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "time"))
+            })?
             .clone();
         let message = matches.get_one::<String>("message").cloned().unwrap_or_default();
         let users =

@@ -15,7 +15,7 @@ impl OnCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         std::fs::write(crate::local::state_dir().join(crate::local::PROXY_FILE), "on").ok();
-        print_content(&"[*] System proxy turned on (state recorded; apply http_proxy/https_proxy in your shell).".into());
+        print_content(&crate::tr("std.prompt.setting.proxy_on").into());
         Ok(())
     }
 }

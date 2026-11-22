@@ -18,11 +18,32 @@ impl FileInfoCommand {
         cli_core_macros::load_core_symbols!(lib, print_content);
         match resp.info {
             Some(i) => {
-                print_content(&format!("Path: {}", i.path).into());
-                print_content(&format!("Size: {} bytes", i.size).into());
-                print_content(&format!("Dir:  {}", if i.is_dir { "yes" } else { "no" }).into());
+                print_content(&format!("{}: {}", crate::tr("std.label.path"), i.path).into());
+                print_content(
+                    &format!(
+                        "{}: {} {}",
+                        crate::tr("std.label.size"),
+                        i.size,
+                        crate::tr("std.common.bytes")
+                    )
+                    .into(),
+                );
+                print_content(
+                    &format!(
+                        "{}:  {}",
+                        crate::tr("std.label.dir"),
+                        if i.is_dir {
+                            crate::tr("std.common.yes")
+                        } else {
+                            crate::tr("std.common.no")
+                        }
+                    )
+                    .into(),
+                );
             }
-            None => print_content(&format!("`{file}` not found").into()),
+            None => print_content(
+                &crate::tr("std.err.fs.file_not_found").replace("{file}", &file).into(),
+            ),
         }
         Ok(())
     }
@@ -37,7 +58,9 @@ impl CommandExecutor for FileInfoCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let file = matches
             .get_one::<String>("file")
-            .ok_or_else(|| anyhow!("Missing required argument: file"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "file"))
+            })?
             .clone();
         self.execute(file)
     }

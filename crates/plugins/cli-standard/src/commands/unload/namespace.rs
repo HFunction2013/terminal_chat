@@ -32,11 +32,16 @@ impl NamespaceCommand {
         }
         if unloaded > 0 {
             print_content(
-                &format!("[*] Namespace `{namespace_name}`: {unloaded} plugin(s) unloaded.").into(),
+                &crate::tr("std.prompt.plugin.ns_unloaded")
+                    .replace("{namespace_name}", &namespace_name)
+                    .replace("{count}", &unloaded.to_string())
+                    .into(),
             );
         } else {
             print_content(
-                &format!("[!] Namespace `{namespace_name}` not found among loaded plugins.").into(),
+                &crate::tr("std.err.plugin.ns_not_loaded")
+                    .replace("{namespace_name}", &namespace_name)
+                    .into(),
             );
         }
         Ok(())
@@ -52,7 +57,12 @@ impl CommandExecutor for NamespaceCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let namespace_name = matches
             .get_one::<String>("namespace_name")
-            .ok_or_else(|| anyhow!("Missing required argument: namespace_name"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "{}",
+                    crate::tr("std.err.misc.missing_argument").replace("{arg}", "namespace_name")
+                )
+            })?
             .clone();
         self.execute(namespace_name)
     }

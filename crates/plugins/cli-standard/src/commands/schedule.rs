@@ -15,12 +15,10 @@ impl ScheduleCommand {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
         if cmd.is_empty() {
-            return Err(anyhow!("empty command; use `schedule <time> <command...>`"));
+            return Err(anyhow!("{}", crate::tr("std.err.task.empty_command")));
         }
         let at = crate::local::parse_time(&time).ok_or_else(|| {
-            anyhow!(
-                "cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds"
-            )
+            anyhow!("{}", crate::tr("std.err.misc.invalid_time").replace("{time}", &time))
         })?;
         let cmdline = shell_words::join(cmd.iter().map(String::as_str));
         let tasks = crate::local::read_tasks();
@@ -35,11 +33,12 @@ impl ScheduleCommand {
             users: vec![],
         })?;
         print_content(
-            &format!(
-                "[*] Task #{id} scheduled at {} ({time}): {cmdline}",
-                crate::local::format_local(at)
-            )
-            .into(),
+            &crate::tr("std.prompt.task.scheduled_cmd")
+                .replace("{id}", &id.to_string())
+                .replace("{at}", &crate::local::format_local(at))
+                .replace("{time}", &time)
+                .replace("{cmdline}", &cmdline)
+                .into(),
         );
         Ok(())
     }
@@ -54,7 +53,9 @@ impl CommandExecutor for ScheduleCommand {
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let time = matches
             .get_one::<String>("time")
-            .ok_or_else(|| anyhow!("Missing required argument: time"))?
+            .ok_or_else(|| {
+                anyhow!("{}", crate::tr("std.err.misc.missing_argument").replace("{arg}", "time"))
+            })?
             .clone();
         let cmd: Vec<String> =
             matches.get_many::<String>("cmd").unwrap_or_default().cloned().collect();

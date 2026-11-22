@@ -1,0 +1,1289 @@
+# Terminal Chat — cli-standard plugin strings (UI labels registered via the
+# core UI registry). Languages retained: en (English), zh (Simplified Chinese).
+#
+# Format (hand-parsed by the crate build script; keep values double-quoted):
+#
+#   [key]
+#   en = "English text"
+#   zh = "简体中文"
+#
+# Command names, argv, option keys, prefix glyphs and placeholder tokens such
+# as {name} / {namespace} stay out of this dictionary.
+
+# ---- menu groups ----------------------------------------------------------
+
+[std.group.connection]
+en = "Connection"
+zh = "连接"
+
+[std.group.workspace]
+en = "Workspace"
+zh = "工作区"
+
+[std.group.frequency]
+en = "Frequency"
+zh = "频点"
+
+[std.group.files]
+en = "Files"
+zh = "文件"
+
+[std.group.plugins]
+en = "Plugins"
+zh = "插件"
+
+[std.group.settings]
+en = "Settings"
+zh = "设置"
+
+[std.group.message]
+en = "Message"
+zh = "消息"
+
+[std.group.moderation]
+en = "Moderation"
+zh = "管理"
+
+# ---- menu entries: Connection --------------------------------------------
+
+[std.menu.connection.connect]
+en = "Connect"
+zh = "连接"
+
+[std.menu.connection.reconnect]
+en = "Reconnect"
+zh = "重连"
+
+[std.menu.connection.disconnect]
+en = "Disconnect"
+zh = "断开连接"
+
+[std.menu.connection.whoami]
+en = "Whoami"
+zh = "当前身份"
+
+[std.menu.connection.status]
+en = "Status"
+zh = "状态"
+
+[std.menu.connection.route]
+en = "Route"
+zh = "路由"
+
+# ---- menu entries: Workspace ----------------------------------------------
+
+[std.menu.workspace.list]
+en = "List"
+zh = "列出"
+
+[std.menu.workspace.show]
+en = "Show"
+zh = "查看"
+
+[std.menu.workspace.switch]
+en = "Switch..."
+zh = "切换..."
+
+[std.menu.workspace.new]
+en = "New..."
+zh = "新建..."
+
+# ---- menu entries: Frequency ----------------------------------------------
+
+[std.menu.frequency.leave]
+en = "Leave"
+zh = "离开"
+
+[std.menu.frequency.background]
+en = "Background"
+zh = "挂起后台"
+
+[std.menu.frequency.foreground]
+en = "Foreground"
+zh = "切回前台"
+
+[std.menu.frequency.away]
+en = "Away"
+zh = "离开状态"
+
+[std.menu.frequency.notifications]
+en = "Notifications"
+zh = "通知"
+
+[std.menu.frequency.sessions]
+en = "Sessions"
+zh = "会话"
+
+[std.menu.frequency.disband]
+en = "Disband"
+zh = "解散"
+
+[std.menu.frequency.active_freqs]
+en = "Active freqs"
+zh = "活跃频点"
+
+[std.menu.frequency.active_users]
+en = "Active users"
+zh = "活跃成员"
+
+[std.menu.frequency.join]
+en = "Join..."
+zh = "加入..."
+
+[std.menu.frequency.create]
+en = "Create..."
+zh = "创建..."
+
+[std.menu.frequency.info]
+en = "Info..."
+zh = "信息..."
+
+# ---- menu entries: Message ------------------------------------------------
+
+[std.menu.message.send]
+en = "Send..."
+zh = "发送..."
+
+[std.menu.message.reply]
+en = "Reply..."
+zh = "回复..."
+
+[std.menu.message.call]
+en = "Call..."
+zh = "呼叫..."
+
+[std.menu.message.schedule]
+en = "Schedule..."
+zh = "定时..."
+
+[std.menu.message.cancel]
+en = "Cancel Task..."
+zh = "取消任务..."
+
+# ---- menu entries: Moderation ---------------------------------------------
+
+[std.menu.moderation.mute]
+en = "Mute..."
+zh = "禁言..."
+
+[std.menu.moderation.unmute]
+en = "Unmute..."
+zh = "解除禁言..."
+
+[std.menu.moderation.ignore]
+en = "Ignore..."
+zh = "忽略..."
+
+[std.menu.moderation.kick]
+en = "Kick..."
+zh = "踢出..."
+
+[std.menu.moderation.ban]
+en = "Ban..."
+zh = "封禁..."
+
+[std.menu.moderation.unban]
+en = "Unban..."
+zh = "解除封禁..."
+
+[std.menu.moderation.unignore]
+en = "Unignore..."
+zh = "取消忽略..."
+
+[std.menu.moderation.op]
+en = "Op..."
+zh = "授权..."
+
+[std.menu.moderation.deop]
+en = "Deop..."
+zh = "撤权..."
+
+[std.menu.moderation.trop]
+en = "Trop..."
+zh = "转让..."
+
+[std.menu.moderation.user_info]
+en = "User Info..."
+zh = "用户信息..."
+
+# ---- menu entries: Files ---------------------------------------------------
+
+[std.menu.files.tree]
+en = "Tree"
+zh = "目录树"
+
+[std.menu.files.pwd]
+en = "Pwd (remote)"
+zh = "远端路径"
+
+[std.menu.files.lpwd]
+en = "Local Pwd"
+zh = "本地路径"
+
+[std.menu.files.lls]
+en = "Local List"
+zh = "本地列表"
+
+[std.menu.files.lcd]
+en = "Local Cd..."
+zh = "本地切换目录..."
+
+[std.menu.files.list]
+en = "List..."
+zh = "列出..."
+
+[std.menu.files.upload]
+en = "Upload..."
+zh = "上传..."
+
+[std.menu.files.download]
+en = "Download..."
+zh = "下载..."
+
+[std.menu.files.remove]
+en = "Remove..."
+zh = "删除..."
+
+[std.menu.files.move]
+en = "Move..."
+zh = "移动..."
+
+[std.menu.files.copy]
+en = "Copy..."
+zh = "复制..."
+
+[std.menu.files.mkdir]
+en = "Mkdir..."
+zh = "新建目录..."
+
+[std.menu.files.cd]
+en = "Cd..."
+zh = "切换目录..."
+
+[std.menu.files.checksum]
+en = "Checksum..."
+zh = "校验和..."
+
+[std.menu.files.file_info]
+en = "File Info..."
+zh = "文件信息..."
+
+# ---- menu entries: Plugins -------------------------------------------------
+
+[std.menu.plugins.show]
+en = "Show"
+zh = "查看"
+
+[std.menu.plugins.load]
+en = "Load..."
+zh = "加载..."
+
+[std.menu.plugins.unload]
+en = "Unload..."
+zh = "卸载..."
+
+[std.menu.plugins.load_namespace]
+en = "Load Namespace..."
+zh = "加载命名空间..."
+
+[std.menu.plugins.unload_namespace]
+en = "Unload Namespace..."
+zh = "卸载命名空间..."
+
+[std.menu.plugins.shell]
+en = "Shell..."
+zh = "Shell..."
+
+# ---- menu entries: Settings -----------------------------------------------
+
+[std.menu.settings.options]
+en = "Options"
+zh = "选项"
+
+[std.menu.settings.locals]
+en = "Locals"
+zh = "本地变量"
+
+[std.menu.settings.set]
+en = "Set..."
+zh = "设置..."
+
+[std.menu.settings.get]
+en = "Get..."
+zh = "查看..."
+
+[std.menu.settings.setg]
+en = "Set Global..."
+zh = "设置全局..."
+
+[std.menu.settings.getg]
+en = "Get Global..."
+zh = "查看全局..."
+
+[std.menu.settings.unset]
+en = "Unset..."
+zh = "清除..."
+
+[std.menu.settings.unsetg]
+en = "Unset Global..."
+zh = "清除全局..."
+
+# ---- form titles -----------------------------------------------------------
+
+[std.form.join_freq.title]
+en = "Join Frequency"
+zh = "加入频点"
+
+[std.form.workspace_switch.title]
+en = "Switch Workspace"
+zh = "切换工作区"
+
+[std.form.workspace_new.title]
+en = "New Workspace"
+zh = "新建工作区"
+
+[std.form.create_freq.title]
+en = "Create Frequency"
+zh = "创建频点"
+
+[std.form.msg.title]
+en = "Send Message"
+zh = "发送消息"
+
+[std.form.reply.title]
+en = "Reply"
+zh = "回复"
+
+[std.form.call.title]
+en = "Call User"
+zh = "呼叫用户"
+
+[std.form.mute.title]
+en = "Mute User"
+zh = "禁言用户"
+
+[std.form.unmute.title]
+en = "Unmute User"
+zh = "解除禁言"
+
+[std.form.ignore.title]
+en = "Ignore User"
+zh = "忽略用户"
+
+[std.form.kick.title]
+en = "Kick User"
+zh = "踢出用户"
+
+[std.form.ban.title]
+en = "Ban User"
+zh = "封禁用户"
+
+[std.form.ls.title]
+en = "List Remote Files"
+zh = "列出远端文件"
+
+[std.form.upload.title]
+en = "Upload"
+zh = "上传"
+
+[std.form.download.title]
+en = "Download"
+zh = "下载"
+
+[std.form.rm.title]
+en = "Remove Remote File"
+zh = "删除远端文件"
+
+[std.form.mv.title]
+en = "Move Remote File"
+zh = "移动远端文件"
+
+[std.form.cp.title]
+en = "Copy Remote File"
+zh = "复制远端文件"
+
+[std.form.load.title]
+en = "Load Plugin"
+zh = "加载插件"
+
+[std.form.unload.title]
+en = "Unload Plugin"
+zh = "卸载插件"
+
+[std.form.shell.title]
+en = "Local Shell"
+zh = "本地 Shell"
+
+[std.form.unban.title]
+en = "Unban User"
+zh = "解除封禁"
+
+[std.form.unignore.title]
+en = "Unignore User"
+zh = "取消忽略"
+
+[std.form.op.title]
+en = "Grant Moderator"
+zh = "授予管理权限"
+
+[std.form.deop.title]
+en = "Revoke Moderator"
+zh = "撤销管理权限"
+
+[std.form.trop.title]
+en = "Transfer Creator"
+zh = "转让创建者"
+
+[std.form.user_info.title]
+en = "User Info"
+zh = "用户信息"
+
+[std.form.mkdir.title]
+en = "Make Remote Directory"
+zh = "创建远端目录"
+
+[std.form.cd.title]
+en = "Change Remote Directory"
+zh = "切换远端目录"
+
+[std.form.checksum.title]
+en = "File Checksum"
+zh = "文件校验和"
+
+[std.form.file_info.title]
+en = "File Info"
+zh = "文件信息"
+
+[std.form.schedule_msg.title]
+en = "Schedule Message"
+zh = "定时消息"
+
+[std.form.cancel.title]
+en = "Cancel Task"
+zh = "取消任务"
+
+[std.form.load_namespace.title]
+en = "Load Namespace"
+zh = "加载命名空间"
+
+[std.form.unload_namespace.title]
+en = "Unload Namespace"
+zh = "卸载命名空间"
+
+[std.form.set.title]
+en = "Set Session Option"
+zh = "设置会话选项"
+
+[std.form.get.title]
+en = "Get Session Option"
+zh = "查看会话选项"
+
+[std.form.setg.title]
+en = "Set Global Option"
+zh = "设置全局选项"
+
+[std.form.getg.title]
+en = "Get Global Option"
+zh = "查看全局选项"
+
+[std.form.unset.title]
+en = "Unset Session Option"
+zh = "清除会话选项"
+
+[std.form.unsetg.title]
+en = "Unset Global Option"
+zh = "清除全局选项"
+
+[std.form.freq_info.title]
+en = "Frequency Info"
+zh = "频点信息"
+
+# ---- form fields -----------------------------------------------------------
+
+[std.field.join_freq.freq_id]
+en = "Frequency ID:"
+zh = "频点 ID："
+
+[std.field.join_freq.password]
+en = "Password (optional):"
+zh = "密码（可选）："
+
+[std.field.workspace_switch.name]
+en = "Workspace name:"
+zh = "工作区名称："
+
+[std.field.workspace_new.name]
+en = "Workspace name (optional):"
+zh = "工作区名称（可选）："
+
+[std.field.create_freq.freq_id]
+en = "Frequency ID:"
+zh = "频点 ID："
+
+[std.field.create_freq.password]
+en = "Password (optional):"
+zh = "密码（可选）："
+
+[std.field.msg.users]
+en = "Users (optional):"
+zh = "成员（可选）："
+
+[std.field.msg.message]
+en = "Message:"
+zh = "消息："
+
+[std.field.reply.message]
+en = "Message:"
+zh = "消息："
+
+[std.field.call.user]
+en = "User:"
+zh = "用户："
+
+[std.field.mute.user]
+en = "User:"
+zh = "用户："
+
+[std.field.unmute.user]
+en = "User:"
+zh = "用户："
+
+[std.field.ignore.user]
+en = "User:"
+zh = "用户："
+
+[std.field.kick.user]
+en = "User:"
+zh = "用户："
+
+[std.field.ban.user]
+en = "User:"
+zh = "用户："
+
+[std.field.ls.dir]
+en = "Directory (optional):"
+zh = "目录（可选）："
+
+[std.field.upload.local_path]
+en = "Local path:"
+zh = "本地路径："
+
+[std.field.upload.remote_path]
+en = "Remote path (optional):"
+zh = "远端路径（可选）："
+
+[std.field.download.remote_path]
+en = "Remote path:"
+zh = "远端路径："
+
+[std.field.download.local_path]
+en = "Local path (optional):"
+zh = "本地路径（可选）："
+
+[std.field.rm.remote_path]
+en = "Remote path:"
+zh = "远端路径："
+
+[std.field.mv.from]
+en = "From:"
+zh = "来源："
+
+[std.field.mv.to]
+en = "To:"
+zh = "目标："
+
+[std.field.cp.from]
+en = "From:"
+zh = "来源："
+
+[std.field.cp.to]
+en = "To:"
+zh = "目标："
+
+[std.field.load.plugin]
+en = "Plugin:"
+zh = "插件："
+
+[std.field.unload.plugin]
+en = "Plugin name:"
+zh = "插件名："
+
+[std.field.shell.command]
+en = "Command:"
+zh = "命令："
+
+[std.field.unban.user]
+en = "User:"
+zh = "用户："
+
+[std.field.unignore.user]
+en = "User:"
+zh = "用户："
+
+[std.field.op.user]
+en = "User:"
+zh = "用户："
+
+[std.field.deop.user]
+en = "User:"
+zh = "用户："
+
+[std.field.trop.user]
+en = "User:"
+zh = "用户："
+
+[std.field.user_info.user]
+en = "User:"
+zh = "用户："
+
+[std.field.mkdir.dir]
+en = "Directory:"
+zh = "目录："
+
+[std.field.cd.dir]
+en = "Directory:"
+zh = "目录："
+
+[std.field.checksum.file]
+en = "File:"
+zh = "文件："
+
+[std.field.file_info.file]
+en = "File:"
+zh = "文件："
+
+[std.field.schedule_msg.time]
+en = "Time (+30s / HH:MM):"
+zh = "时间（+30s / HH:MM）："
+
+[std.field.schedule_msg.message]
+en = "Message:"
+zh = "消息："
+
+[std.field.schedule_msg.users]
+en = "Users (optional):"
+zh = "成员（可选）："
+
+[std.field.cancel.task_id]
+en = "Task ID:"
+zh = "任务 ID："
+
+[std.field.load_namespace.namespace]
+en = "Namespace:"
+zh = "命名空间："
+
+[std.field.unload_namespace.namespace]
+en = "Namespace:"
+zh = "命名空间："
+
+[std.field.set.key]
+en = "Key:"
+zh = "键："
+
+[std.field.set.value]
+en = "Value:"
+zh = "值："
+
+[std.field.get.key]
+en = "Key:"
+zh = "键："
+
+[std.field.setg.key]
+en = "Key:"
+zh = "键："
+
+[std.field.setg.value]
+en = "Value (optional):"
+zh = "值（可选）："
+
+[std.field.getg.key]
+en = "Key:"
+zh = "键："
+
+[std.field.unset.key]
+en = "Key:"
+zh = "键："
+
+[std.field.unsetg.key]
+en = "Key:"
+zh = "键："
+
+[std.field.freq_info.freq]
+en = "Frequency (optional):"
+zh = "频点（可选）："
+
+# ---- sidebar sections ------------------------------------------------------
+
+[std.side.sessions]
+en = "Session"
+zh = "会话"
+
+[std.side.members]
+en = "Members"
+zh = "成员"
+
+[std.side.plugins]
+en = "Plugin"
+zh = "插件"
+
+# ---- status bar static words ----------------------------------------------
+
+[std.status.guest]
+en = "guest"
+zh = "访客"
+
+[std.status.offline]
+en = "offline"
+zh = "离线"
+
+[std.status.sound]
+en = "sound"
+zh = "发声"
+
+[std.status.quiet]
+en = "QUIET"
+zh = "静音"
+
+[std.status.freq]
+en = "freq"
+zh = "频点"
+
+# ---- connection prompts / errors -------------------------------------------
+
+[std.prompt.conn.already_connected]
+en = "Already connected."
+zh = "已连接。"
+
+[std.prompt.conn.connected]
+en = "Connected to {addr}."
+zh = "已连接到 {addr}。"
+
+[std.prompt.conn.disconnected]
+en = "Disconnected."
+zh = "已断开连接。"
+
+[std.prompt.conn.not_connected]
+en = "Not connected."
+zh = "未连接。"
+
+[std.err.conn.server_not_set]
+en = "SERVER not set; use `setg SERVER <address>` first"
+zh = "未设置 SERVER；请先 `setg SERVER <address>`。"
+
+[std.err.conn.username_empty]
+en = "USERNAME is empty; use `setg USERNAME <name>` first"
+zh = "USERNAME 为空；请先 `setg USERNAME <name>`。"
+
+[std.err.conn.username_not_set]
+en = "USERNAME not set; use `setg USERNAME <name>` first"
+zh = "未设置 USERNAME；请先 `setg USERNAME <name>`。"
+
+[std.err.conn.not_connected]
+en = "Not connected. Use `connect` first."
+zh = "未连接；请先 `connect`。"
+
+# ---- session prompts / errors ----------------------------------------------
+
+[std.prompt.session.backgrounded]
+en = "[!] session `{freq}` backgrounded (left freq)"
+zh = "[!] 会话 `{freq}` 已挂起后台（已离开频点）"
+
+[std.prompt.session.no_active]
+en = "[!] no active session to background"
+zh = "[!] 没有可挂起的活动会话"
+
+[std.prompt.session.no_background]
+en = "[!] no background session; use `join_freq <freq>` first"
+zh = "[!] 没有后台会话；请先 `join_freq <freq>`。"
+
+[std.err.session.already_current]
+en = "[!] session `{s}` is already the current session"
+zh = "[!] 会话 `{s}` 已是当前会话"
+
+[std.err.session.not_found]
+en = "[!] no such session `{s}`; run `sessions -l` to list"
+zh = "[!] 无此会话 `{s}`；运行 `sessions -l` 查看列表"
+
+[std.prompt.session.switched]
+en = "[*] switched to session `{s}`"
+zh = "[*] 已切换到会话 `{s}`"
+
+[std.err.session.cannot_kill_current]
+en = "[!] cannot kill the current session `{s}`; use `leave_freq` or `background`"
+zh = "[!] 无法丢弃当前会话 `{s}`；请用 `leave_freq` 或 `background`"
+
+[std.prompt.session.dropped]
+en = "[*] session `{s}` dropped"
+zh = "[*] 会话 `{s}` 已丢弃"
+
+[std.err.session.bg_not_found]
+en = "[!] no such background session `{s}`"
+zh = "[!] 无此后台会话 `{s}`"
+
+[std.prompt.session.list_current]
+en = "  [0] session `{f}` (current)"
+zh = "  [0] 会话 `{f}`（当前）"
+
+[std.prompt.session.main_console]
+en = "  [0] main console (no freq session)"
+zh = "  [0] 主控制台（无频点会话）"
+
+[std.prompt.session.list_bg]
+en = "  [{i}] session `{f}` (background)"
+zh = "  [{i}] 会话 `{f}`（后台）"
+
+# ---- task prompts / errors -------------------------------------------------
+
+[std.prompt.task.cancelled]
+en = "[*] Task #{id} cancelled."
+zh = "[*] 任务 #{id} 已取消。"
+
+[std.err.task.not_found]
+en = "[!] Task #{id} not found."
+zh = "[!] 未找到任务 #{id}。"
+
+[std.err.task.invalid_id]
+en = "invalid task id `{task_id}`"
+zh = "无效的任务 ID `{task_id}`"
+
+[std.prompt.task.scheduled_cmd]
+en = "[*] Task #{id} scheduled at {at} ({time}): {cmdline}"
+zh = "[*] 任务 #{id} 定于 {at}（{time}）执行：{cmdline}"
+
+[std.prompt.task.scheduled_msg]
+en = "[*] Message task #{id} scheduled at {at} ({time}) to {who}: {message}"
+zh = "[*] 消息任务 #{id} 定于 {at}（{time}）发送给 {who}：{message}"
+
+[std.err.task.empty_command]
+en = "empty command; use `schedule <time> <command...>`"
+zh = "命令为空；请用 `schedule <time> <command...>`。"
+
+[std.err.task.empty_message]
+en = "empty message; use `schedule_msg <time> -m <message>`"
+zh = "消息为空；请用 `schedule_msg <time> -m <message>`。"
+
+[std.prompt.task.none]
+en = "no scheduled tasks."
+zh = "没有定时任务。"
+
+# ---- alias / macro prompts / errors ----------------------------------------
+
+[std.prompt.alias.created]
+en = "Alias {alias} => {cmd} created."
+zh = "别名 {alias} => {cmd} 已创建。"
+
+[std.prompt.alias.deleted]
+en = "Alias {alias} deleted."
+zh = "别名 {alias} 已删除。"
+
+[std.err.alias.not_found]
+en = "Alias {alias} doesn't exist."
+zh = "别名 {alias} 不存在。"
+
+[std.prompt.macro.created]
+en = "Macro {name} created."
+zh = "宏 {name} 已创建。"
+
+[std.prompt.macro.deleted]
+en = "Macro {name} deleted."
+zh = "宏 {name} 已删除。"
+
+[std.err.macro.not_found]
+en = "Macro {name} doesn't exist."
+zh = "宏 {name} 不存在。"
+
+[std.err.macro.no_body]
+en = "Macro body not specified. Cannot create macro."
+zh = "未指定宏正文，无法创建宏。"
+
+# ---- file transfer prompts / errors ----------------------------------------
+
+[std.prompt.fs.now_at]
+en = "now at {dir}"
+zh = "当前位于 {dir}"
+
+[std.prompt.fs.files_downloaded]
+en = "{count} files downloaded to {base}/"
+zh = "{count} 个文件已下载到 {base}/"
+
+[std.prompt.fs.bytes_downloaded]
+en = "{count} bytes downloaded to {dest}"
+zh = "{count} 字节已下载到 {dest}"
+
+[std.err.fs.file_not_found]
+en = "`{file}` not found"
+zh = "未找到 `{file}`"
+
+[std.prompt.fs.uploaded_one]
+en = "[*] uploaded `{local_path}` to `{remote}`"
+zh = "[*] 已上传 `{local_path}` 到 `{remote}`"
+
+[std.prompt.fs.uploaded_dir]
+en = "[*] uploaded {count} files from `{local_path}` to `{base}/`"
+zh = "[*] 已从 `{local_path}` 上传 {count} 个文件到 `{base}/`"
+
+# ---- setting prompts / errors ----------------------------------------------
+
+[std.err.setting.key_not_found]
+en = "Key {key} doesn't exist."
+zh = "键 {key} 不存在。"
+
+[std.err.setting.unregistered]
+en = "This option has not been registered, use `unset(g) {key}` to unset it."
+zh = "该选项尚未注册，可用 `unset(g) {key}` 清除。"
+
+[std.err.setting.missing_value]
+en = "Missing required argument: value. Use --password flag if you want to input securely."
+zh = "缺少必需参数 value；如需安全输入，请使用 --password 标志。"
+
+[std.prompt.setting.cleared_session]
+en = "All session variables have been cleared."
+zh = "已清除全部会话变量。"
+
+[std.prompt.setting.cleared_global]
+en = "All global variables have been cleared."
+zh = "已清除全部全局变量。"
+
+[std.prompt.setting.removed_session]
+en = "Session variable '{key}' has been removed."
+zh = "会话变量 '{key}' 已移除。"
+
+[std.prompt.setting.removed_global]
+en = "Global variable '{key}' has been removed."
+zh = "全局变量 '{key}' 已移除。"
+
+[std.prompt.setting.no_globals]
+en = "No options specified"
+zh = "未设置任何选项"
+
+[std.prompt.setting.no_locals]
+en = "No session options specified"
+zh = "未设置任何会话选项"
+
+[std.prompt.setting.registered_options]
+en = "Registered options (set/setg):"
+zh = "已注册选项（set/setg）："
+
+[std.prompt.setting.currently_set]
+en = "Currently set (setg):"
+zh = "当前已设置（setg）："
+
+[std.prompt.setting.section_local]
+en = "--- local (session) variables ---"
+zh = "--- 本地（会话）变量 ---"
+
+[std.prompt.setting.section_global]
+en = "--- global variables ---"
+zh = "--- 全局变量 ---"
+
+[std.prompt.setting.none]
+en = "  (none)"
+zh = "  （无）"
+
+[std.prompt.setting.proxy_off]
+en = "[*] System proxy turned off (state recorded)."
+zh = "[*] 系统代理已关闭（状态已记录）。"
+
+[std.prompt.setting.proxy_on]
+en = "[*] System proxy turned on (state recorded; apply http_proxy/https_proxy in your shell)."
+zh = "[*] 系统代理已开启（状态已记录；请在 shell 中应用 http_proxy/https_proxy）。"
+
+# ---- plugin prompts / errors ------------------------------------------------
+
+[std.prompt.plugin.already_loaded]
+en = "[*] Namespace `{namespace}` is already loaded."
+zh = "[*] 命名空间 `{namespace}` 已加载。"
+
+[std.prompt.plugin.ns_loaded]
+en = "[*] Namespace `{namespace}` loaded: {msg}"
+zh = "[*] 命名空间 `{namespace}` 已加载：{msg}"
+
+[std.err.plugin.ns_not_found]
+en = "[!] Namespace `{namespace}` not found among loaded plugins or installed libraries: {msg} (exit {code})"
+zh = "[!] 已加载插件或已安装库中未找到命名空间 `{namespace}`：{msg}（退出码 {code}）"
+
+[std.prompt.plugin.loaded]
+en = "[*] Plugin `{plugin}` loaded: {msg}"
+zh = "[*] 插件 `{plugin}` 已加载：{msg}"
+
+[std.err.plugin.load_failed]
+en = "[!] Failed to load `{plugin}`: {msg} (exit {code})"
+zh = "[!] 加载 `{plugin}` 失败：{msg}（退出码 {code}）"
+
+[std.prompt.plugin.unloaded]
+en = "[*] Plugin `{plugin_name}` unloaded."
+zh = "[*] 插件 `{plugin_name}` 已卸载。"
+
+[std.prompt.plugin.ns_unloaded]
+en = "[*] Namespace `{namespace_name}`: {count} plugin(s) unloaded."
+zh = "[*] 命名空间 `{namespace_name}`：已卸载 {count} 个插件。"
+
+[std.err.plugin.ns_not_loaded]
+en = "[!] Namespace `{namespace_name}` not found among loaded plugins."
+zh = "[!] 已加载插件中未找到命名空间 `{namespace_name}`。"
+
+[std.err.plugin.registry_disabled]
+en = "[!] registry is not enabled in this build; plugin management without registry works via `install -l <path>` / `load plugin <name>`."
+zh = "[!] 本构建未启用仓库；不依赖仓库的插件管理可通过 `install -l <path>` / `load plugin <name>` 完成。"
+
+[std.err.plugin.local_install_only]
+en = "[!] registry install is not enabled; use `install -l <local-path>`."
+zh = "[!] 未启用仓库安装；请用 `install -l <local-path>`。"
+
+[std.err.plugin.local_not_found]
+en = "[!] `{local_path}` not found."
+zh = "[!] 未找到 `{local_path}`。"
+
+[std.prompt.plugin.installed]
+en = "[*] Plugin `{file_name}` installed to {dest}."
+zh = "[*] 插件 `{file_name}` 已安装到 {dest}。"
+
+[std.prompt.plugin.uninstalled_removed]
+en = "[*] Plugin `{plugin}` uninstalled (local files removed)."
+zh = "[*] 插件 `{plugin}` 已卸载（本地文件已删除）。"
+
+[std.prompt.plugin.uninstalled_kept]
+en = "[*] Plugin `{plugin}` uninstalled (files kept; use `--delete-local` to remove)."
+zh = "[*] 插件 `{plugin}` 已卸载（文件保留；如需删除请用 `--delete-local`）。"
+
+[std.prompt.plugin.no_namespaces]
+en = "  (no namespaces loaded)"
+zh = "  （未加载命名空间）"
+
+[std.prompt.plugin.no_loaded]
+en = "no plugins loaded."
+zh = "未加载插件。"
+
+[std.prompt.plugin.no_downloaded]
+en = "no plugins downloaded."
+zh = "无已下载插件。"
+
+[std.prompt.plugin.no_installed]
+en = "no plugins installed locally."
+zh = "本地未安装插件。"
+
+# ---- frequency / user prompts / errors -------------------------------------
+
+[std.prompt.freq.no_active]
+en = "no active freqs."
+zh = "无活跃频点。"
+
+[std.err.freq.not_found]
+en = "freq `{frequency}` not found"
+zh = "未找到频点 `{frequency}`。"
+
+[std.err.freq.invalid_max_people]
+en = "invalid max-people `{s}`"
+zh = "无效的最大人数 `{s}`"
+
+[std.err.user.not_found]
+en = "user `{user}` not found"
+zh = "未找到用户 `{user}`。"
+
+[std.prompt.user.ignores_you]
+en = "Note: they ignore you."
+zh = "注意：对方已忽略你。"
+
+# ---- workspace prompts / errors --------------------------------------------
+
+[std.err.workspace.not_found]
+en = "[!] Workspace `{name}` does not exist."
+zh = "[!] 工作区 `{name}` 不存在。"
+
+[std.err.workspace.already_exists]
+en = "[!] Workspace `{target}` already exists."
+zh = "[!] 工作区 `{target}` 已存在。"
+
+[std.prompt.workspace.cloned]
+en = "[*] Workspace `{src}` cloned to `{target}`."
+zh = "[*] 工作区 `{src}` 已克隆到 `{target}`。"
+
+[std.err.workspace.needs_force]
+en = "[!] Workspace `{name}` contains {count} files; use `workspace delete --force` to confirm."
+zh = "[!] 工作区 `{name}` 包含 {count} 个文件；请用 `workspace delete --force` 确认删除。"
+
+[std.prompt.workspace.deleted]
+en = "[*] Workspace `{name}` deleted."
+zh = "[*] 工作区 `{name}` 已删除。"
+
+[std.err.workspace.export_failed]
+en = "[!] Export failed."
+zh = "[!] 导出失败。"
+
+[std.prompt.workspace.exported]
+en = "[*] Workspace `{name}` exported to `{out}`."
+zh = "[*] 工作区 `{name}` 已导出到 `{out}`。"
+
+[std.err.workspace.file_not_found]
+en = "[!] `{workspace_file}` not found."
+zh = "[!] 未找到 `{workspace_file}`。"
+
+[std.err.workspace.import_failed]
+en = "[!] Import failed (expected a .tar.gz workspace archive)."
+zh = "[!] 导入失败（应为 .tar.gz 工作区压缩包）。"
+
+[std.prompt.workspace.imported]
+en = "[*] Workspace imported from `{workspace_file}`."
+zh = "[*] 已从 `{workspace_file}` 导入工作区。"
+
+[std.prompt.workspace.none]
+en = "no workspaces yet; use `workspace new <name>`."
+zh = "暂无工作区；请用 `workspace new <name>`。"
+
+[std.prompt.workspace.list_current]
+en = "  * {name} (current)"
+zh = "  * {name}（当前）"
+
+[std.prompt.workspace.created]
+en = "[*] Workspace `{name}` created at {dir}."
+zh = "[*] 工作区 `{name}` 已创建于 {dir}。"
+
+[std.prompt.workspace.switched]
+en = "[*] Switched to workspace `{name}` (home: {home})."
+zh = "[*] 已切换到工作区 `{name}`（home：{home}）。"
+
+[std.prompt.workspace.renamed]
+en = "[*] Workspace `{src}` renamed to `{target}`."
+zh = "[*] 工作区 `{src}` 已重命名为 `{target}`。"
+
+# ---- misc validation / feedback ---------------------------------------------
+
+[std.err.misc.missing_argument]
+en = "Missing required argument: {arg}"
+zh = "缺少必需参数：{arg}"
+
+[std.err.misc.invalid_status]
+en = "invalid status `{status}`; available: away, busy, off, online"
+zh = "无效状态 `{status}`；可选：away、busy、off、online"
+
+[std.err.misc.invalid_time]
+en = "cannot parse time `{time}`; use `+30s`/`+5m`/`+2h`, `HH:MM` (local), or seconds"
+zh = "无法解析时间 `{time}`；可用 `+30s`/`+5m`/`+2h`、`HH:MM`（本地时间）或秒数"
+
+[std.err.misc.invalid_operation]
+en = "invalid operation `{op}`; use open or close"
+zh = "无效操作 `{op}`；可用 open 或 close"
+
+[std.err.misc.empty_feedback]
+en = "empty feedback; use `feedback -m <content>`"
+zh = "反馈内容为空；请用 `feedback -m <content>`。"
+
+[std.err.misc.usage_shell]
+en = "[!] usage: shell <command...>"
+zh = "[!] 用法：shell <command...>"
+
+[std.prompt.misc.feedback_thanks]
+en = "[*] Thanks! Your feedback has been recorded."
+zh = "[*] 感谢！反馈已记录。"
+
+[std.prompt.misc.logs_opened]
+en = "[*] Logging opened."
+zh = "[*] 日志已开启。"
+
+[std.prompt.misc.logs_closed]
+en = "[*] Logging closed."
+zh = "[*] 日志已关闭。"
+
+[std.prompt.misc.sleep_start]
+en = "[*] Aha... Sleep for {time}."
+zh = "[*] 啊……睡 {time}。"
+
+[std.prompt.misc.sleep_interrupted]
+en = "[!] All your fault! My dream was disturbed!"
+zh = "[!] 都怪你！我的好梦被打断了！"
+
+[std.prompt.misc.sleep_done]
+en = "[*] Aha... What a nice sleep!"
+zh = "[*] 啊……睡得真舒服！"
+
+[std.prompt.misc.shell_exit]
+en = "[shell] exit code {code}"
+zh = "[shell] 退出码 {code}"
+
+# ---- shared common words ----------------------------------------------------
+
+[std.common.yes]
+en = "yes"
+zh = "是"
+
+[std.common.no]
+en = "no"
+zh = "否"
+
+[std.common.bytes]
+en = "bytes"
+zh = "字节"
+
+[std.status.current]
+en = "current"
+zh = "当前"
+
+# ---- info display labels -----------------------------------------------------
+
+[std.label.path]
+en = "Path"
+zh = "路径"
+
+[std.label.size]
+en = "Size"
+zh = "大小"
+
+[std.label.dir]
+en = "Dir"
+zh = "目录"
+
+[std.label.user]
+en = "User"
+zh = "用户"
+
+[std.label.name]
+en = "Name"
+zh = "昵称"
+
+[std.label.ip]
+en = "IP"
+zh = "IP"
+
+[std.label.freq]
+en = "Freq"
+zh = "频点"
+
+[std.label.online]
+en = "Online"
+zh = "在线"
+
+[std.label.mod]
+en = "Mod"
+zh = "管理员"
+
+[std.label.owner]
+en = "Owner"
+zh = "创建者"
+
+[std.label.creator]
+en = "Creator"
+zh = "创建者"
+
+[std.label.members]
+en = "Members"
+zh = "成员"
+
+[std.label.password]
+en = "Password"
+zh = "密码"
+
+[std.label.entries]
+en = "Entries"
+zh = "条目"
+
+[std.label.workspace]
+en = "Workspace"
+zh = "工作区"
+
+[std.label.status]
+en = "Status"
+zh = "状态"
+
+[std.label.option]
+en = "Option"
+zh = "选项"
