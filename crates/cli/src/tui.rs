@@ -285,33 +285,34 @@ const COMPLETION_VIEW: usize = 5;
 /// 宿主内置菜单项：退出与信息弹窗命令由本地 `try_builtin` 分发，不进注册表；
 /// 其余业务菜单全部由 cli-standard 插件经注册表登记（见 #90 / #150）。
 fn builtin_groups() -> Vec<MenuGroup> {
+    let t = crate::i18n::t;
     vec![
         MenuGroup {
-            name: "File".to_string(),
+            name: t("menu.file").to_string(),
             accel: 'E',
             items: vec![MenuItem {
-                label: "Exit".to_string(),
+                label: t("menu.file.exit").to_string(),
                 action: Action::Run(vec!["exit".to_string()]),
             }],
         },
         MenuGroup {
-            name: "Help".to_string(),
+            name: t("menu.help").to_string(),
             accel: 'H',
             items: vec![
                 MenuItem {
-                    label: "About".to_string(),
+                    label: t("menu.help.about").to_string(),
                     action: Action::Run(vec!["about".to_string()]),
                 },
                 MenuItem {
-                    label: "Copyright".to_string(),
+                    label: t("menu.help.copyright").to_string(),
                     action: Action::Run(vec!["copyright".to_string()]),
                 },
                 MenuItem {
-                    label: "License".to_string(),
+                    label: t("menu.help.license").to_string(),
                     action: Action::Run(vec!["license".to_string()]),
                 },
                 MenuItem {
-                    label: "Help".to_string(),
+                    label: t("menu.help.help").to_string(),
                     action: Action::Run(vec!["help".to_string()]),
                 },
             ],
@@ -555,11 +556,7 @@ struct CompletionCtx {
 impl App {
     fn new() -> Self {
         let mut log = Vec::new();
-        log.push(ChatLine {
-            text: "[tui] Chat: Up/Down history, Tab complete, Enter accept/run, Esc close popup, F10/Alt menu, Ctrl+Q quit."
-                .to_string(),
-            kind: LineKind::System,
-        });
+        log.push(ChatLine { text: crate::i18n::t("tui.hint").to_string(), kind: LineKind::System });
         Self {
             log,
             input: String::new(),
@@ -2171,7 +2168,8 @@ fn draw_dialog(
             ctx.label("info-line", line);
         }
 
-        let closed = ctx.button("info-close", "Close", ButtonStyle::default());
+        let closed =
+            ctx.button("info-close", crate::i18n::t("dialog.close"), ButtonStyle::default());
         ctx.block_end();
         if closed {
             app.dialog = None;
@@ -2185,14 +2183,17 @@ fn draw_dialog(
 
     // 危险操作确认框：纯按钮，无文本输入。
     if let Dialog::Confirm { message, .. } = app.dialog.as_ref().unwrap() {
-        ctx.modal_begin("confirm-dialog", "Confirm");
+        ctx.modal_begin("confirm-dialog", crate::i18n::t("dialog.confirm"));
         ctx.block_begin("content");
         ctx.inherit_focus();
         ctx.attr_padding(Rect::three(1, 2, 1));
         ctx.label("confirm-msg", message);
-        ctx.label("confirm-hint", "Enter: confirm    Esc: cancel");
-        let confirmed =
-            ctx.button("confirm-ok", "Confirm", ButtonStyle::default().bracketed(false));
+        ctx.label("confirm-hint", crate::i18n::t("dialog.confirm_hint"));
+        let confirmed = ctx.button(
+            "confirm-ok",
+            crate::i18n::t("dialog.confirm"),
+            ButtonStyle::default().bracketed(false),
+        );
         ctx.block_end();
         if confirmed {
             dialog_advance(app, run_command, output_drain);
@@ -2206,8 +2207,12 @@ fn draw_dialog(
 
     let (title, prompt, secret) = match app.dialog.as_ref().unwrap() {
         Dialog::Connect { stage, .. } => match stage {
-            DialogStage::AskServer => ("Connect", "Server [host:port]:", false),
-            DialogStage::AskUser => ("Nickname", "Nickname:", false),
+            DialogStage::AskServer => {
+                (crate::i18n::t("dialog.connect"), crate::i18n::t("dialog.connect_server"), false)
+            }
+            DialogStage::AskUser => {
+                (crate::i18n::t("dialog.nickname"), crate::i18n::t("dialog.nickname"), false)
+            }
         },
         Dialog::Form(form) => {
             let field = &form.spec.fields[form.focus];
@@ -2350,12 +2355,12 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
         }
         "version" => {
             let lines = crate::welcome_text(false).lines().map(String::from).collect();
-            app.present_info("About".to_string(), lines);
+            app.present_info(crate::i18n::t("menu.help.about").to_string(), lines);
             true
         }
         "build_info" => {
             let lines = crate::build_info_text().lines().map(String::from).collect();
-            app.present_info("Build Info".to_string(), lines);
+            app.present_info(crate::i18n::t("dialog.build_info").to_string(), lines);
             true
         }
         "about" => {
@@ -2363,16 +2368,19 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
                 crate::welcome_text(false).lines().map(String::from).collect();
             lines.push(String::new());
             lines.extend(crate::build_info_text().lines().map(String::from));
-            app.present_info("About".to_string(), lines);
+            app.present_info(crate::i18n::t("menu.help.about").to_string(), lines);
             true
         }
         "copyright" => {
-            app.present_info("Copyright".to_string(), vec![crate::copyright_text()]);
+            app.present_info(
+                crate::i18n::t("menu.help.copyright").to_string(),
+                vec![crate::copyright_text()],
+            );
             true
         }
         "license" => {
             let lines: Vec<String> = crate::license_text().lines().map(String::from).collect();
-            app.present_info("License".to_string(), lines);
+            app.present_info(crate::i18n::t("menu.help.license").to_string(), lines);
             true
         }
         "coffee" => {
@@ -2385,14 +2393,14 @@ fn try_builtin(app: &mut App, argv: &[String]) -> bool {
                 true
             }
             None => {
-                app.push_line("Error choosing saying".to_string(), LineKind::System);
+                app.push_line(crate::i18n::t("repl.saying_error").to_string(), LineKind::System);
                 true
             }
         },
         "help" => {
             let lines: Vec<String> =
                 crate::builtin_help_lines().into_iter().map(String::from).collect();
-            app.present_info("Help".to_string(), lines);
+            app.present_info(crate::i18n::t("menu.help.help").to_string(), lines);
             true
         }
         // 终端动画命令依赖 REPL 的清屏 / 帧循环，全屏 TUI 内不适用。

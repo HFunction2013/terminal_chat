@@ -114,3 +114,11 @@ Completion is driven by a unified command table in `cli-core` (`registered_comma
 - Core registries and shared state use `LazyLock<Mutex<…>>` (or atomics) and are mutated only through core hooks.
 - Plugin-internal state is guarded by its own locks; plugins must not hold a lock across a core call that could re-enter.
 - The UI thread renders from snapshots; background workers and reader threads never mutate UI nodes directly.
+
+## 9. Internationalization (i18n)
+
+- Dictionaries live at the top level `i18n/cli.toml` and `i18n/srv.toml`. Only two languages are retained: `en` (English, required) and `zh` (Simplified Chinese). Each entry is a `[key]` section with `en = "…"` and `zh = "…"`; placeholders such as `{user}` / `{ip}` are left for the caller to fill with `replace` / `format!`.
+- `crates/i18n-build` is a std-only build-dependency. Each host's `build.rs` reads its dictionary, calls `i18n_build::generate`, and writes a Rust module into `OUT_DIR`; the host `include!`s it under an `i18n` submodule. The generated module exposes a `Lang` enum, `detect_lang()`, a static lookup `TABLE`, `t(key)` for the active language, and `t_lang(lang, key)` used by tests.
+- Language detection order: `TC_LANGUAGE` wins, then `LANG`, then `LC_ALL`. A value starting with `zh` maps to Chinese; anything else, and the empty/missing case, falls back to English. The detected result is cached in a `OnceLock`.
+- Lookup rules: an unknown key echoes the key itself; a missing `zh` entry falls back to `en`. The parser rejects a missing `en`, duplicate keys, and any language other than `en`/`zh`.
+- First-batch scope: built-in `cli` host UI strings (menus, dialogs, REPL/startup messages) and the two core `srv` handshake messages. Plugin menu labels, form fields, and command output in `cli-standard` / `srv-standard` still ship fixed English text and can be migrated in a later batch through the same mechanism.

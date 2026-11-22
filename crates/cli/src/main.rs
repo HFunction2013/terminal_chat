@@ -126,11 +126,14 @@ fn install_ctrlc_handler() {
             let _ = execute!(stdout(), Show);
             std::process::exit(0);
         }
-        let _ = eprintln!(" (interrupt sent to current command)");
+        let _ = eprintln!("{}", crate::i18n::t("repl.interrupt_hint"));
     })
     .expect("failed to install Ctrl+C handler");
 }
 
+mod i18n {
+    include!(concat!(env!("OUT_DIR"), "/i18n_cli.rs"));
+}
 mod tasks;
 mod tui;
 mod ui_registry;
@@ -468,7 +471,7 @@ pub(crate) fn welcome_text(b: bool) -> String {
     );
     s.push_str(&format!("\n[{}] on {}", built_info::RUSTC_VERSION, built_info::CFG_OS));
     if b {
-        s.push_str("\nType \"help\", \"copyright\" or \"license\" for more information.");
+        s.push_str(&format!("\n{}", crate::i18n::t("repl.welcome_tip")));
     }
     s
 }
@@ -534,12 +537,13 @@ pub(crate) fn saying_text() -> Option<String> {
 }
 
 /// 内置 / 常用命令帮助文本；供 REPL 终端输出与 TUI 帮助弹窗复用。
-pub(crate) fn builtin_help_lines() -> Vec<&'static str> {
+pub(crate) fn builtin_help_lines() -> Vec<String> {
+    let t = crate::i18n::t;
     vec![
-        "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info",
-        "          about  version + build info | copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help",
-        "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> [password] | create_freq <freq>",
-        "          show active_users | show active_freqs | workspace list | ls | upload | download",
+        t("help.line1").to_string(),
+        t("help.line2").to_string(),
+        t("help.line3").to_string(),
+        t("help.line4").to_string(),
     ]
 }
 
@@ -575,12 +579,13 @@ impl Drop for AtExit {
 
 fn prepare_startup() -> String {
     // TODO: stub tasks.
-    let tasks = vec![
-        ("Loading config", 10),
-        ("Initializing modules", 10),
-        ("Connecting to server", 10),
-        ("Verifying assets", 20),
-        ("Starting services", 10),
+    let t = crate::i18n::t;
+    let tasks: Vec<(String, u64)> = vec![
+        (t("start.loading_config").to_string(), 10),
+        (t("start.initializing_modules").to_string(), 10),
+        (t("start.connecting_server").to_string(), 10),
+        (t("start.verifying_assets").to_string(), 20),
+        (t("start.starting_services").to_string(), 10),
     ];
 
     let total_target: u64 = tasks.iter().map(|(_, t)| t).sum();
@@ -610,7 +615,7 @@ fn prepare_startup() -> String {
         let mut rng = rand::thread_rng();
         let mut i: u64 = rng.r#gen();
         let freq = 10;
-        let note = String::from("Terminal Chat Starting");
+        let note = String::from(crate::i18n::t("start.starting_note"));
         let mut cfg = Config { speed: 4000.0, ..Default::default() };
         let mut display = note.clone();
 
@@ -659,7 +664,7 @@ fn prepare_startup() -> String {
             }
         }
 
-        pb_task.finish_with_message("All systems ready!");
+        pb_task.finish_with_message(crate::i18n::t("start.all_systems_ready"));
         running.store(false, Ordering::SeqCst);
     });
 
@@ -972,7 +977,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
             Err(ReadlineError::Eof) => {
-                println!("Bye");
+                println!("{}", crate::i18n::t("repl.bye"));
                 break;
             }
             Err(err) => {
@@ -1004,7 +1009,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         match input {
             "exit" | "quit" | "q" => {
-                println!("Bye");
+                println!("{}", crate::i18n::t("repl.bye"));
                 break;
             }
             "clear" => {
@@ -1063,7 +1068,7 @@ Because everyone deserves a good cup of coffee."
             "saying" => {
                 match saying_text() {
                     Some(msg) => println!("{msg}"),
-                    None => eprintln!("Error choosing saying"),
+                    None => eprintln!("{}", crate::i18n::t("repl.saying_error")),
                 }
                 continue;
             }
@@ -1081,11 +1086,11 @@ Because everyone deserves a good cup of coffee."
         // 投递到后台 worker 线程执行，不阻塞 readline；单命令串行槽位，
         // 上一条命令未跑完则提示等待，避免并发 FFI / 连接竞争。
         if cmd_running.load(Ordering::SeqCst) {
-            eprintln!("Previous command still running; wait for it to finish.");
+            eprintln!("{}", crate::i18n::t("repl.prev_still_running"));
             continue;
         }
         if cmd_tx.send(args).is_err() {
-            eprintln!("Command worker unavailable.");
+            eprintln!("{}", crate::i18n::t("repl.worker_unavailable"));
         }
     }
 
@@ -1095,6 +1100,16 @@ Because everyone deserves a good cup of coffee."
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn i18n_lookup_en_zh_and_fallback() {
+        use crate::i18n::{Lang, t_lang};
+        assert_eq!(t_lang(Lang::En, "menu.file"), "File");
+        assert_eq!(t_lang(Lang::Zh, "menu.file"), "文件");
+        // Unknown key echoes the key back verbatim.
+        assert_eq!(t_lang(Lang::En, "no.such.key"), "no.such.key");
+        assert_eq!(t_lang(Lang::Zh, "no.such.key"), "no.such.key");
+    }
 
     static STUB_CMDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
     static STUB_SPEC: Mutex<Vec<(String, i32, i32, String)>> = Mutex::new(Vec::new());

@@ -35,6 +35,10 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use which_dylib::{FindError, FindLibBuilder};
 
+mod i18n {
+    include!(concat!(env!("OUT_DIR"), "/i18n_srv.rs"));
+}
+
 static SRV_CORE: OnceLock<Library> = OnceLock::new();
 
 /// 会话用户名：peer("ip:port") -> username（握手时写入）。
@@ -128,9 +132,12 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
                         .unwrap_or_else(|| "anonymous".to_string());
                     SESSION_USERS.lock().unwrap().insert(peer.clone(), username.clone());
                     println!("[srv] handshake from {peer}: user={username} vers={}", req.prog_vers);
+                    let welcome = crate::i18n::t("srv.welcome")
+                        .replace("{user}", &username)
+                        .replace("{ip}", &peer_ip(&peer));
                     let resp = protos::connect::ConnectResponse {
                         status: protos::connect::ConnectStatus::ConnectSuccess as i32,
-                        message: Some(format!("welcome, {username}@{}", peer_ip(&peer))),
+                        message: Some(welcome),
                     };
                     let _ = write_frame(
                         &mut stream,
@@ -245,7 +252,7 @@ fn handle_client(mut stream: TcpStream, symbols: SrvSymbols) {
             frame_type::DISCONNECT_REQUEST => {
                 let resp = protos::connection::session::DisconnectResponse {
                     result: protos::connection::session::DisconnectResult::DisconnectSuccess as i32,
-                    message: "bye".to_string(),
+                    message: crate::i18n::t("srv.bye").to_string(),
                 };
                 let _ = write_frame(
                     &mut stream,
@@ -352,4 +359,17 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn i18n_lookup_en_zh() {
+        use crate::i18n::{Lang, t_lang};
+        assert_eq!(t_lang(Lang::En, "srv.bye"), "bye");
+        assert_eq!(t_lang(Lang::Zh, "srv.bye"), "再见");
+        // Welcome template keeps its placeholders for the caller to fill.
+        assert!(t_lang(Lang::En, "srv.welcome").contains("{user}"));
+        assert!(t_lang(Lang::Zh, "srv.welcome").contains("{ip}"));
+    }
 }

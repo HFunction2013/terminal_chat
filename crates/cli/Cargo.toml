@@ -43,3 +43,4 @@ built = { version = "0.7", features = [
     "git2",
     "dependency-tree"
 ] }
+i18n-build = { path = "../i18n-build" }

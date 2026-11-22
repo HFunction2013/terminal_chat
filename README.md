@@ -78,6 +78,7 @@ cargo test -p cli
 | `crates/edit-tui` | Built-in TUI framework (retained-mode component tree, framebuffer diff, layout, input) |
 | `crates/protos` | prost-generated protocol messages |
 | `crates/helper/cmd-gen` | Helper that generates command skeletons from `commands.yaml` |
+| `crates/i18n-build` | Build-time helper that compiles the top-level `i18n/*.toml` en/zh dictionaries into a host lookup module |
 
 For the full crate map and low-level implementation, see the [contributor documentation](documentation/contributor/README.md).
 

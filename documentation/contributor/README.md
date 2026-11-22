@@ -29,6 +29,7 @@ Hosts parse input and own the terminal/socket lifecycle; core libraries own regi
 | `crates/edit-tui` | Retained-mode TUI framework: component tree, framebuffer diff, layout, input, clipboard, unicode/ICU, color math, suspend/resume terminal state |
 | `crates/protos` | prost-generated message types from `proto/**/*.proto`; vendored protoc so CI needs no system install |
 | `crates/helper/cmd-gen` | CLI helper that generates per-command Rust skeletons and `mod.rs` from `commands.yaml` |
+| `crates/i18n-build` | Build-time helper: parses the top-level `i18n/*.toml` en/zh dictionaries and generates a compiled-in lookup module for the `cli`/`srv` hosts; std-only, used only as a build-dependency |
 | `crates/lsh` | Syntax-highlighting definition language: compiler to bytecode and line-oriented runtime |
 | `crates/neo-lolcat`, `crates/sl-rs`, `crates/rs-fortune` | Decorative/auxiliary helpers: lolcat coloring, SL locomotive animation, fortune quotes |
 

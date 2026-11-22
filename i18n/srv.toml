@@ -1,0 +1,12 @@
+# Terminal Chat — SRV strings (messages pushed back to clients).
+# Languages retained: en (English), zh (Simplified Chinese) only.
+#
+# Placeholders ({user}, {ip}) are filled by the caller with format!.
+
+[srv.welcome]
+en = "welcome, {user}@{ip}"
+zh = "欢迎，{user}@{ip}"
+
+[srv.bye]
+en = "bye"
+zh = "再见"

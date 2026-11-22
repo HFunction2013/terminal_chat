@@ -1,0 +1,139 @@
+# Terminal Chat — CLI strings.
+# Languages retained: en (English), zh (Simplified Chinese) only.
+#
+# Format (hand-parsed by the crate build script; keep values double-quoted,
+# no embedded double quotes or backslash escapes in this first batch):
+#
+#   [key]
+#   en = "English text"
+#   zh = "简体中文"
+#
+# Placeholders such as {user} are left to the caller to fill with format!.
+
+[menu.file]
+en = "File"
+zh = "文件"
+
+[menu.file.exit]
+en = "Exit"
+zh = "退出"
+
+[menu.help]
+en = "Help"
+zh = "帮助"
+
+[menu.help.about]
+en = "About"
+zh = "关于"
+
+[menu.help.copyright]
+en = "Copyright"
+zh = "版权"
+
+[menu.help.license]
+en = "License"
+zh = "许可"
+
+[menu.help.help]
+en = "Help"
+zh = "帮助"
+
+[dialog.close]
+en = "Close"
+zh = "关闭"
+
+[dialog.confirm]
+en = "Confirm"
+zh = "确认"
+
+[dialog.confirm_hint]
+en = "Enter: confirm    Esc: cancel"
+zh = "回车：确认    Esc：取消"
+
+[dialog.connect]
+en = "Connect"
+zh = "连接"
+
+[dialog.connect_server]
+en = "Server [host:port]:"
+zh = "服务器 [主机:端口]："
+
+[dialog.nickname]
+en = "Nickname:"
+zh = "昵称："
+
+[dialog.build_info]
+en = "Build Info"
+zh = "构建信息"
+
+[tui.hint]
+en = "[tui] Chat: Up/Down history, Tab complete, Enter accept/run, Esc close popup, F10/Alt menu, Ctrl+Q quit."
+zh = "[tui] 聊天：上/下翻历史，Tab 补全，回车接受/执行，Esc 关闭弹窗，F10/Alt 菜单，Ctrl+Q 退出。"
+
+[start.loading_config]
+en = "Loading config"
+zh = "加载配置"
+
+[start.initializing_modules]
+en = "Initializing modules"
+zh = "初始化模块"
+
+[start.connecting_server]
+en = "Connecting to server"
+zh = "连接服务器"
+
+[start.verifying_assets]
+en = "Verifying assets"
+zh = "校验资源"
+
+[start.starting_services]
+en = "Starting services"
+zh = "启动服务"
+
+[start.all_systems_ready]
+en = "All systems ready!"
+zh = "全部就绪！"
+
+[start.starting_note]
+en = "Terminal Chat Starting"
+zh = "Terminal Chat 启动中"
+
+[repl.bye]
+en = "Bye"
+zh = "再见"
+
+[repl.interrupt_hint]
+en = " (interrupt sent to current command)"
+zh = "（已向当前命令发送中断）"
+
+[repl.prev_still_running]
+en = "Previous command still running; wait for it to finish."
+zh = "上一条命令仍在运行，请等待其结束。"
+
+[repl.worker_unavailable]
+en = "Command worker unavailable."
+zh = "命令执行器不可用。"
+
+[repl.saying_error]
+en = "Error choosing saying"
+zh = "获取格言失败"
+
+[repl.welcome_tip]
+en = "Type \"help\", \"copyright\" or \"license\" for more information."
+zh = "输入 \"help\"、\"copyright\" 或 \"license\" 查看更多信息。"
+
+[help.line1]
+en = "Built-in: exit/quit/q  quit | clear  clear log | version  version | build_info  build info"
+zh = "内置：exit/quit/q  退出 | clear  清空日志 | version  版本 | build_info  构建信息"
+
+[help.line2]
+en = "          about  version + build info | copyright  copyright | license  license | coffee  coffee | saying  fortune | help  this help"
+zh = "          about  版本+构建信息 | copyright  版权 | license  许可 | coffee  咖啡 | saying  格言 | help  本帮助"
+
+[help.line3]
+en = "Commands: connect  connect | msg -m <text>  send message | join_freq <freq> [password] | create_freq <freq>"
+zh = "命令：connect  连接 | msg -m <文本>  发送消息 | join_freq <频点> [密码] | create_freq <频点>"
+
+[help.line4]
+en = "          show active_users | show active_freqs | workspace list | ls | upload | download"
+zh = "          show active_users | show active_freqs | workspace list | ls | upload | download"

@@ -18,6 +18,7 @@ members = [
     "crates/cli-core-types",
     "crates/rs-fortune",
     "crates/cli-core-macros",
+    "crates/i18n-build",
     "crates/lsh",
     "crates/edit-tui",
 ]

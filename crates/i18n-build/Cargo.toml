@@ -1,0 +1,12 @@
+[package]
+name = "i18n-build"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# Build-time helper only: parsed by cli/srv build scripts to turn the
+# top-level i18n/*.toml dictionaries into compiled-in Rust lookup tables.
+# std-only, no runtime dependencies.

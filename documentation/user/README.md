@@ -31,6 +31,16 @@ This guide is for everyday users. After reading it you should be able to connect
 
 Launch without arguments for the REPL; pass `--tui` for the TUI.
 
+## Interface language
+
+Built-in client and server messages ship in two languages: English and Simplified Chinese. The active language is picked from environment variables, in this order:
+
+1. `TC_LANGUAGE` — explicit override: `en` or `zh`.
+2. `LANG`, then `LC_ALL` — a value starting with `zh` selects Chinese; otherwise English.
+3. If none is set, English is the default.
+
+Only built-in host and server handshake strings are translated in this release; plugin command and menu text may still appear in English.
+
 ## Five-step walkthrough
 
 ### 1. Configure the connection

@@ -32,6 +32,10 @@ A plugin is a dynamic library compiled as a `cdylib`, loaded by the host through
 - Understand `safer-ffi`'s `Out<T>` output parameter, `TaggedOption` optional type, and `safer_ffi::String`/`Vec`.
 - Command parsing is based on `clap`; the command YAML is converted into a clap `Command` by `yaml2cmd`.
 
+## String localization
+
+Built-in host strings are localized through the top-level `i18n/*.toml` dictionaries (English / Chinese); see the [i18n section](../contributor/architecture.md#9-internationalization-i18n) of the contributor architecture for the lookup mechanism. Plugin-registered menu labels, form fields, and command output currently return fixed strings from the plugin itself; when migrating a plugin to localized text, follow the same dictionary/`build.rs` pattern rather than adding a per-plugin runtime locale dependency.
+
 ## Key constraints (avoid pitfalls)
 
 - Structs crossing the FFI boundary must be `#[derive_ReprC] #[repr(C)]`. Under the current `safer-ffi` version, a ReprC struct **cannot embed a `Vec`** (`String` is opaque); complex lists are always returned as flat record lines through `Out<Vec<String>>`.

@@ -18,5 +18,8 @@ base64 = { workspace = true }
 protos = { workspace = true }
 socket2 = "0.6.5"
 
+[build-dependencies]
+i18n-build = { path = "../i18n-build" }
+
 [lints]
 workspace = true
