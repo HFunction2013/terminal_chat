@@ -164,7 +164,7 @@ fn install_ctrlc_handler() {
             let _ = execute!(stdout(), Show);
             std::process::exit(0);
         }
-        let _ = eprintln!("{}", crate::tr("repl.interrupt_hint"));
+        eprintln!("{}", crate::tr("repl.interrupt_hint"));
     })
     .expect("failed to install Ctrl+C handler");
 }

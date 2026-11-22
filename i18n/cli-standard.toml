@@ -1287,3 +1287,938 @@ zh = "状态"
 [std.label.option]
 en = "Option"
 zh = "选项"
+
+
+## ---- clap command metadata (generated, do not hand-edit) ----
+# Command `about` and argument `help` copy localized after the clap
+# command tree is built. `value_name` placeholders (KEY, FREQ_ID, …)
+# are identifiers and stay English; clap's own Usage:/error/help
+# templates and shell completion scripts remain English by design.
+
+[std.help.setg.about]
+en = "Set global options"
+zh = "设置全局选项"
+
+[std.help.setg.key.help]
+en = "Config key name"
+zh = "配置项名称"
+
+[std.help.setg.value.help]
+en = "Target config value"
+zh = "目标配置值"
+
+[std.help.setg.password.help]
+en = "use rpassword to read the value"
+zh = "使用 rpassword 读取该值"
+
+[std.help.get.about]
+en = "Get session options"
+zh = "查看会话选项"
+
+[std.help.get.key.help]
+en = "Config key name"
+zh = "配置项名称"
+
+[std.help.getg.about]
+en = "Get global options"
+zh = "查看全局选项"
+
+[std.help.getg.key.help]
+en = "Config key name"
+zh = "配置项名称"
+
+[std.help.set.about]
+en = "Set session options"
+zh = "设置会话选项"
+
+[std.help.set.key.help]
+en = "Session config key"
+zh = "会话配置项"
+
+[std.help.set.value.help]
+en = "Session config value"
+zh = "会话配置值"
+
+[std.help.route.about]
+en = "Trace route to server"
+zh = "追踪到服务器的路由"
+
+[std.help.lls.about]
+en = "List files in local current directory"
+zh = "列出本地当前目录下的文件"
+
+[std.help.lcd.about]
+en = "Change local directory"
+zh = "切换本地目录"
+
+[std.help.lcd.dir.help]
+en = "Directory to change into (defaults to current)"
+zh = "要切换到的目录（默认当前目录）"
+
+[std.help.lpwd.about]
+en = "Print local working directory"
+zh = "打印本地工作目录"
+
+[std.help.notifications.about]
+en = "Poll pending notifications (message/call/mute/kick/ban)"
+zh = "拉取待处理通知（消息/呼叫/禁言/踢出/封禁）"
+
+[std.help.proxy.about]
+en = "Turn on/off system proxy"
+zh = "开启/关闭系统代理"
+
+[std.help.proxy.on.about]
+en = "Turn on system proxy."
+zh = "开启系统代理。"
+
+[std.help.proxy.off.about]
+en = "Turn off system proxy."
+zh = "关闭系统代理。"
+
+[std.help.show.about]
+en = "Show runtime information"
+zh = "显示运行时信息"
+
+[std.help.show.options.about]
+en = "Show available set/setg options"
+zh = "显示可用的 set/setg 选项"
+
+[std.help.show.globals.about]
+en = "Show value of all global variables"
+zh = "显示所有全局变量的值"
+
+[std.help.show.locals.about]
+en = "Show value of all local variables"
+zh = "显示所有本地变量的值"
+
+[std.help.show.variables.about]
+en = "Show value of all variables"
+zh = "显示所有变量的值"
+
+[std.help.show.active_freqs.about]
+en = "Show all active frequencies"
+zh = "显示所有活跃频点"
+
+[std.help.show.active_users.about]
+en = "Show active users in current frequency"
+zh = "显示当前频点的活跃用户"
+
+[std.help.show.moderators.about]
+en = "Show moderators in current frequency"
+zh = "显示当前频点的管理员"
+
+[std.help.show.plugins.about]
+en = "Show all loaded plugins (namespaces)"
+zh = "显示所有已加载的插件（命名空间）"
+
+[std.help.join_freq.about]
+en = "Join a target frequency channel"
+zh = "加入目标频点频道"
+
+[std.help.join_freq.freq.help]
+en = "Target frequency id"
+zh = "目标频点 ID"
+
+[std.help.join_freq.password.help]
+en = "Frequency password (optional)"
+zh = "频点密码（可选）"
+
+[std.help.create_freq.about]
+en = "Create a new frequency channel"
+zh = "创建新的频点频道"
+
+[std.help.create_freq.freq.help]
+en = "New frequency unique id"
+zh = "新频点的唯一 ID"
+
+[std.help.create_freq.password.help]
+en = "Frequency password (optional; omit to be prompted interactively)"
+zh = "频点密码（可选；省略时将交互式提示输入）"
+
+[std.help.create_freq.p.help]
+en = "Create frequency with password (prompt interactively)"
+zh = "创建频点时设置密码（交互式提示输入）"
+
+[std.help.create_freq.max_people.help]
+en = "Max online user limit"
+zh = "最大在线人数上限"
+
+[std.help.create_freq.no_mod.help]
+en = "Create freq without mod (creator can quit)"
+zh = "创建频点时不设管理员（创建者可退出）"
+
+[std.help.background.about]
+en = "Background current session and return to main console"
+zh = "将当前会话后台化并返回主控制台"
+
+[std.help.sessions.about]
+en = "Multi-session manager"
+zh = "多会话管理"
+
+[std.help.sessions.list.help]
+en = "List all running sessions"
+zh = "列出所有正在运行的会话"
+
+[std.help.sessions.interact.help]
+en = "Switch to target session"
+zh = "切换到目标会话"
+
+[std.help.sessions.kill.help]
+en = "Close and destroy target session"
+zh = "关闭并销毁目标会话"
+
+[std.help.load.about]
+en = "Load Plugin"
+zh = "加载插件"
+
+[std.help.load.plugin.about]
+en = "load plugin"
+zh = "加载插件"
+
+[std.help.load.plugin.plugin.help]
+en = "Plugin to load"
+zh = "要加载的插件"
+
+[std.help.load.namespace.about]
+en = "load namespace"
+zh = "加载命名空间"
+
+[std.help.load.namespace.namespace.help]
+en = "namespace to load"
+zh = "要加载的命名空间"
+
+[std.help.unload.about]
+en = "Unload Plugin"
+zh = "卸载插件"
+
+[std.help.unload.plugin.about]
+en = "unload plugin"
+zh = "卸载插件"
+
+[std.help.unload.plugin.plugin_name.help]
+en = "Plugin to unload"
+zh = "要卸载的插件"
+
+[std.help.unload.namespace.about]
+en = "unload namespace"
+zh = "卸载命名空间"
+
+[std.help.unload.namespace.namespace_name.help]
+en = "namespace to unload"
+zh = "要卸载的命名空间"
+
+[std.help.plugin.about]
+en = "Manage loaded plugins"
+zh = "管理已加载的插件"
+
+[std.help.plugin.list.about]
+en = "List all loaded plugins"
+zh = "列出所有已加载的插件"
+
+[std.help.plugin.load.about]
+en = "Load a plugin"
+zh = "加载一个插件"
+
+[std.help.plugin.load.plugin.help]
+en = "Plugin to load"
+zh = "要加载的插件"
+
+[std.help.plugin.unload.about]
+en = "Unload a plugin"
+zh = "卸载一个插件"
+
+[std.help.plugin.unload.plugin_name.help]
+en = "Plugin to unload"
+zh = "要卸载的插件"
+
+[std.help.namespace.about]
+en = "Manage plugin namespaces"
+zh = "管理插件命名空间"
+
+[std.help.namespace.list.about]
+en = "List all loaded namespaces"
+zh = "列出所有已加载的命名空间"
+
+[std.help.namespace.load.about]
+en = "Load a namespace"
+zh = "加载一个命名空间"
+
+[std.help.namespace.load.namespace.help]
+en = "Namespace to load"
+zh = "要加载的命名空间"
+
+[std.help.namespace.unload.about]
+en = "Unload a namespace"
+zh = "卸载一个命名空间"
+
+[std.help.namespace.unload.namespace_name.help]
+en = "Namespace to unload"
+zh = "要卸载的命名空间"
+
+[std.help.tcpm.about]
+en = "Terminal Chat Package Manager"
+zh = "Terminal Chat 包管理器"
+
+[std.help.tcpm.update.about]
+en = "Update plugins.\n'standard' means main program.\n"
+zh = "更新插件。\n`standard` 指主程序。\n"
+
+[std.help.tcpm.update.plugin.help]
+en = "Plugin(s) to update"
+zh = "要更新的插件"
+
+[std.help.tcpm.update.registry.help]
+en = "Set plugin registry"
+zh = "设置插件仓库"
+
+[std.help.tcpm.update.reload.help]
+en = "Reload after update"
+zh = "更新后重新加载"
+
+[std.help.tcpm.update.force.help]
+en = "Override old one (if exists)."
+zh = "覆盖旧版本（若已存在）。"
+
+[std.help.tcpm.search.about]
+en = "Search plugin in registry"
+zh = "在插件仓库中搜索"
+
+[std.help.tcpm.search.plugin_name.help]
+en = "plugin name to search"
+zh = "要搜索的插件名"
+
+[std.help.tcpm.show.about]
+en = "Show plugin information from registry(default)"
+zh = "从仓库显示插件信息（默认）"
+
+[std.help.tcpm.show.plugin.help]
+en = "Plugin to show"
+zh = "要查看的插件"
+
+[std.help.tcpm.show.local.help]
+en = "Show plugin from local storage instead of registry"
+zh = "从本地存储而非仓库查看插件"
+
+[std.help.tcpm.list.about]
+en = "List plugin with certain constraints."
+zh = "按条件列出插件。"
+
+[std.help.tcpm.list.installed.about]
+en = "show all installed plugins."
+zh = "显示所有已安装的插件。"
+
+[std.help.tcpm.list.downloaded.about]
+en = "show all downloaded plugins."
+zh = "显示所有已下载的插件。"
+
+[std.help.tcpm.list.loaded.about]
+en = "show all loaded plugins."
+zh = "显示所有已加载的插件。"
+
+[std.help.tcpm.list.registry.about]
+en = "Show all plugins from registry.\nUse this carefully.\n"
+zh = "显示仓库中的全部插件。\n请谨慎使用。\n"
+
+[std.help.tcpm.list.updates.about]
+en = "Show all avaliable updates."
+zh = "显示所有可用更新。"
+
+[std.help.tcpm.install.about]
+en = "Install plugin"
+zh = "安装插件"
+
+[std.help.tcpm.install.plugin.help]
+en = "Plugin to install"
+zh = "要安装的插件"
+
+[std.help.tcpm.install.registry.help]
+en = "Set plugin registry"
+zh = "设置插件仓库"
+
+[std.help.tcpm.install.uload.help]
+en = "Use plugin's namespace when start"
+zh = "启动时使用插件的命名空间"
+
+[std.help.tcpm.install.local.help]
+en = "Path to local plugin file or directory"
+zh = "本地插件文件或目录的路径"
+
+[std.help.tcpm.install.force.help]
+en = "Override old one (if exists)."
+zh = "覆盖旧版本（若已存在）。"
+
+[std.help.tcpm.uninstall.about]
+en = "Uninstall plugin"
+zh = "卸载插件"
+
+[std.help.tcpm.uninstall.plugin.help]
+en = "Plugin to uninstall"
+zh = "要卸载的插件"
+
+[std.help.tcpm.uninstall.delete_local.help]
+en = "Delete local file"
+zh = "删除本地文件"
+
+[std.help.tcpm.download.about]
+en = "Download plugin"
+zh = "下载插件"
+
+[std.help.tcpm.download.plugin.help]
+en = "Plugin to download"
+zh = "要下载的插件"
+
+[std.help.tcpm.download.registry.help]
+en = "Set plugin registry"
+zh = "设置插件仓库"
+
+[std.help.tcpm.download.load.help]
+en = "load plugin after download"
+zh = "下载后加载插件"
+
+[std.help.tcpm.download.use_namespace.help]
+en = "load plugin and namespace after download"
+zh = "下载后加载插件及其命名空间"
+
+[std.help.upload.about]
+en = "Upload file or folder to server."
+zh = "上传文件或文件夹到服务器。"
+
+[std.help.upload.local_path.help]
+en = "Local path to upload."
+zh = "要上传的本地路径。"
+
+[std.help.upload.remote_path.help]
+en = "Remote path to upload."
+zh = "要上传的远端路径。"
+
+[std.help.download.about]
+en = "Download file or folder to server."
+zh = "从服务器下载文件或文件夹。"
+
+[std.help.download.remote_path.help]
+en = "Remote path to download."
+zh = "要下载的远端路径。"
+
+[std.help.download.local_path.help]
+en = "Local path to store downloads."
+zh = "存放下载内容的本地路径。"
+
+[std.help.download.recursive.help]
+en = "Download a directory recursively."
+zh = "递归下载目录。"
+
+[std.help.rm.about]
+en = "Remove a remote file or directory."
+zh = "删除远端文件或目录。"
+
+[std.help.rm.path.help]
+en = "Remote path to remove."
+zh = "要删除的远端路径。"
+
+[std.help.rm.recursive.help]
+en = "Remove directory recursively."
+zh = "递归删除目录。"
+
+[std.help.mv.about]
+en = "Move or rename a remote file/directory."
+zh = "移动或重命名远端文件/目录。"
+
+[std.help.mv.from.help]
+en = "Source path."
+zh = "源路径。"
+
+[std.help.mv.to.help]
+en = "Destination path."
+zh = "目标路径。"
+
+[std.help.cp.about]
+en = "Copy a remote file/directory."
+zh = "复制远端文件/目录。"
+
+[std.help.cp.from.help]
+en = "Source path."
+zh = "源路径。"
+
+[std.help.cp.to.help]
+en = "Destination path."
+zh = "目标路径。"
+
+[std.help.tree.about]
+en = "Show remote directory tree."
+zh = "显示远端目录树。"
+
+[std.help.tree.directory.help]
+en = "Remote directory (default: current)."
+zh = "远端目录（默认：当前目录）。"
+
+[std.help.checksum.about]
+en = "Get checksum of remote file (SHA256)."
+zh = "获取远端文件校验和（SHA256）。"
+
+[std.help.checksum.file.help]
+en = "Remote file to check. NO FOLDERS!"
+zh = "要校验的远端文件。不可为文件夹！"
+
+[std.help.cd.about]
+en = "Change the current remote directory to DIR."
+zh = "将当前远端目录切换到 DIR。"
+
+[std.help.cd.dir.help]
+en = "DIR to change."
+zh = "要切换到的目录。"
+
+[std.help.pwd.about]
+en = "Get current remote directory."
+zh = "获取当前远端目录。"
+
+[std.help.ls.about]
+en = "List files in current directory."
+zh = "列出当前目录下的文件。"
+
+[std.help.ls.directory.help]
+en = "Remote directory to list (default: current)."
+zh = "要列出的远端目录（默认：当前目录）。"
+
+[std.help.mkdir.about]
+en = "Make directory in remote server."
+zh = "在远端服务器上创建目录。"
+
+[std.help.mkdir.directory.help]
+en = "DIR to make."
+zh = "要创建的目录。"
+
+[std.help.file_info.about]
+en = "Get remote file infomation."
+zh = "获取远端文件信息。"
+
+[std.help.file_info.file.help]
+en = "The remote file"
+zh = "远端文件"
+
+[std.help.leave_freq.about]
+en = "Leave current frequency."
+zh = "离开当前频点。"
+
+[std.help.call.about]
+en = "Call an user"
+zh = "呼叫用户"
+
+[std.help.call.user.help]
+en = "The user"
+zh = "目标用户"
+
+[std.help.msg.about]
+en = "send message"
+zh = "发送消息"
+
+[std.help.msg.message.help]
+en = "Your message, fallback to editor"
+zh = "你的消息；未提供时回退到编辑器"
+
+[std.help.msg.users.help]
+en = "The users, default everybody."
+zh = "目标用户，默认为所有人。"
+
+[std.help.schedule_msg.about]
+en = "Schedules message."
+zh = "定时发送消息。"
+
+[std.help.schedule_msg.time.help]
+en = "When to send: +30s / +5m / +2h / +1d, HH:MM (local, next), or seconds."
+zh = "发送时间：+30s / +5m / +2h / +1d、HH:MM（本地时间，下一次），或秒数。"
+
+[std.help.schedule_msg.message.help]
+en = "Your message to send later."
+zh = "稍后要发送的消息。"
+
+[std.help.schedule_msg.users.help]
+en = "The users, default everybody."
+zh = "目标用户，默认为所有人。"
+
+[std.help.cancel.about]
+en = "cancel a task"
+zh = "取消任务"
+
+[std.help.cancel.task_id.help]
+en = "The task id"
+zh = "任务 ID"
+
+[std.help.schedule.about]
+en = "Schedule a command to run later in this console."
+zh = "安排一条命令稍后在此控制台执行。"
+
+[std.help.schedule.time.help]
+en = "When to run: +30s / +5m / +2h / +1d, HH:MM (local, next occurrence), or seconds."
+zh = "执行时间：+30s / +5m / +2h / +1d、HH:MM（本地时间，下一次），或秒数。"
+
+[std.help.schedule.cmd.help]
+en = "Command to run later (argv form)."
+zh = "稍后执行的命令（argv 形式）。"
+
+[std.help.tasks.about]
+en = "Get scheduled tasks."
+zh = "获取已计划的任务。"
+
+[std.help.whoami.about]
+en = "Get username."
+zh = "获取用户名。"
+
+[std.help.unset.about]
+en = "Unset session variable."
+zh = "取消设置会话变量。"
+
+[std.help.unset.key.help]
+en = "Config key name"
+zh = "配置项名称"
+
+[std.help.unset.all.help]
+en = "Clear all session options."
+zh = "清除所有会话选项。"
+
+[std.help.unsetg.about]
+en = "Unset global variable."
+zh = "取消设置全局变量。"
+
+[std.help.unsetg.key.help]
+en = "Config key name"
+zh = "配置项名称"
+
+[std.help.unsetg.all.help]
+en = "Clear all global options."
+zh = "清除所有全局选项。"
+
+[std.help.create.about]
+en = "Create alias or macro"
+zh = "创建别名或宏"
+
+[std.help.create.alias.about]
+en = "Create alias"
+zh = "创建别名"
+
+[std.help.create.alias.cmd.help]
+en = "alias source"
+zh = "别名来源命令"
+
+[std.help.create.alias.alias.help]
+en = "alias dest"
+zh = "别名目标名"
+
+[std.help.create.macro.about]
+en = "Create macro"
+zh = "创建宏"
+
+[std.help.create.macro.macro_name.help]
+en = "macro name"
+zh = "宏名称"
+
+[std.help.create.macro.macro_body.help]
+en = "macro body, default: open editor to get input"
+zh = "宏内容；默认打开编辑器输入"
+
+[std.help.shell.about]
+en = "Run a local shell command on this machine (not remote)."
+zh = "在本机执行本地 shell 命令（非远端）。"
+
+[std.help.shell.command.help]
+en = "Local shell command to run."
+zh = "要执行的本地 shell 命令。"
+
+[std.help.run.about]
+en = "run a certain macro"
+zh = "运行指定宏"
+
+[std.help.run.macro_name.help]
+en = "macro name"
+zh = "宏名称"
+
+[std.help.delete.about]
+en = "delete a alias or macro"
+zh = "删除别名或宏"
+
+[std.help.delete.alias.about]
+en = "Delete alias"
+zh = "删除别名"
+
+[std.help.delete.alias.alias.help]
+en = "alias to delete"
+zh = "要删除的别名"
+
+[std.help.delete.macro.about]
+en = "Delete macro"
+zh = "删除宏"
+
+[std.help.delete.macro.macro_name.help]
+en = "macro to delete"
+zh = "要删除的宏"
+
+[std.help.status.about]
+en = "Test network"
+zh = "测试网络"
+
+[std.help.freq_info.about]
+en = "Get frequency information"
+zh = "获取频点信息"
+
+[std.help.freq_info.frequency.help]
+en = "freq ID (defaults to current freq)"
+zh = "频点 ID（默认当前频点）"
+
+[std.help.reply.about]
+en = "Reply to the user who has just spoken quickly"
+zh = "快速回复刚发言的用户"
+
+[std.help.reply.message.help]
+en = "Your message, if not given, fallback to editor mode."
+zh = "你的消息；未提供时回退到编辑器模式。"
+
+[std.help.ignore.about]
+en = "Ignore comments of certain user"
+zh = "忽略指定用户的发言"
+
+[std.help.ignore.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.unignore.about]
+en = "Unignore comments of certain user"
+zh = "取消忽略指定用户的发言"
+
+[std.help.unignore.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.user_info.about]
+en = "Show user information"
+zh = "显示用户信息"
+
+[std.help.user_info.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.away.about]
+en = "Set your status to be busy or away"
+zh = "将状态设为忙碌或离开"
+
+[std.help.away.status.help]
+en = "Your status, only away and busy avaliable.\nAuto replies private messages. Like:\n  [bot-reply] I am busy now. Contact me later.\n"
+zh = "你的状态，仅支持 away 和 busy。\n私聊将自动回复。示例：\n  [bot-reply] I am busy now. Contact me later.\n"
+
+[std.help.foreground.about]
+en = "Switch to session if there is only one."
+zh = "当仅有一个会话时切换到该会话。"
+
+[std.help.disconnect.about]
+en = "Disconnect from server"
+zh = "断开与服务器的连接"
+
+[std.help.reconnect.about]
+en = "Reconnect the server"
+zh = "重新连接服务器"
+
+[std.help.connect.about]
+en = "Connect the server"
+zh = "连接服务器"
+
+[std.help.connect.server.help]
+en = "Server address, e.g., 127.0.0.1:50051"
+zh = "服务器地址，例如 127.0.0.1:50051"
+
+[std.help.logs.about]
+en = "open/close logging"
+zh = "开启/关闭日志记录"
+
+[std.help.logs.operation.help]
+en = "Operation (open|close)."
+zh = "操作（open|close）。"
+
+[std.help.kick.about]
+en = "kick user from freq (op)"
+zh = "将用户移出频点（管理员）"
+
+[std.help.kick.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.ban.about]
+en = "ban user from freq"
+zh = "封禁频点内用户"
+
+[std.help.ban.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.unban.about]
+en = "unban banned users"
+zh = "解封被封禁的用户"
+
+[std.help.unban.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.mute.about]
+en = "mute a certain user, use `set QUIET true` to mute everyboy except mods."
+zh = "禁言指定用户；使用 `set QUIET true` 可静默除管理员外的所有人。"
+
+[std.help.mute.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.unmute.about]
+en = "mute reversed."
+zh = "解除禁言。"
+
+[std.help.unmute.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.op.about]
+en = "give mod permission to a certain user."
+zh = "授予指定用户管理员权限。"
+
+[std.help.op.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.deop.about]
+en = "take mod permission from a certain user, noone can deop creator."
+zh = "收回指定用户的管理员权限；无法解除创建者的权限。"
+
+[std.help.deop.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.trop.about]
+en = "transfer creator permission."
+zh = "转移创建者权限。"
+
+[std.help.trop.user.help]
+en = "the full username, e.g., HZFY@192.168.78.91"
+zh = "完整用户名，例如 HZFY@192.168.78.91"
+
+[std.help.disband.about]
+en = "disband current frequency."
+zh = "解散当前频点。"
+
+[std.help.disband.force.help]
+en = "Force disband even with members."
+zh = "即使存在成员也强制解散。"
+
+[std.help.sleep.about]
+en = "Are you sleepy? Why not sleep for a while?"
+zh = "困了吗？何不休息一会儿？"
+
+[std.help.sleep.time.help]
+en = "Aha... sleepy!"
+zh = "啊……好困！"
+
+[std.help.editor.about]
+en = "just opens an editor"
+zh = "仅打开一个编辑器"
+
+[std.help.editor.file.help]
+en = "file to open, optional."
+zh = "要打开的文件，可选。"
+
+[std.help.editor.editor.help]
+en = "set editor"
+zh = "设置编辑器"
+
+[std.help.workspace.about]
+en = "Workspace support."
+zh = "工作区支持。"
+
+[std.help.workspace.new.about]
+en = "New workspace"
+zh = "新建工作区"
+
+[std.help.workspace.new.workspace_name.help]
+en = "workspace name. Defaults: Workspace-xxx\n"
+zh = "工作区名称。默认：Workspace-xxx\n"
+
+[std.help.workspace.new.enter.help]
+en = "Create and enter."
+zh = "创建并进入。"
+
+[std.help.workspace.rename.about]
+en = "Rename a workspace. Default: current workspace\n"
+zh = "重命名工作区。默认：当前工作区\n"
+
+[std.help.workspace.rename.source.help]
+en = "Original workspace name."
+zh = "原工作区名称。"
+
+[std.help.workspace.rename.target.help]
+en = "Final workspace name."
+zh = "新工作区名称。"
+
+[std.help.workspace.delete.about]
+en = "Delete workspace. Default: current workspace\n"
+zh = "删除工作区。默认：当前工作区\n"
+
+[std.help.workspace.delete.workspace_name.help]
+en = "workspace name."
+zh = "工作区名称。"
+
+[std.help.workspace.delete.force.help]
+en = "action without confirm."
+zh = "不确认直接执行。"
+
+[std.help.workspace.switch.about]
+en = "Switch to another workspace."
+zh = "切换到另一个工作区。"
+
+[std.help.workspace.switch.workspace_name.help]
+en = "workspace name."
+zh = "工作区名称。"
+
+[std.help.workspace.list.about]
+en = "List all workspaces."
+zh = "列出所有工作区。"
+
+[std.help.workspace.show.about]
+en = "Show information for a certain workspace. Default: current workspace.\n"
+zh = "显示指定工作区的信息。默认：当前工作区。\n"
+
+[std.help.workspace.show.workspace_name.help]
+en = "workspace name."
+zh = "工作区名称。"
+
+[std.help.workspace.clone.about]
+en = "Clone a workspace. Default: current workspace.\n"
+zh = "克隆工作区。默认：当前工作区\n"
+
+[std.help.workspace.clone.source.help]
+en = "Original workspace name."
+zh = "原工作区名称。"
+
+[std.help.workspace.clone.target.help]
+en = "Final workspace name."
+zh = "新工作区名称。"
+
+[std.help.workspace.export.about]
+en = "Export workspace information to a file. Default: current workspace.\n"
+zh = "将工作区信息导出到文件。默认：当前工作区\n"
+
+[std.help.workspace.export.workspace_name.help]
+en = "workspace name."
+zh = "工作区名称。"
+
+[std.help.workspace.export.output.help]
+en = "workspace output file. Default: <PROGRAM_DIR>/workspaces/<WORKSPACE_NAME>.toml\n"
+zh = "工作区输出文件。默认：<PROGRAM_DIR>/workspaces/<WORKSPACE_NAME>.toml\n"
+
+[std.help.workspace.import.about]
+en = "Import workspace information."
+zh = "导入工作区信息。"
+
+[std.help.workspace.import.workspace_file.help]
+en = "workspace file."
+zh = "工作区文件。"
+
+[std.help.feedback.about]
+en = "Send feedback."
+zh = "发送反馈。"
+
+[std.help.feedback.content.help]
+en = "Your feedback content. fallbacks to editor."
+zh = "你的反馈内容；未提供时回退到编辑器。"

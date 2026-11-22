@@ -240,8 +240,12 @@ pub(crate) fn handle_call_user(
     println!("[srv-standard] CALL {who} -> {target_disp} ({freq}) @{}: {}", req.freq, req.message);
     // 呼叫即通知目标用户（打印到服务端日志，等价于 @user 提醒）。
     let msg = if req.message.is_empty() {
-        format!("[call] {who} is calling you in {freq} (ring ring)")
+        crate::i18n::t("srv.notify.call")
+            .replace("{who}", &who)
+            .replace("{freq}", &freq)
+            .to_string()
     } else {
+        // 除 [call] 通道标签外无可译散文：{who}/@{freq}/消息体均为数据，原样透传。
         format!("[call] {who} @{freq}: {}", req.message)
     };
     println!("[srv-standard] @{target} -> {msg}");

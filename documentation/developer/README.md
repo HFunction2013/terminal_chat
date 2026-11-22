@@ -34,7 +34,7 @@ A plugin is a dynamic library compiled as a `cdylib`, loaded by the host through
 
 ## String localization
 
-Built-in host strings are localized through the top-level `i18n/*.toml` dictionaries (English / Chinese); see the [i18n section](../contributor/architecture.md#9-internationalization-i18n) of the contributor architecture for the lookup mechanism. The `cli-standard` plugin reports its compiled-in dictionary (menu groups/items, form titles/fields, sidebar sections, status-bar words, in-command prompts and validation errors) to core during `on_init_plugin`; local prompts resolve through the `lookup_i18n` hook on every read. When migrating further plugin text, follow the same dictionary/`build.rs` pattern rather than adding a per-plugin runtime locale dependency.
+Built-in host strings are localized through the top-level `i18n/*.toml` dictionaries (English / Chinese); see the [i18n section](../contributor/architecture.md#9-internationalization-i18n) of the contributor architecture for the lookup mechanism. The `cli-standard` plugin reports its compiled-in dictionary (menu groups/items, form titles/fields, sidebar sections, status-bar words, in-command prompts and validation errors, plus clap command `about` and argument `help` under `std.help.*`) to core during `on_init_plugin`; local prompts resolve through the `lookup_i18n` hook on every read. When migrating further plugin text, follow the same dictionary/`build.rs` pattern rather than adding a per-plugin runtime locale dependency.
 
 ## Key constraints (avoid pitfalls)
 

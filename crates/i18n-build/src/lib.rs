@@ -23,7 +23,26 @@ fn parse_quoted(s: &str) -> String {
     let Some(inner) = s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) else {
         panic!("i18n: value must be a double-quoted string: {s}");
     };
-    inner.replace("\\\"", "\"").replace("\\\\", "\\")
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('"') => out.push('"'),
+                Some('\\') => out.push('\\'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn parse(toml: &str) -> Vec<Entry> {
@@ -170,6 +189,17 @@ mod tests {
         assert_eq!(parsed[0].key, "menu.file");
         assert_eq!(parsed[0].en, "File");
         assert_eq!(parsed[0].zh, "文件");
+    }
+
+    #[test]
+    fn decodes_escapes_in_values() {
+        let src = r#"[x]
+en = "line one\nline two \"quoted\""
+zh = "甲\t乙"
+"#;
+        let parsed = parse(src);
+        assert_eq!(parsed[0].en, "line one\nline two \"quoted\"");
+        assert_eq!(parsed[0].zh, "甲\t乙");
     }
 
     #[test]

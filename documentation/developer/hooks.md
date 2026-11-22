@@ -114,7 +114,7 @@ Core keeps a runtime dictionary keyed by i18n key. Plugins report their compiled
 | `lookup_i18n` | `fn(key: &String, Out<String>) -> Result` | Translate a key for the current language; an unknown key is returned verbatim; an empty `zh` falls back to `en` |
 | `get_current_lang` | `fn(Out<i32>) -> Result` | Current language ordinal: `0` = English, `1` = Simplified Chinese |
 
-Language resolution: the global option `LANGUAGE` wins when set and parseable (`zh*` → Chinese, anything else → English); otherwise the process environment is consulted in order `LANG`, then `LC_ALL`, falling back to English. UI fields that carry keys: menu `label`/`group`, form `title`/field `label`, sidebar `title`/`label`, static bottom-fragment `label`. Commands, option keys, prefix symbols, identifiers and plugin/namespace names are not translated.
+Language resolution: the global option `LANGUAGE` wins when set and parseable (`zh*` → Chinese, anything else → English); otherwise the process environment is consulted in order `LANG`, then `LC_ALL`, falling back to English. UI fields that carry keys: menu `label`/`group`, form `title`/field `label`, sidebar `title`/`label`, static bottom-fragment `label`; the `cli-standard` command tree additionally localizes command `about` and argument `help` through `std.help.*` keys after build. Command names, option keys, prefix symbols, argument `value_name` placeholders, identifiers and plugin/namespace names are not translated.
 
 Dictionary entries owned by a plugin are dropped on unload alongside its options/UI entries; `clear_plugins` empties the whole dictionary.
 

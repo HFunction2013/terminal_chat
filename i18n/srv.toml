@@ -433,6 +433,10 @@ zh = "[mute:{freq}] 你被 {who} 禁言"
 en = "[presence:{freq}] {who} is {label}"
 zh = "[presence:{freq}] {who} {label}"
 
+[srv.notify.call]
+en = "[call] {who} is calling you in {freq} (ring ring)"
+zh = "[call] {who} 在 {freq} 呼叫你（ring ring）"
+
 # Test-only probe: empty `zh` exercises the en fallback inside the generated
 # `t_lang` lookup. Not referenced by any handler.
 [srv.test.zh_fallback_probe]

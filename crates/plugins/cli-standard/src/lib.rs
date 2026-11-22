@@ -54,6 +54,7 @@ fn init_library(path: &str) -> &Library {
     LIB.get_or_init(|| unsafe { Library::new(path).expect("Failed to load library") })
 }
 
+mod cmd_i18n;
 mod commands;
 mod connection;
 pub mod editor;
@@ -71,12 +72,13 @@ mod command {
 
     include!(concat!(env!("OUT_DIR"), "/command.rs"));
     pub static CMD: LazyLock<Command> = LazyLock::new(|| {
-        add_commands(
+        let cmd = add_commands(
             Command::new(&*METADATA.command_name)
                 .version(&*METADATA.version)
                 .author(&*METADATA.author)
                 .about(&*METADATA.description),
-        )
+        );
+        crate::cmd_i18n::localize_commands(cmd)
     });
 }
 #[ffi_export]
@@ -112,23 +114,6 @@ pub fn on_init_plugin(h_meta: HostMetadata) -> PluginResult {
     sidebar::register_sidebar(lib);
     statusbar::register_statusbar(lib);
     PluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
-}
-
-#[cfg(test)]
-mod i18n_tests {
-    use super::i18n::{Lang, t_lang};
-
-    #[test]
-    fn prompt_entries_lookup_both_languages() {
-        assert_eq!(t_lang(Lang::En, "std.prompt.task.cancelled"), "[*] Task #{id} cancelled.");
-        assert_eq!(t_lang(Lang::Zh, "std.prompt.task.cancelled"), "[*] 任务 #{id} 已取消。");
-    }
-
-    #[test]
-    fn unknown_key_falls_back_to_key() {
-        assert_eq!(t_lang(Lang::En, "std.prompt.missing.key"), "std.prompt.missing.key");
-        assert_eq!(t_lang(Lang::Zh, "std.prompt.missing.key"), "std.prompt.missing.key");
-    }
 }
 
 /// 取走异步推送队列（QUIET on 时静默），供 cli 主程序后台线程显示。
@@ -198,4 +183,29 @@ pub fn list_remote_dir(
 #[ffi_export]
 pub fn is_connected() -> i32 {
     crate::connection::CONNECTION.lock().unwrap().is_some() as i32
+}
+
+#[cfg(test)]
+mod i18n_tests {
+    use super::i18n::{Lang, t_lang};
+
+    #[test]
+    fn prompt_entries_lookup_both_languages() {
+        assert_eq!(t_lang(Lang::En, "std.prompt.task.cancelled"), "[*] Task #{id} cancelled.");
+        assert_eq!(t_lang(Lang::Zh, "std.prompt.task.cancelled"), "[*] 任务 #{id} 已取消。");
+    }
+
+    #[test]
+    fn unknown_key_falls_back_to_key() {
+        assert_eq!(t_lang(Lang::En, "std.prompt.missing.key"), "std.prompt.missing.key");
+        assert_eq!(t_lang(Lang::Zh, "std.prompt.missing.key"), "std.prompt.missing.key");
+    }
+
+    #[test]
+    fn help_metadata_entries_lookup_both_languages() {
+        assert_eq!(t_lang(Lang::En, "std.help.setg.about"), "Set global options");
+        assert_eq!(t_lang(Lang::Zh, "std.help.setg.about"), "设置全局选项");
+        assert_eq!(t_lang(Lang::En, "std.help.create.alias.cmd.help"), "alias source");
+        assert_eq!(t_lang(Lang::Zh, "std.help.create.alias.cmd.help"), "别名来源命令");
+    }
 }

@@ -44,7 +44,7 @@ Built-in client and server messages ship in two languages: English (`en`) and Si
 
 **Server (srv).** Server-pushed response messages follow the server process's own locale only: `LANG`, then `LC_ALL`, falling back to English. The client does not send its language to the server, and the handshake protocol is unchanged.
 
-Command names, option keys, paths, identifiers, plugin/namespace names and server console logs stay in English; only human-readable labels and messages are translated.
+Command names, option keys, paths, identifiers, plugin/namespace names and server console logs stay in English; only human-readable labels and messages are translated. Command descriptions and argument help follow the client language; clap's own `Usage:` / error lines and the help text embedded in shell completion scripts remain English.
 
 ## Five-step walkthrough
 
