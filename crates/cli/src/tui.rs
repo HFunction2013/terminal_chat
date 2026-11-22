@@ -1144,10 +1144,10 @@ impl App {
         }
         self.completion_active = false;
         self.refresh_completions();
-        // 接受后下一帧把焦点交回输入框；弹窗表单内的补全不抢焦点到主输入框。
-        if !in_dialog {
-            self.refocus_input = true;
-        }
+        // 接受后下一帧把焦点交回当前输入框（主命令行或弹窗当前字段）；
+        // 鼠标点选候选会先把焦点给到候选项，需在下一帧夺回。主框 / 弹窗
+        // 渲染段各自在自己的输入框上下文里消费该标志。
+        self.refocus_input = true;
     }
 
     /// 在候选列表中循环切换高亮下标。
@@ -2034,7 +2034,8 @@ fn draw_input(
     // 首帧把焦点交给输入框；之后不抢，菜单展开时焦点留在菜单。
     ctx.focus_on_first_present();
     // 鼠标点选候选后，焦点曾被候选项抢走；这里交回输入框行容器。
-    if app.refocus_input {
+    // 弹窗打开时该标志留给弹窗渲染段，交回弹窗当前字段输入框。
+    if app.dialog.is_none() && app.refocus_input {
         app.refocus_input = false;
         ctx.steal_focus();
     }
@@ -2231,6 +2232,11 @@ fn draw_dialog(
                 ctx.editline("dlg-input", buf);
             }
             ctx.focus_on_first_present();
+            // 弹窗内接受补全后，焦点曾被候选浮层抢走；这里交回当前字段输入框。
+            if app.refocus_input {
+                app.refocus_input = false;
+                ctx.steal_focus();
+            }
             let focused = ctx.is_focused();
             app.refresh_completions();
             if focused {
@@ -5334,6 +5340,86 @@ mod tests {
         assert!(
             cmd.iter().any(|n| n.focused),
             "focus returned to the input box after Enter accept"
+        );
+    }
+
+    /// Inside a dialog, accepting a suggestion by mouse must return focus to
+    /// the current form field's editline, not leave it on the suggestion item.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn dialog_mouse_accept_completion_returns_focus_to_dialog_input() {
+        let _guard = OPT_TEST_LOCK.lock().unwrap();
+        set_session(None);
+        set_global(None);
+        let mut tui = Tui::new().unwrap();
+        tui.set_size(Size { width: 100, height: 30 });
+        let mut app = App::new();
+        stub_command_table(&mut app);
+        let field = FormField {
+            label: "Member:".to_string(),
+            required: true,
+            secret: false,
+            kind: FieldKind::Member,
+        };
+        let spec = stub_spec("join_freq", "", vec![field]);
+        app.open_form(&spec);
+        app.members = vec!["room-a".to_string()];
+        let groups = builtin_groups();
+        draw(
+            &mut tui,
+            Some(Input::Resize(Size { width: 100, height: 30 })),
+            &mut app,
+            &STUB_RUN,
+            &STUB_DRAIN,
+            &groups,
+        );
+        while tui.needs_settling() {
+            draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+        }
+
+        let item = tui.testing_find("item");
+        assert!(!item.is_empty(), "suggestion rendered in dialog");
+        let center = Point { x: item[0].x + item[0].width / 2, y: item[0].y + item[0].height / 2 };
+        let mouse = |state: input::InputMouseState| input::InputMouse {
+            state,
+            modifiers: kbmod::NONE,
+            position: center,
+            scroll: Point { x: 0, y: 0 },
+            drag: false,
+        };
+
+        // First click selects the item; second click activates it.
+        for _ in 0..2 {
+            draw(
+                &mut tui,
+                Some(Input::Mouse(mouse(input::InputMouseState::Left))),
+                &mut app,
+                &STUB_RUN,
+                &STUB_DRAIN,
+                &groups,
+            );
+            while tui.needs_settling() {
+                draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+            }
+            draw(
+                &mut tui,
+                Some(Input::Mouse(mouse(input::InputMouseState::None))),
+                &mut app,
+                &STUB_RUN,
+                &STUB_DRAIN,
+                &groups,
+            );
+            while tui.needs_settling() {
+                draw(&mut tui, None, &mut app, &STUB_RUN, &STUB_DRAIN, &groups);
+            }
+        }
+
+        assert_eq!(app.dialog_buffer().unwrap(), "room-a", "completion accepted into field");
+        let dlg = tui.testing_find("dlg-input");
+        assert!(!dlg.is_empty(), "dialog input rendered");
+        assert!(
+            dlg.iter().any(|n| n.focused),
+            "focus returned to the dialog input after mouse accept"
         );
     }
 
