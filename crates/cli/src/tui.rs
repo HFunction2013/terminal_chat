@@ -1606,6 +1606,7 @@ fn event_loop(
                     output_drain,
                     &["show".to_string(), "active_users".to_string()],
                     true,
+                    false,
                 );
             }
         }
@@ -1622,6 +1623,7 @@ fn event_loop(
                     output_drain,
                     &["sessions".to_string(), "-l".to_string()],
                     true,
+                    false,
                 );
             }
         }
@@ -1638,6 +1640,7 @@ fn event_loop(
                     output_drain,
                     &["plugin".to_string(), "list".to_string()],
                     true,
+                    false,
                 );
             }
         }
@@ -2336,7 +2339,7 @@ fn execute_or_dialog(
         app.open_confirm(confirm_message(cmd, argv), argv.to_vec());
         return;
     }
-    run_argv(app, run_command, output_drain, argv, false);
+    run_argv(app, run_command, output_drain, argv, false, false);
 }
 
 /// REPL 同款内置命令在 TUI 内的本地分发。
@@ -2462,7 +2465,7 @@ fn dialog_advance(app: &mut App, run_command: &RunCommandFn, output_drain: &Outp
 fn finish_confirm(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainFn) {
     let Some(Dialog::Confirm { argv, .. }) = app.dialog.take() else { return };
     app.note_command(&argv);
-    run_argv(app, run_command, output_drain, &argv, false);
+    run_argv(app, run_command, output_drain, &argv, false, false);
 }
 
 /// 生成 `hf` + 两位随机小写字母的调试昵称（如 `hfqx`）。
@@ -2511,7 +2514,7 @@ fn debug_seed_autoconnect(
     let server = opt_get_effective(get_session, get_option, "SERVER");
     let username = opt_get_effective(get_session, get_option, "USERNAME");
     for argv in debug_seed_argv(&server, &username) {
-        run_argv(app, run_command, output_drain, &argv, false);
+        run_argv(app, run_command, output_drain, &argv, false, true);
     }
 }
 
@@ -2531,6 +2534,7 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
                 output_drain,
                 &["setg".to_string(), "SERVER".to_string(), host],
                 false,
+                true,
             );
         }
         if let Some(p) = port {
@@ -2540,6 +2544,7 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
                 output_drain,
                 &["setg".to_string(), "PORT".to_string(), p],
                 false,
+                true,
             );
         }
     }
@@ -2550,9 +2555,10 @@ fn finish_dialog(app: &mut App, run_command: &RunCommandFn, output_drain: &Outpu
             output_drain,
             &["setg".to_string(), "USERNAME".to_string(), username],
             false,
+            true,
         );
     }
-    run_argv(app, run_command, output_drain, &["connect".to_string()], false);
+    run_argv(app, run_command, output_drain, &["connect".to_string()], false, true);
 }
 
 /// 按命令名把表单字段值组装成 argv（纯函数，便于单测）。
@@ -2751,7 +2757,7 @@ fn finish_form(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputD
         return;
     }
     app.note_command(&argv);
-    run_argv(app, run_command, output_drain, &argv, false);
+    run_argv(app, run_command, output_drain, &argv, false, false);
 }
 
 /// 提交输入框内容为命令。
@@ -2770,12 +2776,17 @@ fn submit(app: &mut App, run_command: &RunCommandFn, output_drain: &OutputDrainF
 }
 
 /// 在 TUI 内同步执行命令，输出回显到聊天记录（不退出全屏）。
+///
+/// `queued` 用于内部批量序列（debug 种子、连接对话框回填）：这些命令必须按序
+/// 串行执行，投递时不判 worker busy、不被单槽拒绝；用户主动敲入的命令保持
+/// busy 拒绝口径（`queued = false`）。
 fn run_argv(
     app: &mut App,
     run_command: &RunCommandFn,
     output_drain: &OutputDrainFn,
     argv: &[String],
     background: bool,
+    queued: bool,
 ) {
     // 静默只作用于后台自动回填投递；用户主动敲入的命令（即使是列表查询）
     // 仍正常回显到输出区。
@@ -2785,21 +2796,24 @@ fn run_argv(
     // 每帧 drain 回流，完成结果在事件循环里取回（见 `apply_job_result`）。
     if let Some(worker) = app.worker.clone() {
         // worker 仍在跑上一条作业：本次投递被拒，保留在跑作业的静默归属，
-        // 不用新命令的口径覆盖全局标志。
-        if worker.is_running() {
+        // 不用新命令的口径覆盖全局标志。内部批量序列走排队口径，不判 busy。
+        if !queued && worker.is_running() {
             if !silent {
                 app.push_line(crate::tr("tui.worker_busy").to_string(), LineKind::System);
             }
             return;
         }
         // 入队前清走上一条命令残留在 FFI 输出缓冲的行；残留并入回填文本，
-        // 不回显到输出区，避免跨命令帧间泄漏。
-        let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
-        let leftover: Vec<String> = drained.iter().map(|s| s.to_string()).collect();
-        app.worker_output.clear();
-        for line in &leftover {
-            app.worker_output.push_str(line);
-            app.worker_output.push('\n');
+        // 不回显到输出区，避免跨命令帧间泄漏。排队序列的前一条仍在跑，缓冲
+        // 归属在跑作业，跳过本次 drain，残留由事件循环在作业完成后回流。
+        if !queued {
+            let drained: Vec<safer_ffi::String> = unsafe { output_drain() }.into();
+            let leftover: Vec<String> = drained.iter().map(|s| s.to_string()).collect();
+            app.worker_output.clear();
+            for line in &leftover {
+                app.worker_output.push_str(line);
+                app.worker_output.push('\n');
+            }
         }
         app.silent_refresh = silent;
         if !silent {
@@ -3647,13 +3661,13 @@ mod tests {
         // 后台自动投递：静默，不写输出区。
         let before = app.log.len();
         for argv in &refresh {
-            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, argv, true);
+            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, argv, true, false);
         }
         assert_eq!(app.log.len(), before, "background refreshes must stay out of the output log");
 
         // 用户主动敲入同一条命令：正常回显命令行到输出区。
         for argv in &refresh {
-            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, argv, false);
+            run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, argv, false, false);
         }
         assert!(
             app.log.iter().any(|l| l.text.starts_with("tc> plugin list")),
@@ -4875,6 +4889,7 @@ mod tests {
             &STUB_DRAIN,
             &["sleep".to_string(), "1ms".to_string()],
             false,
+            false,
         );
         // 命令回显行先落到聊天记录（UI 线程不等待执行完成）。
         assert!(app.log.iter().any(|l| l.text.starts_with("tc> sleep")));
@@ -4910,6 +4925,7 @@ mod tests {
             &STUB_DRAIN,
             &["plugin".to_string(), "list".to_string()],
             true,
+            false,
         );
         assert!(worker.is_silent(), "background refresh must be marked silent");
 
@@ -4934,7 +4950,7 @@ mod tests {
         assert!(app.worker_output.contains("cli-standard"));
 
         // 下一条主动命令投递后，静默标记被覆盖为非静默。
-        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["connect".to_string()], false);
+        run_argv(&mut app, &STUB_RUN, &STUB_DRAIN, &["connect".to_string()], false, false);
         assert!(!worker.is_silent(), "typed command must reset non-silent");
     }
 

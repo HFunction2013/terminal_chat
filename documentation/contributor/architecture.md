@@ -78,6 +78,7 @@ Commands run off the UI thread in a single serial `CommandWorker`:
 - A `tx/rx` channel carries `(argv, silent)` jobs; an `AtomicBool` tracks running state; a `Mutex<Option<JobResult>>` holds the completed result.
 - The per-job silent marker is an `Arc<AtomicBool>` set on `submit` and kept across completion until the next submit overwrites it. This binds echo attribution to the job whose drained lines are still in the buffer, instead of a shared global bool that a neighboring job's completion callback could flip early.
 - Real-time output is drained per frame: non-silent jobs echo to the output log; silent backfill only accumulates into `worker_output` for sidebar reconcile and never enters the log.
+- Submission splits two paths. A user-typed command submitted while the worker is still busy is rejected with the busy hint. Internal batch sequences (the debug autoconnect seed, the connect-dialog backfill) are queued straight onto the channel and run serially in order, bypassing the busy reject so later backfill commands are not dropped.
 
 ### Push queue
 
