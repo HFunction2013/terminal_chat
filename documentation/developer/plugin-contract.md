@@ -20,6 +20,8 @@ A plugin's `command_name` is its namespace. At load, core parses the top-level c
 
 Core supplies the namespace token internally when invoking the plugin's `run_command`; the user command line is not rewritten with a hard-coded default namespace. An unresolved command reports not-found.
 
+The `load namespace` / `unload namespace` commands are the `command_name`-keyed view of the same plugin set that `load plugin` / `unload plugin` key by plugin name; both sides resolve a plugin through its `command_name` metadata, not through a separate text manifest.
+
 ## Client plugin entry functions
 
 Declared in `crates/cli-core-types/src/plugin_fn_types.rs`. Export with `#[ffi_export]` from `safer_ffi`.

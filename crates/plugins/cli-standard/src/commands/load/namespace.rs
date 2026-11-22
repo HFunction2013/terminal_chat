@@ -5,44 +5,50 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use cli_core_types::PluginMetadata;
 use safer_ffi::prelude::*;
+use std::mem::ManuallyDrop;
 
 pub struct NamespaceCommand;
 
 impl NamespaceCommand {
-    #[allow(unused_variables)]
     pub fn execute(&self, namespace: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        let file = crate::local::base_dir().join("namespaces.txt");
-        let content = std::fs::read_to_string(&file).unwrap_or_default();
-        let mut loaded = 0usize;
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            if let Some((name, rest)) = line.split_once(':') {
-                if name.trim() != namespace {
-                    continue;
-                }
-                for p in rest.split(',') {
-                    let p = p.trim();
-                    if p.is_empty() {
-                        continue;
-                    }
-                    cli_core_macros::load_core_symbols!(lib, load_plugin);
-                    let res = load_plugin(&p.into());
-                    if res.success == 1 {
-                        loaded += 1;
-                    }
-                }
-            }
+        cli_core_macros::load_core_symbols!(lib, get_all_plugins, load_plugin);
+
+        // 命名空间即插件元数据的 `command_name`（与 `namespace list` / `unload namespace`
+        // 口径一致）；先在已加载集合中按 command_name 幂等匹配，不再反查 namespaces.txt
+        // 分组清单。
+        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
+            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
+        let _ = get_all_plugins(Out::from(&mut buf));
+        let loaded = ManuallyDrop::into_inner(buf);
+        if loaded.iter().any(|p| p.command_name.to_string() == namespace) {
+            print_content(&format!("[*] Namespace `{namespace}` is already loaded.").into());
+            return Ok(());
         }
-        if loaded > 0 {
-            print_content(&format!("[*] Namespace `{namespace}`: {loaded} plugins loaded.").into());
+
+        // 未加载：按该名称走既有插件库查找与加载路径（与 `load plugin` 同一发现路径）。
+        // 注意：若某插件的 command_name 与库名不同且尚未加载，需用 `load plugin <库名>`。
+        let res = load_plugin(&namespace.clone().into());
+        if res.success == 1 {
+            print_content(
+                &format!(
+                    "[*] Namespace `{namespace}` loaded: {}",
+                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default()
+                )
+                .into(),
+            );
         } else {
-            print_content(&format!("[!] Namespace `{namespace}` not found or empty (define it in ~/.terminal_chat/namespaces.txt as `{namespace}: plugin1,plugin2`).").into());
+            print_content(
+                &format!(
+                    "[!] Namespace `{namespace}` not found among loaded plugins or installed libraries: {} (exit {})",
+                    res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default(),
+                    res.exit_code
+                )
+                .into(),
+            );
         }
         Ok(())
     }
@@ -53,7 +59,6 @@ impl CommandExecutor for NamespaceCommand {
         "namespace"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let namespace = matches
             .get_one::<String>("namespace")
