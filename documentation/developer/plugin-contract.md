@@ -59,6 +59,8 @@ A type name core does not recognize (for example `USER`) is a **custom concept**
 
 Arguments declared as options (`short`/`long` present, or an `action` such as `set_true`) are flags/valued options and do not occupy a positional argument slot. The positional completion index counts only positional arguments, so placing a flag before a positional argument does not shift the positional argument's declared `type`.
 
+Form fields registered via `register_form_field` use the same built-in category numbers. A field's `kind` must match the completion `type` of the corresponding argument in the command's `command_yaml` — for example the option-key field of `set`/`get`/`setg`/`getg`/`unset`/`unsetg` must be `OPTION_KEY`. A mismatch (such as declaring the key field `PLAIN`) makes the host dialog treat it as free text and offer no option-key candidates.
+
 A command entry marked `hidden: true` is still dispatched normally by the plugin, but it is skipped when core builds the completion candidate table, so it does not appear in command or subcommand suggestions.
 
 ## Server plugin entry functions

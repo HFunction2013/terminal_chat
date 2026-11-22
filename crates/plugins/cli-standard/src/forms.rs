@@ -28,6 +28,7 @@ const PLAIN: i32 = k::PLAIN;
 const MEMBER: i32 = k::MEMBER;
 const REMOTE_PATH: i32 = k::REMOTE_PATH;
 const LOCAL_PATH: i32 = k::LOCAL_PATH;
+const OPTION_KEY: i32 = k::OPTION_KEY;
 
 /// 全部内置表单规格（与宿主 `FORM_SPECS` 一一对应）。
 const FORM_SPECS: &[FormSpecDef] = &[
@@ -356,7 +357,7 @@ const FORM_SPECS: &[FormSpecDef] = &[
         title: "Set Session Option",
         prefill: "set ",
         fields: &[
-            FormFieldDef { label: "Key:", required: true, secret: false, kind: PLAIN },
+            FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY },
             FormFieldDef { label: "Value:", required: true, secret: false, kind: PLAIN },
         ],
     },
@@ -364,14 +365,14 @@ const FORM_SPECS: &[FormSpecDef] = &[
         cmd: "get",
         title: "Get Session Option",
         prefill: "get ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
     },
     FormSpecDef {
         cmd: "setg",
         title: "Set Global Option",
         prefill: "setg ",
         fields: &[
-            FormFieldDef { label: "Key:", required: true, secret: false, kind: PLAIN },
+            FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY },
             FormFieldDef {
                 label: "Value (optional):",
                 required: false,
@@ -384,19 +385,19 @@ const FORM_SPECS: &[FormSpecDef] = &[
         cmd: "getg",
         title: "Get Global Option",
         prefill: "getg ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
     },
     FormSpecDef {
         cmd: "unset",
         title: "Unset Session Option",
         prefill: "unset ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
     },
     FormSpecDef {
         cmd: "unsetg",
         title: "Unset Global Option",
         prefill: "unsetg ",
-        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: PLAIN }],
+        fields: &[FormFieldDef { label: "Key:", required: true, secret: false, kind: OPTION_KEY }],
     },
     FormSpecDef {
         cmd: "freq_info",
@@ -555,6 +556,24 @@ mod tests {
                 entry.group,
                 entry.label
             );
+        }
+    }
+
+    /// 选项类表单的 `Key:` 字段必须声明为 `OPTION_KEY`，与 `commands.yaml`
+    /// 中同名命令的参数类型对齐；标成 `PLAIN` 会让宿主弹窗内不补全选项 key。
+    #[test]
+    fn option_key_forms_mark_key_field_as_option_key() {
+        let option_cmds = ["set", "get", "setg", "getg", "unset", "unsetg"];
+        for spec in FORM_SPECS {
+            if option_cmds.contains(&spec.cmd) {
+                let key_field = &spec.fields[0];
+                assert_eq!(
+                    key_field.kind,
+                    k::OPTION_KEY,
+                    "{} key field must be OPTION_KEY",
+                    spec.cmd
+                );
+            }
         }
     }
 }
