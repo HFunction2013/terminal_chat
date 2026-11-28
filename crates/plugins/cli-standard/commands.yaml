@@ -165,10 +165,10 @@ commands:
         help: Close and destroy target session
         action: set
   - name: load
-    about: Load Plugin
+    about: Load Plugin (deprecated; use `plugin load` / `namespace load`)
     subcommands:
       - name: plugin
-        about: load plugin
+        about: load plugin (deprecated; use `plugin load`)
         args:
           - name: plugin
             type: PLUGIN
@@ -176,7 +176,7 @@ commands:
             required: true
             help: Plugin to load
       - name: namespace
-        about: load namespace
+        about: load namespace (deprecated; use `namespace load`)
         args:
           - name: namespace
             type: NAMESPACE
@@ -184,10 +184,10 @@ commands:
             required: true
             help: namespace to load
   - name: unload
-    about: Unload Plugin
+    about: Unload Plugin (deprecated; use `plugin unload` / `namespace unload`)
     subcommands:
       - name: plugin
-        about: unload plugin
+        about: unload plugin (deprecated; use `plugin unload`)
         args:
           - name: plugin_name
             type: PLUGIN
@@ -195,7 +195,7 @@ commands:
             required: true
             help: Plugin to unload
       - name: namespace
-        about: unload namespace
+        about: unload namespace (deprecated; use `namespace unload`)
         args:
           - name: namespace_name
             type: NAMESPACE

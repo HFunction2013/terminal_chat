@@ -131,10 +131,10 @@ Commands are grouped by usage scenario. Parameter names match the built-in help;
 | `namespace list` | List loaded namespaces (`command_name`) |
 | `namespace load <NAMESPACE>` | Load the plugin whose namespace (`command_name`) matches; idempotent if already loaded |
 | `namespace unload <NAMESPACE_NAME>` | Unload the plugin whose namespace (`command_name`) matches; reports if no loaded plugin matches |
-| `load plugin <PLUGIN>` | Load a single plugin by name; its commands enter the global table under its own `command_name` |
-| `load namespace <NAMESPACE>` | Same as `namespace load`; resolve by `command_name`, not a text manifest group |
-| `unload plugin <PLUGIN_NAME>` | Unload one plugin by name |
-| `unload namespace <NAMESPACE_NAME>` | Same as `namespace unload`; resolve by `command_name` |
+| `load plugin <PLUGIN>` | **Deprecated.** Use `plugin load`. Load a single plugin by name; its commands enter the global table under its own `command_name` |
+| `load namespace <NAMESPACE>` | **Deprecated.** Use `namespace load`. Resolve by `command_name`, not a text manifest group |
+| `unload plugin <PLUGIN_NAME>` | **Deprecated.** Use `plugin unload`. Unload one plugin by name |
+| `unload namespace <NAMESPACE_NAME>` | **Deprecated.** Use `namespace unload`. Resolve by `command_name` |
 
 ### `tcpm` package manager
 

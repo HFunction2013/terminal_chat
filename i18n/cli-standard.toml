@@ -1018,6 +1018,10 @@ zh = "[*] 插件 `{plugin_name}` 已卸载。"
 en = "[*] Namespace `{namespace_name}`: {count} plugin(s) unloaded."
 zh = "[*] 命名空间 `{namespace_name}`：已卸载 {count} 个插件。"
 
+[std.prompt.cmd.deprecated]
+en = "[!] `{legacy}` is deprecated; use `{replacement}` instead."
+zh = "[!] `{legacy}` 已弃用，请改用 `{replacement}`。"
+
 [std.err.plugin.ns_not_loaded]
 en = "[!] Namespace `{namespace_name}` not found among loaded plugins."
 zh = "[!] 已加载插件中未找到命名空间 `{namespace_name}`。"
@@ -1468,40 +1472,40 @@ en = "Close and destroy target session"
 zh = "关闭并销毁目标会话"
 
 [std.help.load.about]
-en = "Load Plugin"
-zh = "加载插件"
+en = "Load Plugin (deprecated; use `plugin load` / `namespace load`)"
+zh = "加载插件（已弃用；请用 `plugin load` / `namespace load`）"
 
 [std.help.load.plugin.about]
-en = "load plugin"
-zh = "加载插件"
+en = "load plugin (deprecated; use `plugin load`)"
+zh = "加载插件（已弃用；请用 `plugin load`）"
 
 [std.help.load.plugin.plugin.help]
 en = "Plugin to load"
 zh = "要加载的插件"
 
 [std.help.load.namespace.about]
-en = "load namespace"
-zh = "加载命名空间"
+en = "load namespace (deprecated; use `namespace load`)"
+zh = "加载命名空间（已弃用；请用 `namespace load`）"
 
 [std.help.load.namespace.namespace.help]
 en = "namespace to load"
 zh = "要加载的命名空间"
 
 [std.help.unload.about]
-en = "Unload Plugin"
-zh = "卸载插件"
+en = "Unload Plugin (deprecated; use `plugin unload` / `namespace unload`)"
+zh = "卸载插件（已弃用；请用 `plugin unload` / `namespace unload`）"
 
 [std.help.unload.plugin.about]
-en = "unload plugin"
-zh = "卸载插件"
+en = "unload plugin (deprecated; use `plugin unload`)"
+zh = "卸载插件（已弃用；请用 `plugin unload`）"
 
 [std.help.unload.plugin.plugin_name.help]
 en = "Plugin to unload"
 zh = "要卸载的插件"
 
 [std.help.unload.namespace.about]
-en = "unload namespace"
-zh = "卸载命名空间"
+en = "unload namespace (deprecated; use `namespace unload`)"
+zh = "卸载命名空间（已弃用；请用 `namespace unload`）"
 
 [std.help.unload.namespace.namespace_name.help]
 en = "namespace to unload"

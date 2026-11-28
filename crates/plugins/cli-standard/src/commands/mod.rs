@@ -167,3 +167,18 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
     eprintln!("No matching command found. Use --help for usage information.");
     Ok(())
 }
+
+/// 旧版顶层命令被直接调用时打印一条弃用提示，指向替代命令。
+///
+/// 新分组命令（`plugin load` / `namespace load` 等）直接转发到共享 `execute`，
+/// 不经过旧命令的 `run` 入口，因此不会触发此提示。
+pub(crate) fn emit_deprecated(legacy: &str, replacement: &str) {
+    let Some(lib) = crate::LIB.get() else {
+        return;
+    };
+    cli_core_macros::load_core_symbols!(lib, print_content);
+    let msg = crate::tr("std.prompt.cmd.deprecated")
+        .replace("{legacy}", legacy)
+        .replace("{replacement}", replacement);
+    print_content(&msg.into());
+}
