@@ -30,26 +30,77 @@ struct DictEntry {
 static DICT: LazyLock<Mutex<HashMap<String, DictEntry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// 解析语言值：去首尾空白并小写；空串 → `None`；`zh*` → `Zh`；其余 → `En`。
+/// 归一化一个 locale 片段：去首尾空白、小写、`_` 归一为 `-`。
+fn normalize_locale(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace('_', "-")
+}
+
+/// 解析单个语言值：归一化后空串 → `None`；`zh*` → `Zh`；其余非空 → `En`。
 fn parse_value(v: &str) -> Option<Lang> {
-    let v = v.trim().to_ascii_lowercase();
+    let v = normalize_locale(v);
     if v.is_empty() {
         return None;
     }
     Some(if v.starts_with("zh") { Lang::Zh } else { Lang::En })
 }
 
-/// 进程环境语言（OnceLock 缓存）：`LANG` → `LC_ALL`；非中文变体回退 `En`。
+/// 解析可含 `:` 分隔优先级列表的 locale 值（如 `LANGUAGE=zh_CN:zh:en_US`）；
+/// 取首个非空片段解析，全空 → `None`。
+fn parse_locale_list(v: &str) -> Option<Lang> {
+    v.split(':').find_map(parse_value)
+}
+
+/// Windows：读取用户首选 UI 语言；`zh-*` → `Zh`，其余非空 → `En`；取不到 → `None`。
+#[cfg(windows)]
+fn system_preferred_lang() -> Option<Lang> {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetUserPreferredUILanguages(
+            dw_flags: u32,
+            num_languages: *mut u32,
+            buffer: *mut u16,
+            len: *mut u32,
+        ) -> i32;
+    }
+    const MUI_LANGUAGE_NAME: u32 = 0;
+    let mut num: u32 = 0;
+    let mut len: u32 = 0;
+    let ok = unsafe {
+        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut num, std::ptr::null_mut(), &mut len)
+    };
+    if ok == 0 || num == 0 || len == 0 {
+        return None;
+    }
+    let mut buf = vec![0u16; len as usize];
+    let ok = unsafe {
+        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut num, buf.as_mut_ptr(), &mut len)
+    };
+    if ok == 0 || num == 0 {
+        return None;
+    }
+    let text = String::from_utf16_lossy(&buf);
+    // null 分隔的语言列表转成 `:` 优先级列表，取首个非空片段。
+    parse_locale_list(&text.replace('\0', ":"))
+}
+
+#[cfg(not(windows))]
+fn system_preferred_lang() -> Option<Lang> {
+    None
+}
+
+/// 进程环境语言（OnceLock 缓存）：按 GNU 优先级遍历 `LANGUAGE` → `LC_ALL` →
+/// `LC_MESSAGES` → `LANG`；值可含 `:` 列表。POSIX 变量全空时，Windows 回退系统
+/// 首选 UI 语言，其余平台回退 `En`。
 fn env_lang() -> Lang {
     static ENV: LazyLock<Lang> = LazyLock::new(|| {
-        for var in ["LANG", "LC_ALL"] {
+        for var in ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"] {
             if let Ok(v) = std::env::var(var)
-                && let Some(lang) = parse_value(&v)
+                && let Some(lang) = parse_locale_list(&v)
             {
                 return lang;
             }
         }
-        Lang::En
+        system_preferred_lang().unwrap_or(Lang::En)
     });
     *ENV
 }
@@ -58,7 +109,7 @@ fn env_lang() -> Lang {
 /// 缺失或无法解析时回退 [`env_lang`]。
 pub(crate) fn current_lang() -> Lang {
     if let Some(v) = crate::global_settings::raw_option("LANGUAGE")
-        && let Some(lang) = parse_value(&v)
+        && let Some(lang) = parse_locale_list(&v)
     {
         return lang;
     }
@@ -137,6 +188,10 @@ fn get_current_lang(out: Out<'_, i32>) -> Result {
 mod tests {
     use super::*;
     use std::mem::ManuallyDrop;
+    use std::sync::Mutex;
+
+    /// i18n 测试共享全局 DICT / 选项 MAP，需串行化避免并行互相清空。
+    static I18N_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn parse_value_recognizes_chinese_aliases() {
@@ -151,7 +206,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_locale_list_splits_colon_and_normalizes() {
+        // 冒号优先级列表取首个非空片段；下划线归一为连字符。
+        assert_eq!(parse_locale_list("zh_CN:zh:en_US"), Some(Lang::Zh));
+        assert_eq!(parse_locale_list("zh-Hans.UTF-8"), Some(Lang::Zh));
+        assert_eq!(parse_locale_list("en_US:zh"), Some(Lang::En));
+        assert_eq!(parse_locale_list(":  :"), None);
+        assert_eq!(parse_locale_list(""), None);
+    }
+
+    #[test]
     fn register_and_translate_picks_language_with_fallbacks() {
+        let _guard = I18N_TEST_LOCK.lock().unwrap();
         clear_all();
         // 显式切到英文，避免受进程环境影响。
         set_language("en");
@@ -174,6 +240,7 @@ mod tests {
 
     #[test]
     fn empty_owner_falls_back_to_host() {
+        let _guard = I18N_TEST_LOCK.lock().unwrap();
         clear_all();
         register_entry("", "ui.host", "Host", "宿主");
         let dict = DICT.lock().unwrap();
@@ -184,6 +251,7 @@ mod tests {
 
     #[test]
     fn unregister_by_owner_removes_only_owner_entries() {
+        let _guard = I18N_TEST_LOCK.lock().unwrap();
         clear_all();
         register_entry("owner-x", "k.x", "X", "甲");
         register_entry("owner-y", "k.y", "Y", "乙");
@@ -201,6 +269,7 @@ mod tests {
 
     #[test]
     fn current_lang_prefers_language_option_then_env() {
+        let _guard = I18N_TEST_LOCK.lock().unwrap();
         // 选项缺失时回退 env_lang()（不断言具体取值，避免依赖进程环境）。
         remove_language();
         assert_eq!(current_lang(), env_lang());
@@ -219,6 +288,7 @@ mod tests {
 
     #[test]
     fn lookup_hook_round_trips_translation() {
+        let _guard = I18N_TEST_LOCK.lock().unwrap();
         clear_all();
         set_language("en");
         register_entry("t-hook", "ui.hook", "Hooked", "钩子");

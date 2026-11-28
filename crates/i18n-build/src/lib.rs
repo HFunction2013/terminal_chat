@@ -100,19 +100,22 @@ pub fn generate(toml: &str) -> String {
     out.push_str("#[derive(Clone, Copy, PartialEq, Eq, Debug)]\npub enum Lang { En, Zh }\n\n");
 
     out.push_str(
-        r#"/// Detect the active language from the process environment (`LANG`, then
-/// `LC_ALL`); empty values are skipped, any non-Chinese variant falls back
-/// to English. Cached behind a `OnceLock`.
+        r#"/// Detect the active language from the process environment (`LANGUAGE`, `LC_ALL`,
+/// `LC_MESSAGES`, `LANG`); values may be a `:`-separated list, `_` is normalized
+/// to `-`; empty values are skipped, any non-Chinese variant falls back to English.
+/// Cached behind a `OnceLock`.
 pub fn detect_lang_env() -> Lang {
     static LANG: std::sync::OnceLock<Lang> = std::sync::OnceLock::new();
     *LANG.get_or_init(|| {
-        for var in ["LANG", "LC_ALL"] {
+        for var in ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"] {
             if let Ok(v) = std::env::var(var) {
-                let v = v.trim().to_ascii_lowercase();
-                if v.is_empty() {
-                    continue;
+                for item in v.split(':') {
+                    let norm = item.trim().to_ascii_lowercase().replace('_', "-");
+                    if norm.is_empty() {
+                        continue;
+                    }
+                    return if norm.starts_with("zh") { Lang::Zh } else { Lang::En };
                 }
-                return if v.starts_with("zh") { Lang::Zh } else { Lang::En };
             }
         }
         Lang::En

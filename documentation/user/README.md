@@ -39,7 +39,7 @@ Built-in client and server messages ship in two languages: English (`en`) and Si
 **Client (cli).** The active language is resolved in this order:
 
 1. Global option `LANGUAGE` — set it with `setg LANGUAGE zh` or `setg LANGUAGE en`. In the TUI the menu, forms, sidebar and status bar refresh immediately; no restart is needed.
-2. Environment variable `LANG`, then `LC_ALL` — a value starting with `zh` (e.g. `zh`, `zh-cn`, `zh-hans`, `zh_CN.UTF-8`) selects Chinese; anything else selects English.
+2. Environment variables, in order `LANGUAGE` → `LC_ALL` → `LC_MESSAGES` → `LANG` — a value may be a `:`-separated list; a value starting with `zh` (e.g. `zh`, `zh-cn`, `zh-hans`, `zh_CN.UTF-8`) selects Chinese; anything else selects English.
 3. If none is set, English is the default.
 
 **Server (srv).** Server-pushed response messages follow the server process's own locale only: `LANG`, then `LC_ALL`, falling back to English. The client does not send its language to the server, and the handshake protocol is unchanged.
