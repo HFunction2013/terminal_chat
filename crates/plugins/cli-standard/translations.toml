@@ -1200,9 +1200,9 @@ zh = "[!] 都怪你！我的好梦被打断了！"
 en = "[*] Aha... What a nice sleep!"
 zh = "[*] 啊……睡得真舒服！"
 
-[std.prompt.misc.shell_exit]
-en = "[shell] exit code {code}"
-zh = "[shell] 退出码 {code}"
+[std.prompt.misc.shell_finish]
+en = "[finish] Process exited after {secs} seconds with return value {code}"
+zh = "[finish] 进程在 {secs} 秒后退出，返回值 {code}"
 
 # ---- shared common words ----------------------------------------------------
 
@@ -1926,6 +1926,10 @@ zh = "在本机执行本地 shell 命令（非远端）。"
 [std.help.shell.command.help]
 en = "Local shell command to run."
 zh = "要执行的本地 shell 命令。"
+
+[std.help.shell.tui.help]
+en = "Inherit the terminal to run an interactive TUI program."
+zh = "继承终端以运行交互式 TUI 程序。"
 
 [std.help.run.about]
 en = "run a certain macro"

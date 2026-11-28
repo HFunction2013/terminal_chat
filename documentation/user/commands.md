@@ -89,7 +89,7 @@ Commands are grouped by usage scenario. Parameter names match the built-in help;
 
 | Command | Purpose | Parameters |
 | --- | --- | --- |
-| `shell` (`sh`) `<COMMAND...>` | Run a local shell command on this machine (not remote) | — |
+| `shell` (`sh`) `<COMMAND...>` | Run a local shell command on this machine (not remote). stdout/stderr are captured and echoed to the output area by default; a `[finish]` line reports elapsed time and return value | `--tui` inherit the terminal to run an interactive TUI program |
 | `editor [FILE]` | Open the editor | `-e/--editor <EDITOR>` choose the editor |
 | `route` | Trace the route to the server | — |
 

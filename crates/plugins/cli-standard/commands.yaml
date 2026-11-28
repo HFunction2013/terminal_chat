@@ -636,13 +636,17 @@ commands:
   - name: shell
     aliases:
       - sh
-    about: Run a local shell command on this machine (not remote).
+    about: Run a local shell command on this machine (not remote). Output is captured by default; --tui inherits the terminal for interactive programs.
     args:
       - name: command
         value_name: COMMAND
         required: true
         num_args: "1.."
         help: "Local shell command to run."
+      - name: tui
+        long: tui
+        action: set_true
+        help: "Inherit the terminal to run an interactive TUI program."
   - name: run
     about: run a certain macro
     args:
