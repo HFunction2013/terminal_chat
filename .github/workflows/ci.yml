@@ -38,3 +38,6 @@ jobs:
 
       - name: cargo check
         run: cargo check --workspace --all-targets --locked
+
+      - name: cargo test
+        run: cargo test --workspace --locked

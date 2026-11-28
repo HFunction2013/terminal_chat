@@ -27,3 +27,22 @@ fn request_hard_restart() -> Result {
 pub fn take_hard_restart_request() -> i32 {
     HARD_RESTART.swap(false, Ordering::SeqCst) as i32
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_sets_flag_then_take_clears_once() {
+        // 初始无待处理请求。
+        assert_eq!(take_hard_restart_request(), 0);
+
+        unsafe {
+            let _ = request_hard_restart();
+        }
+        // 首次取出命中请求，并在同一原子交换中复位。
+        assert_eq!(take_hard_restart_request(), 1);
+        // 复位后再次取出不再命中。
+        assert_eq!(take_hard_restart_request(), 0);
+    }
+}

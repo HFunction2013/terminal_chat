@@ -45,6 +45,12 @@ Heavy or large test suites and full workspace builds should be run on a GitHub A
 
 Tests that share static stub state (command stubs, call counters, registered option/global fixtures) must hold the shared test lock (`OPT_TEST_LOCK` in `crates/cli/src/tui.rs`) so parallel cases do not pollute one another. When a test passes in isolation but fails intermittently in the full suite, check for a shared static missing this lock first.
 
+### Headless / no-pty harness
+
+Unit and harness tests must run without a real terminal, pty, or network connection. FFI callbacks are replaced with in-test stubs; the Tui is constructed in memory (arenas/framebuffer only) and never enters raw mode, the alternate screen, or reads a real tty. Snapshot tests feed a synthetic `Resize` input and read node text, layout rects, and the focus path from the framebuffer. The only child processes in tests are the locally built `neo-lolcat` binary under piped stdio; they do not require a pty.
+
+Do not add a test that depends on an interactive terminal, a live two-client session, or a listening socket; those stay manual or runner-only.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push and PR, across a matrix:
@@ -54,7 +60,7 @@ Tests that share static stub state (command stubs, call counters, registered opt
 - `macos-15-intel` x86_64
 - `windows-latest` x86_64
 
-Each job runs `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked`, and `cargo check --workspace --all-targets --locked`. Pre-commit hooks run the workspace check before each commit.
+Each job runs `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked`, `cargo check --workspace --all-targets --locked`, and `cargo test --workspace --locked`. Pre-commit hooks run the workspace check before each commit.
 
 ### Known non-regressions
 

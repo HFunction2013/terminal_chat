@@ -8,6 +8,11 @@ use clap::ArgMatches;
 use std::process::Stdio;
 use std::time::Instant;
 
+/// 把 finish 行模板中的 `{secs}`（三位小数秒）与 `{code}`（返回值）替换为实参。
+fn finish_replace(template: &str, elapsed_secs: f64, code: i32) -> String {
+    template.replace("{secs}", &format!("{elapsed_secs:.3}")).replace("{code}", &code.to_string())
+}
+
 pub struct ShellCommand;
 
 impl ShellCommand {
@@ -64,12 +69,8 @@ impl ShellCommand {
 
         let elapsed = started.elapsed().as_secs_f64();
         let code = status.code().unwrap_or(-1);
-        print_content(
-            &crate::tr("std.prompt.misc.shell_finish")
-                .replace("{secs}", &format!("{elapsed:.3}"))
-                .replace("{code}", &code.to_string())
-                .into(),
-        );
+        let finish = finish_replace(&crate::tr("std.prompt.misc.shell_finish"), elapsed, code);
+        print_content(&finish.into());
         Ok(())
     }
 }
@@ -84,5 +85,25 @@ impl CommandExecutor for ShellCommand {
             matches.get_many::<String>("command").unwrap_or_default().cloned().collect();
         let tui = matches.get_flag("tui");
         self.execute(command, tui)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::finish_replace;
+
+    #[test]
+    fn finish_line_formats_three_decimal_seconds_and_return_code() {
+        let template = "[finish] Process exited after {secs} seconds with return value {code}";
+        let line = finish_replace(template, 0.1234, 0);
+        assert!(line.contains("0.123"), "elapsed to three decimals: {line}");
+        assert!(line.contains("return value 0"), "return value: {line}");
+    }
+
+    #[test]
+    fn finish_line_renders_negative_exit_code() {
+        let template = "after {secs}s code {code}";
+        let line = finish_replace(template, 1.5, -1);
+        assert_eq!(line, "after 1.500s code -1");
     }
 }
