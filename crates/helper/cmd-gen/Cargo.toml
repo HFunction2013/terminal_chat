@@ -11,3 +11,4 @@ repository.workspace = true
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 check_keyword = "0.2"
+i18n-build = { path = "../../i18n-build" }

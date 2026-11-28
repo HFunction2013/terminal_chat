@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 
 #[allow(dead_code)] // 生成模块的 t / t_lang / Lang 保留供测试与兜底，生产路径走 `tr()`。
 mod i18n {
-    include!(concat!(env!("OUT_DIR"), "/i18n_std.rs"));
+    include!("./trans.rs");
 }
 
 /// core `lookup_i18n` 符号缓存；旧核心无此符号时为 `None`，译文回退 key 本身。

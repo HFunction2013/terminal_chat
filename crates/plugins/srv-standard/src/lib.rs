@@ -11,7 +11,7 @@
 //! 用户身份：`packet.sender` 由 srv 主程序规范化为 `user@ip` 形式。
 
 mod i18n {
-    include!(concat!(env!("OUT_DIR"), "/i18n_srv_std.rs"));
+    include!("./trans.rs");
 }
 
 use libloading::{Library, Symbol};
@@ -748,10 +748,10 @@ mod tests {
 
     #[test]
     fn i18n_selects_en_and_zh() {
-        assert_eq!(t_lang(Lang::En, "srv.bye"), "bye");
-        assert_eq!(t_lang(Lang::Zh, "srv.bye"), "再见");
+        assert_eq!(t_lang(Lang::En, "srv.common.found"), "found");
+        assert_eq!(t_lang(Lang::Zh, "srv.common.found"), "已找到");
         // Placeholders survive lookup for the caller to fill with replace.
-        assert!(t_lang(Lang::Zh, "srv.welcome").contains("{ip}"));
+        assert!(t_lang(Lang::Zh, "srv.freq.invalid").contains("{freq}"));
         assert!(t_lang(Lang::En, "srv.freq.joined").contains("{count}"));
     }
 

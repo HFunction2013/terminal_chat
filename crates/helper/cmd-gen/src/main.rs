@@ -438,21 +438,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ctx = std::env::args().nth(1).unwrap_or_else(|| "plugins/cli-standard".to_string());
     let manifest = env::var("CARGO_MANIFEST_DIR").unwrap();
 
-    let yaml_path =
-        Path::new(&manifest).parent().unwrap().parent().unwrap().join(&ctx).join("commands.yaml");
+    let plugin_dir = Path::new(&manifest).parent().unwrap().parent().unwrap().join(&ctx);
+    let yaml_path = plugin_dir.join("commands.yaml");
     println!("{}", yaml_path.display());
 
-    if !yaml_path.exists() {
-        eprintln!("❌ commands.yaml not found in current directory");
-        std::process::exit(1);
-    }
-
-    let yaml = fs::read_to_string(&yaml_path)?;
-    let config: Config = serde_yaml::from_str(&yaml)?;
+    // commands.yaml 可选：有则生成命令骨架；无则仅处理插件内词典（translations.toml）。
+    let config: Config = if yaml_path.exists() {
+        let yaml = fs::read_to_string(&yaml_path)?;
+        serde_yaml::from_str(&yaml)?
+    } else {
+        Config { commands: Vec::new() }
+    };
 
     let path = &format!("./crates/{ctx}/src/commands");
     let out_dir = Path::new(path);
-    if !out_dir.exists() {
+    let has_commands = !config.commands.is_empty();
+    if has_commands && !out_dir.exists() {
         fs::create_dir_all(out_dir)?;
     }
 
@@ -566,22 +567,24 @@ pub fn dispatch(matches: &ArgMatches) -> Result<()> {
 "#,
     );
 
-    // 检查 mod.rs 是否需要更新
-    let mod_rs_path = out_dir.join("mod.rs");
-    match should_update_file(&mod_rs_path, &mod_rs) {
-        Some(true) => {
-            fs::write(&mod_rs_path, &mod_rs)?;
-            if !mod_rs_path.exists() {
-                println!("[CREATE] mod.rs (top-level)");
-            } else {
-                println!("[UPDATE] mod.rs (top-level)");
+    // 检查 mod.rs 是否需要更新（仅在存在命令骨架时）
+    if has_commands {
+        let mod_rs_path = out_dir.join("mod.rs");
+        match should_update_file(&mod_rs_path, &mod_rs) {
+            Some(true) => {
+                fs::write(&mod_rs_path, &mod_rs)?;
+                if !mod_rs_path.exists() {
+                    println!("[CREATE] mod.rs (top-level)");
+                } else {
+                    println!("[UPDATE] mod.rs (top-level)");
+                }
             }
-        }
-        Some(false) => {
-            println!("[SKIP] mod.rs (top-level, up-to-date)");
-        }
-        None => {
-            println!("[SKIP] mod.rs (top-level, modified by user)");
+            Some(false) => {
+                println!("[SKIP] mod.rs (top-level, up-to-date)");
+            }
+            None => {
+                println!("[SKIP] mod.rs (top-level, modified by user)");
+            }
         }
     }
 
@@ -693,6 +696,28 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {{
                     println!("[SKIP] {}/mod.rs (modified by user)", dir_name);
                 }
             }
+        }
+    }
+
+    // 若插件提供插件内 `translations.toml`，调用 i18n-build 生成静态
+    // `src/trans.rs`（随仓库提交）；手改过的文件（无 TAG）不被覆盖。
+    let translations_toml = plugin_dir.join("translations.toml");
+    if translations_toml.exists() {
+        let toml = fs::read_to_string(&translations_toml)?;
+        let generated = i18n_build::generate(&toml);
+        let trans_code = format!("{AUTO_GENERATED_TAG}\n{generated}");
+        let src_dir = plugin_dir.join("src");
+        if !src_dir.exists() {
+            fs::create_dir_all(&src_dir)?;
+        }
+        let trans_path = src_dir.join("trans.rs");
+        match should_update_file(&trans_path, &trans_code) {
+            Some(true) => {
+                fs::write(&trans_path, &trans_code)?;
+                println!("[CREATE/UPDATE] trans.rs");
+            }
+            Some(false) => println!("[SKIP] trans.rs (up-to-date)"),
+            None => println!("[SKIP] trans.rs (modified by user)"),
         }
     }
 

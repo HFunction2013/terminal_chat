@@ -364,7 +364,6 @@ dependencies = [
  "cli-core-macros",
  "cli-core-types",
  "humantime",
- "i18n-build",
  "libloading",
  "prost",
  "protos",
@@ -389,6 +388,7 @@ name = "cmd-gen"
 version = "0.1.0"
 dependencies = [
  "check_keyword",
+ "i18n-build",
  "serde",
  "serde_yaml",
 ]
@@ -1952,7 +1952,6 @@ name = "srv-standard"
 version = "0.1.0"
 dependencies = [
  "base64",
- "i18n-build",
  "libloading",
  "prost",
  "protos",
