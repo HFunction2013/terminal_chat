@@ -19,6 +19,7 @@ use prost::Message;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
+use serde::{Deserialize, Serialize};
 use srv_core_types::RegisterChannelFn;
 use srv_core_types::Result as SrvResult;
 use srv_core_types::channels::ChannelMetadata;
@@ -72,16 +73,18 @@ pub(crate) struct ServerState {
     last_speaker: HashMap<String, String>, // freq -> 最近发言者 user@ip
 }
 
-/// 远程虚拟文件系统：user@ip -> 该用户的文件树。
-#[derive(Clone)]
+/// 远程虚拟文件系统：freq -> 该频点共享的文件树。
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct VfsEntry {
     is_dir: bool,
     size: u64,
-    /// 有序块 hash（SHA256 hex）索引；块内容存于 `CONTENT_STORE`，条目不持有整块。
+    /// 有序块 hash（SHA256 hex）索引；块内容按 hash 落盘于 `storage` 目录，
+    /// 条目不持有整块。
     chunks: Vec<String>,
     modified_at: u64,
 }
 
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub(crate) struct VfsUser {
     cwd: String,
     files: HashMap<String, VfsEntry>, // 绝对路径 -> 条目
@@ -98,9 +101,8 @@ pub(crate) static STATE: LazyLock<Mutex<ServerState>> = LazyLock::new(|| {
 pub(crate) static VFS: LazyLock<Mutex<HashMap<String, VfsUser>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// 内容寻址块存储：块 SHA256 hex -> 块内容；按 hash 去重，VFS 条目只存索引。
-pub(crate) static CONTENT_STORE: LazyLock<Mutex<HashMap<String, Vec<u8>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+/// 上次 GC 时间戳（unix 秒）；块内容与 VFS 索引落盘于 `storage` 模块的数据目录。
+pub(crate) static LAST_GC: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(0));
 
 /// 按用户（user@ip）排队的待读通知（文本），由 `notifications` RPC 拉取后清空。
 pub(crate) static NOTIFICATIONS: LazyLock<Mutex<HashMap<String, Vec<String>>>> =
@@ -237,6 +239,7 @@ fn respond(resp_bytes: &[u8], msg: impl Into<String>) -> PacketResult {
 
 /// 生成一个 RPC handler：decode 请求 -> 业务函数 -> encode 响应。
 mod handlers;
+mod storage;
 use handlers::freq::handle_active_freqs;
 use handlers::freq::handle_active_users;
 use handlers::freq::handle_create_freq;
@@ -386,6 +389,18 @@ pub(crate) fn vfs_ensure_dirs(vfs: &mut VfsUser, path: &str, now: u64) {
             modified_at: now,
         });
     }
+}
+
+/// 把当前 VFS 树与 GC 时间戳落盘索引（VFS 变更后调用）。
+pub(crate) fn persist_index() {
+    let vfs = VFS.lock().unwrap();
+    persist_index_locked(&vfs);
+}
+
+/// 持锁场景下落盘索引：调用方已持有 VFS 锁，这里只读取 GC 时间戳。
+pub(crate) fn persist_index_locked(vfs: &HashMap<String, VfsUser>) {
+    let last_gc = *LAST_GC.lock().unwrap();
+    storage::save_index(vfs, last_gc);
 }
 
 // ---------------------------------------------------------------------------
@@ -734,6 +749,15 @@ pub fn get_plugin_metadata(out: Out<'_, SrvPluginMetadata>) -> SrvResult {
 pub fn on_init_plugin(h_meta: SrvHostMetadata) -> SrvPluginResult {
     let lib = init_library(&h_meta.srv_core_path);
 
+    // 从磁盘恢复 VFS 索引与上次 GC 时间戳；启动后台 GC 心跳。
+    let (restored, last_gc) = storage::load_index();
+    {
+        let mut vfs = VFS.lock().unwrap();
+        *vfs = restored;
+        *LAST_GC.lock().unwrap() = last_gc;
+    }
+    storage::spawn_gc_heartbeat();
+
     for (name, desc, handler) in CHANNELS {
         register_channel_with_handler(lib, &channel_metadata(name, desc), *handler);
     }
@@ -744,6 +768,10 @@ pub fn on_init_plugin(h_meta: SrvHostMetadata) -> SrvPluginResult {
 
 #[ffi_export]
 pub fn on_shutdown_plugin() -> SrvPluginResult {
+    // 关闭/卸载前停止 GC 心跳线程，并把 VFS 索引 flush 到磁盘；
+    // 块内容已在上传时落盘。
+    storage::stop_gc_heartbeat();
+    persist_index();
     SrvPluginResult { success: true.into(), exit_code: 0, msg: TaggedOption::None }
 }
 

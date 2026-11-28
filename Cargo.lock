@@ -1957,6 +1957,8 @@ dependencies = [
  "prost",
  "protos",
  "safer-ffi",
+ "serde",
+ "serde_yaml",
  "sha2",
  "srv-core-types",
 ]

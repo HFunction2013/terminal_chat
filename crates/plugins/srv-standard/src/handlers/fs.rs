@@ -2,34 +2,22 @@
 
 #[allow(unused_imports)]
 use crate::{
-    CONTENT_STORE, FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry,
-    VfsUser, display_user, ensure_user, mod_auth, norm_path, notify, now_ts, user_freq, user_part,
-    valid_freq, vfs_ensure_dirs,
+    FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry, VfsUser,
+    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, persist_index_locked,
+    user_freq, user_part, valid_freq, vfs_ensure_dirs,
 };
 use sha2::{Digest, Sha256};
 #[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
 
-/// 校验分片 hash（SHA256 hex）并按 hash 存入内容寻址存储；hash 不符返回错误。
+/// 校验分片 hash 并按 hash 把块内容写入落盘的内容寻址存储。
 fn store_chunk(hash: &str, data: &[u8]) -> Result<(), String> {
-    let digest = format!("{:x}", Sha256::digest(data));
-    if digest != hash {
-        return Err("chunk hash mismatch".to_string());
-    }
-    CONTENT_STORE.lock().unwrap().entry(hash.to_string()).or_insert(data.to_vec());
-    Ok(())
+    crate::storage::store_chunk(hash, data)
 }
 
-/// 按块 hash 列表从内容寻址存储重组文件内容。
+/// 按块 hash 列表从落盘的内容寻址存储重组文件内容。
 fn reassemble(chunks: &[String]) -> Vec<u8> {
-    let store = CONTENT_STORE.lock().unwrap();
-    let mut out = Vec::with_capacity(chunks.len());
-    for h in chunks {
-        if let Some(data) = store.get(h) {
-            out.extend_from_slice(data);
-        }
-    }
-    out
+    crate::storage::reassemble(chunks)
 }
 
 pub(crate) fn handle_remote_pwd(
@@ -177,6 +165,7 @@ pub(crate) fn handle_remote_rm(
         Some(e) if e.is_dir => {
             let prefix = format!("{}/", target.trim_end_matches('/'));
             vfs.files.retain(|k, _| k != &target && !k.starts_with(&prefix));
+            persist_index_locked(&all_vfs);
             RemoteRmResponse {
                 success: true,
                 message: crate::i18n::t("srv.fs.removed_dir")
@@ -186,6 +175,7 @@ pub(crate) fn handle_remote_rm(
         }
         Some(_) => {
             vfs.files.remove(&target);
+            persist_index_locked(&all_vfs);
             RemoteRmResponse {
                 success: true,
                 message: crate::i18n::t("srv.fs.removed").replace("{target}", &target).to_string(),
@@ -250,6 +240,7 @@ pub(crate) fn handle_remote_mv(
         vfs.files.insert(new_key, e);
         vfs.files.remove(&k);
     }
+    persist_index_locked(&all_vfs);
     RemoteMvResponse {
         success: true,
         message: crate::i18n::t("srv.fs.moved")
@@ -311,6 +302,7 @@ pub(crate) fn handle_remote_cp(
         vfs.files.insert(new_key, e);
         count += 1;
     }
+    persist_index_locked(&all_vfs);
     RemoteCpResponse {
         success: true,
         message: crate::i18n::t("srv.fs.copied")
@@ -454,6 +446,7 @@ pub(crate) fn handle_remote_mkdir(
     }
     let now = now_ts();
     vfs_ensure_dirs(&mut vfs, &target, now);
+    persist_index_locked(&all_vfs);
     MkdirResponse {
         success: true,
         message: crate::i18n::t("srv.fs.dir_created").replace("{target}", &target).to_string(),
@@ -609,6 +602,7 @@ pub(crate) fn handle_upload(
             modified_at: now,
         },
     );
+    persist_index_locked(&all_vfs);
     UploadResponse {
         remote_path: target.clone(),
         received_bytes: received as i64,
@@ -699,24 +693,5 @@ pub(crate) fn handle_download(
             message: crate::i18n::t("srv.fs.not_found").replace("{target}", &target).to_string(),
             files: Vec::new(),
         },
-    }
-}
-
-#[cfg(test)]
-mod chunk_tests {
-    use super::*;
-
-    #[test]
-    fn store_and_reassemble_round_trip() {
-        let data = b"hello terminal chat";
-        let hash = format!("{:x}", Sha256::digest(data.as_slice()));
-        store_chunk(&hash, data).unwrap();
-        let body = reassemble(&[hash]);
-        assert_eq!(body, data);
-    }
-
-    #[test]
-    fn store_chunk_rejects_mismatched_hash() {
-        assert!(store_chunk("deadbeef", b"data").is_err());
     }
 }

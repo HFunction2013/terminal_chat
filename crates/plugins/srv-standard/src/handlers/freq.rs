@@ -3,8 +3,8 @@
 #[allow(unused_imports)]
 use crate::{
     FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry, VfsUser,
-    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, user_freq, user_part,
-    valid_freq, vfs_ensure_dirs,
+    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, persist_index, user_freq,
+    user_part, valid_freq, vfs_ensure_dirs,
 };
 #[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
@@ -222,6 +222,7 @@ pub(crate) fn handle_leave_freq(
     if no_mod && state.freqs.get(&freq).map(|f| f.members.is_empty()).unwrap_or(false) {
         state.freqs.remove(&freq);
         VFS.lock().unwrap().remove(&freq);
+        persist_index();
         println!("[srv-standard] freq `{freq}` auto-disbanded (no_mod creator left)");
         return LeaveFreqResponse {
             result: R::LeaveSuccess as i32,
@@ -345,8 +346,9 @@ pub(crate) fn handle_disband_freq(
             );
         }
     }
-    // 频点销毁时同时销毁其共享 VFS（freq 内共享，无私有文件系统）。
+    // 频点解散时移除其共享 VFS 内存条目；磁盘残留块与索引由 14 天 GC 回收。
     VFS.lock().unwrap().remove(&freq);
+    persist_index();
     println!("[srv-standard] freq `{freq}` disbanded by {}", user_part(&sender));
     DisbandResponse {
         result: R::DisbandSuccess as i32,
