@@ -62,6 +62,22 @@ fn get_cli_core() -> &'static Library {
     }
 }
 
+/// 硬重启信号读取：`1` 表示有待处理的硬重启请求。
+type TakeRestartFn = extern "C" fn() -> i32;
+
+/// 退出当前进程并以相同可执行文件、原始参数自拉起一个新客户端进程。
+/// 在命令 worker 线程内、命令完成后调用；永不返回。
+fn respawn_self() -> ! {
+    #[cfg(not(debug_assertions))]
+    let _ = execute!(stdout(), LeaveAlternateScreen, Show);
+    let exe = std::env::current_exe().unwrap_or_else(|_| {
+        std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()).join("tc-cli")
+    });
+    let args: Vec<String> = std::env::args().collect();
+    let _ = std::process::Command::new(exe).args(args.iter().skip(1)).spawn();
+    std::process::exit(0);
+}
+
 /// 非 panic 路径定位 cli-core 动态库；测试 / 旧核心环境缺失时返回 `None`，
 /// 供语言探测等可选符号使用，不阻断启动与单测。
 fn try_get_cli_core() -> Option<&'static Library> {
@@ -1022,6 +1038,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     eprintln!("{}", result.message);
                 }
                 cmd_running_w.store(false, Ordering::SeqCst);
+                // 硬重启：命令请求重启后在此 worker 线程自拉起新进程并退出。
+                if let Ok(take_restart) =
+                    unsafe { get_cli_core().get::<TakeRestartFn>(b"take_hard_restart_request") }
+                    && take_restart() == 1
+                {
+                    respawn_self();
+                }
             }
         });
     }

@@ -9,6 +9,7 @@ Commands are grouped by usage scenario. Parameter names match the built-in help;
 | `connect` (`conn`) | Connect to the server | `connect [HOST[:PORT]]`, e.g. `connect 127.0.0.1:50051` |
 | `disconnect` (`dc`) | Drop the current connection | — |
 | `reconnect` (`rc`) | Reconnect to the server | — |
+| `restart` | Reload runtime state; `--hard` respawns the client process | `restart` reloads aliases/macros/options in-process; `restart --hard` exits and relaunches with the original arguments |
 | `status` | Test network reachability | — |
 | `whoami` | Show the current username | — |
 | `away [STATUS]` | Set away/busy status; auto-reply to private messages | STATUS is only `away`/`busy`, default `away` |

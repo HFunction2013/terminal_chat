@@ -134,6 +134,13 @@ impl CommandWorker {
                     silent: silent_flag,
                 });
                 running_w.store(false, Ordering::SeqCst);
+                // 硬重启：命令请求重启后在此 worker 线程自拉起新进程并退出。
+                if let Ok(take_restart) = unsafe {
+                    crate::get_cli_core().get::<crate::TakeRestartFn>(b"take_hard_restart_request")
+                } && take_restart() == 1
+                {
+                    crate::respawn_self();
+                }
             }
         });
         Self { tx, running, result, silent }

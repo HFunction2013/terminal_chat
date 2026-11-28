@@ -54,6 +54,7 @@ pub mod proxy;
 pub mod pwd;
 pub mod reconnect;
 pub mod reply;
+pub mod restart;
 pub mod rm;
 pub mod route;
 pub mod run;
@@ -135,6 +136,7 @@ pub fn all_commands() -> Vec<Arc<dyn CommandExecutor>> {
         Arc::new(foreground::ForegroundCommand),
         Arc::new(disconnect::DisconnectCommand),
         Arc::new(reconnect::ReconnectCommand),
+        Arc::new(restart::RestartCommand),
         Arc::new(connect::ConnectCommand),
         #[cfg(debug_assertions)]
         Arc::new(logs::LogsCommand),

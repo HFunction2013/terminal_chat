@@ -11,6 +11,7 @@ mod push_queue;
 mod registered_commands;
 mod registered_options;
 mod registered_ui;
+mod restart;
 mod run_commands;
 mod session_settings;
 mod terminal_hooks;

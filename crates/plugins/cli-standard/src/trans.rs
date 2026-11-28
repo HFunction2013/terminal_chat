@@ -567,6 +567,10 @@ const TABLE: &[(&str, &str, &str)] = &[
     ("std.help.workspace.import.workspace_file.help", "workspace file.", "工作区文件。"),
     ("std.help.feedback.about", "Send feedback.", "发送反馈。"),
     ("std.help.feedback.content.help", "Your feedback content. fallbacks to editor.", "你的反馈内容；未提供时回退到编辑器。"),
+    ("std.help.restart.about", "Reload runtime state; `--hard` restarts the client process", "重载运行态；`--hard` 重启客户端进程"),
+    ("std.help.restart.hard.help", "Exit and relaunch the client process with the original arguments", "退出后以原始参数重新拉起客户端进程"),
+    ("std.msg.restart.soft", "Runtime state reloaded (aliases, macros, options); connection and plugins kept.", "运行态已重载（别名、宏、配置）；连接与插件保持不变。"),
+    ("std.msg.restart.hard", "Restarting the client process...", "正在重启客户端进程……"),
 ];
 
 /// Compiled-in dictionary entries: `(key, en, zh)`. Hosts / plugins report
