@@ -4,6 +4,10 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
+use sha2::{Digest, Sha256};
+
+/// 固定分块大小：256 KiB（与服务端内容寻址口径一致）。
+const CHUNK_SIZE: usize = 256 * 1024;
 
 pub struct UploadCommand;
 
@@ -14,11 +18,17 @@ impl UploadCommand {
         remote: String,
     ) -> Result<protos::remote::fs::UploadResponse> {
         let content = std::fs::read(local).map_err(|e| anyhow!("cannot read `{local}`: {e}"))?;
+        // 切块并对每块算 SHA256；服务端按 hash 落盘内容，VFS 只存块 hash 索引。
+        let mut chunks = Vec::new();
+        for block in content.chunks(CHUNK_SIZE) {
+            let hash = format!("{:x}", Sha256::digest(block));
+            chunks.push(protos::remote::fs::UploadChunkRef { hash, data: block.to_vec() });
+        }
         let req = protos::remote::fs::UploadRequest {
             local_path: local.to_string(),
             remote_path: remote.clone(),
             total_size: content.len() as i64,
-            content,
+            chunks,
         };
         let resp: protos::remote::fs::UploadResponse = crate::connection::rpc("upload", &req)?;
         Ok(resp)

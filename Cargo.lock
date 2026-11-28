@@ -369,6 +369,7 @@ dependencies = [
  "protos",
  "rpassword",
  "safer-ffi",
+ "sha2",
  "shell-words",
  "which",
  "yaml2cmd-build",

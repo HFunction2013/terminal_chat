@@ -93,18 +93,19 @@ message RemoteFileInfoResponse {
 
 // ---------- Upload ----------
 
-// 上传元信息：cli 先发 UploadRequest，随后分块传输。
+// 单个上传分片：客户端切块后对每块算 SHA256；服务端按 hash 把块内容存入
+// 内容寻址存储，VFS 条目只保存块 hash 列表（索引），不保存整块内容。
+message UploadChunkRef {
+    string hash = 1;   // 块内容 SHA256 hex
+    bytes data = 2;    // 块内容（固定 256 KiB，末块可为短块）
+}
+
+// 上传请求：携带分片列表；服务端校验每块 hash 后按 hash 落盘内容。
 message UploadRequest {
     string local_path = 1;   // 客户端本地路径（用于日志/校验）
     string remote_path = 2;  // 远程目标路径（缺省用 local_path 基名）
     int64 total_size = 3;    // 总字节数
-    bytes content = 4;       // 文件内容（一次传完）
-}
-
-message UploadChunk {
-    string remote_path = 1;
-    int64 offset = 2;        // 偏移
-    bytes data = 3;          // 块数据
+    repeated UploadChunkRef chunks = 4;
 }
 
 message UploadResponse {
@@ -186,7 +187,7 @@ service RemoteFsService {
     rpc Mkdir(MkdirRequest) returns (MkdirResponse);
     rpc Checksum(RemoteChecksumRequest) returns (RemoteChecksumResponse);
     rpc FileInfo(RemoteFileInfoRequest) returns (RemoteFileInfoResponse);
-    rpc Upload(stream UploadChunk) returns (UploadResponse);
+    rpc Upload(UploadRequest) returns (UploadResponse);
     rpc Download(DownloadRequest) returns (stream DownloadChunk);
     rpc Rm(RemoteRmRequest) returns (RemoteRmResponse);
     rpc Mv(RemoteMvRequest) returns (RemoteMvResponse);

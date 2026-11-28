@@ -2,13 +2,35 @@
 
 #[allow(unused_imports)]
 use crate::{
-    FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry, VfsUser,
-    display_user, ensure_user, mod_auth, norm_path, notify, now_ts, user_freq, user_part,
+    CONTENT_STORE, FreqRoom, Member, NOTIFICATIONS, STATE, ServerState, UserProfile, VFS, VfsEntry,
+    VfsUser, display_user, ensure_user, mod_auth, norm_path, notify, now_ts, user_freq, user_part,
     valid_freq, vfs_ensure_dirs,
 };
 use sha2::{Digest, Sha256};
 #[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
+
+/// 校验分片 hash（SHA256 hex）并按 hash 存入内容寻址存储；hash 不符返回错误。
+fn store_chunk(hash: &str, data: &[u8]) -> Result<(), String> {
+    let digest = format!("{:x}", Sha256::digest(data));
+    if digest != hash {
+        return Err("chunk hash mismatch".to_string());
+    }
+    CONTENT_STORE.lock().unwrap().entry(hash.to_string()).or_insert(data.to_vec());
+    Ok(())
+}
+
+/// 按块 hash 列表从内容寻址存储重组文件内容。
+fn reassemble(chunks: &[String]) -> Vec<u8> {
+    let store = CONTENT_STORE.lock().unwrap();
+    let mut out = Vec::with_capacity(chunks.len());
+    for h in chunks {
+        if let Some(data) = store.get(h) {
+            out.extend_from_slice(data);
+        }
+    }
+    out
+}
 
 pub(crate) fn handle_remote_pwd(
     sender: String,
@@ -501,7 +523,8 @@ pub(crate) fn handle_remote_checksum(
     let target = norm_path(&vfs.cwd, &req.file);
     match vfs.files.get(&target) {
         Some(e) if !e.is_dir => {
-            let digest = Sha256::digest(&e.content);
+            let body = reassemble(&e.chunks);
+            let digest = Sha256::digest(&body);
             RemoteChecksumResponse {
                 checksum: format!("{digest:x}"),
                 found: true,
@@ -562,21 +585,36 @@ pub(crate) fn handle_upload(
         _ => "/".to_string(),
     };
     vfs_ensure_dirs(&mut vfs, &dir, now);
+    // 逐片校验 hash 并按 hash 存入内容寻址存储；VFS 只保存块 hash 索引。
+    let mut chunk_hashes: Vec<String> = Vec::with_capacity(req.chunks.len());
+    let mut received: usize = 0;
+    for chunk in &req.chunks {
+        if let Err(err) = store_chunk(&chunk.hash, &chunk.data) {
+            return UploadResponse {
+                remote_path: target.clone(),
+                received_bytes: received as i64,
+                success: false,
+                message: format!("{err}: {}", chunk.hash),
+            };
+        }
+        received += chunk.data.len();
+        chunk_hashes.push(chunk.hash.clone());
+    }
     vfs.files.insert(
         target.clone(),
         VfsEntry {
             is_dir: false,
-            size: req.content.len() as u64,
-            content: req.content.clone(),
+            size: req.total_size as u64,
+            chunks: chunk_hashes,
             modified_at: now,
         },
     );
     UploadResponse {
         remote_path: target.clone(),
-        received_bytes: req.content.len() as i64,
+        received_bytes: received as i64,
         success: true,
         message: crate::i18n::t("srv.fs.uploaded_bytes")
-            .replace("{bytes}", &req.content.len().to_string())
+            .replace("{bytes}", &received.to_string())
             .replace("{target}", &target)
             .to_string(),
     }
@@ -609,7 +647,7 @@ pub(crate) fn handle_download(
         Some(e) if !e.is_dir => DownloadResponse {
             total_size: e.size as i64,
             found: true,
-            content: e.content.clone(),
+            content: reassemble(&e.chunks),
             message: crate::i18n::t("srv.fs.file_bytes")
                 .replace("{size}", &e.size.to_string())
                 .replace("{target}", &target)
@@ -631,7 +669,7 @@ pub(crate) fn handle_download(
                 entries.push(DownloadEntry {
                     path: rel,
                     size: ent.size as i64,
-                    content: ent.content.clone(),
+                    content: reassemble(&ent.chunks),
                 });
             }
             entries.sort_by(|a, b| a.path.cmp(&b.path));
@@ -661,5 +699,24 @@ pub(crate) fn handle_download(
             message: crate::i18n::t("srv.fs.not_found").replace("{target}", &target).to_string(),
             files: Vec::new(),
         },
+    }
+}
+
+#[cfg(test)]
+mod chunk_tests {
+    use super::*;
+
+    #[test]
+    fn store_and_reassemble_round_trip() {
+        let data = b"hello terminal chat";
+        let hash = format!("{:x}", Sha256::digest(data.as_slice()));
+        store_chunk(&hash, data).unwrap();
+        let body = reassemble(&[hash]);
+        assert_eq!(body, data);
+    }
+
+    #[test]
+    fn store_chunk_rejects_mismatched_hash() {
+        assert!(store_chunk("deadbeef", b"data").is_err());
     }
 }

@@ -25,6 +25,7 @@ safer-ffi = { workspace = true }
 cli-core-types = { workspace = true }
 cli-core-macros = { workspace = true }
 libloading = { workspace = true }
+sha2 = "0.10"
 
 [build-dependencies]
 yaml2cmd-build = { workspace = true }

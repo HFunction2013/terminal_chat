@@ -77,7 +77,8 @@ pub(crate) struct ServerState {
 pub(crate) struct VfsEntry {
     is_dir: bool,
     size: u64,
-    content: Vec<u8>,
+    /// 有序块 hash（SHA256 hex）索引；块内容存于 `CONTENT_STORE`，条目不持有整块。
+    chunks: Vec<String>,
     modified_at: u64,
 }
 
@@ -95,6 +96,10 @@ pub(crate) static STATE: LazyLock<Mutex<ServerState>> = LazyLock::new(|| {
 });
 
 pub(crate) static VFS: LazyLock<Mutex<HashMap<String, VfsUser>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// 内容寻址块存储：块 SHA256 hex -> 块内容；按 hash 去重，VFS 条目只存索引。
+pub(crate) static CONTENT_STORE: LazyLock<Mutex<HashMap<String, Vec<u8>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// 按用户（user@ip）排队的待读通知（文本），由 `notifications` RPC 拉取后清空。
@@ -377,7 +382,7 @@ pub(crate) fn vfs_ensure_dirs(vfs: &mut VfsUser, path: &str, now: u64) {
         vfs.files.entry(acc.clone()).or_insert_with(|| VfsEntry {
             is_dir: true,
             size: 0,
-            content: Vec::new(),
+            chunks: Vec::new(),
             modified_at: now,
         });
     }
