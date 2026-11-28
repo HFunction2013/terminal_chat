@@ -10,6 +10,11 @@ rust-version.workspace = true
 
 build = "build/main.rs"
 
+[lib]
+# Vendored framework examples reference an internal `edit` alias that is not
+# linked in the doctest harness; they are not runnable as doc-tests.
+doctest = false
+
 [features]
 # Display editor latency in the top-right corner
 debug-latency = []

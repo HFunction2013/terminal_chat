@@ -39,7 +39,7 @@ cargo test --workspace
 cargo test -p cli
 ```
 
-CI runs `cargo test --workspace --locked --no-doc -- --test-threads=1`: doc-tests are skipped (some vendored examples reference an internal `edit` alias not linked in the doctest harness), and unit/harness tests run single-threaded because several `cli-core` tests share global registries and dictionary state.
+CI runs `cargo test --workspace --locked -- --test-threads=1`: unit/harness tests run single-threaded because several `cli-core` tests share global registries and dictionary state. Doc-tests are disabled for `edit-tui` in its manifest (its vendored examples reference an internal `edit` alias not linked in the doctest harness).
 
 Heavy or large test suites and full workspace builds should be run on a GitHub Actions runner, not the local sandbox. Keep local work to lightweight edits, checks, and targeted crate tests. If load spikes, first look for a self-inflicted busy loop or runaway process before blaming the toolchain.
 
