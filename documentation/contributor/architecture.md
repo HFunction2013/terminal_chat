@@ -15,7 +15,7 @@ This document explains how the pieces fit together: layering, the FFI boundary, 
 └─────────────── calls hooks ───────────────────────────┬────────────────────┘
                                                           │ C ABI
 ┌──────────────────────── client plugins (cdylib) ───────▼───────────────────┐
-│  cli-standard · ai-glm · translations · werewolf …                          │
+│  cli-standard · example · werewolf …                                        │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 

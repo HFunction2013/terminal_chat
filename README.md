@@ -74,7 +74,7 @@ cargo test -p cli
 | `crates/plugins/cli-standard` | Standard client commands and default UI registration |
 | `crates/plugins/example` | Minimal compilable example client plugin: single `example hello [who]` command, scaffold reference |
 | `crates/plugins/srv-standard` | Standard server business: frequencies, users, messages, calls, remote files |
-| `crates/plugins/` (`ai-glm`, `translations`, `werewolf`) | Optional / example plugins |
+| `crates/plugins/werewolf` | Optional example plugin |
 | `crates/edit-tui` | Built-in TUI framework (retained-mode component tree, framebuffer diff, layout, input) |
 | `crates/protos` | prost-generated protocol messages |
 | `crates/helper/cmd-gen` | Helper that generates command skeletons from `commands.yaml` |

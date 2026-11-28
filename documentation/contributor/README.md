@@ -25,7 +25,7 @@ Hosts parse input and own the terminal/socket lifecycle; core libraries own regi
 | `crates/plugins/cli-standard` | Reference client plugin: standard commands, forms, menus, sidebar sections/items, status bar, completion sources |
 | `crates/plugins/example` | Minimal compilable client plugin: single `example hello [who]` command and one registered option, used as a developer scaffold reference |
 | `crates/plugins/srv-standard` | Reference server plugin: frequencies, users, messaging, calls, moderation, remote virtual filesystem, notifications |
-| `crates/plugins/ai-glm`, `translations`, `werewolf` | Optional / example plugins |
+| `crates/plugins/werewolf` | Optional example plugin |
 | `crates/edit-tui` | Retained-mode TUI framework: component tree, framebuffer diff, layout, input, clipboard, unicode/ICU, color math, suspend/resume terminal state |
 | `crates/protos` | prost-generated message types from `proto/**/*.proto`; vendored protoc so CI needs no system install |
 | `crates/helper/cmd-gen` | CLI helper that generates per-command Rust skeletons and `mod.rs` from `commands.yaml` |

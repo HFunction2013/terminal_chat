@@ -6,8 +6,6 @@ members = [
     "crates/srv-core",
     "crates/srv-core-types",
 	"crates/plugins/werewolf", 
-	"crates/plugins/translations", 
-	"crates/plugins/ai-glm", 
     "crates/plugins/srv-standard",
     "crates/helper/cmd-gen",
     "crates/sl-rs",

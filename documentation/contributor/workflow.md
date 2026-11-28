@@ -60,7 +60,6 @@ Each job runs `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targ
 
 Do not treat the following as failures introduced by your change:
 
-- `translations` suite: DeepL `InvalidCertificate(UnknownIssuer)` in offline environments.
 - AArch64 runners occasionally queue and cancel; re-run the job rather than reading it as a regression.
 - Pre-existing clippy warnings in auxiliary crates are not gated as errors (`-D warnings` is not set); do not add new warnings.
 
