@@ -54,7 +54,7 @@ fn parse_locale_list(v: &str) -> Option<Lang> {
 #[cfg(windows)]
 fn system_preferred_lang() -> Option<Lang> {
     #[link(name = "kernel32")]
-    extern "system" {
+    unsafe extern "system" {
         fn GetUserPreferredUILanguages(
             dw_flags: u32,
             num_languages: *mut u32,
