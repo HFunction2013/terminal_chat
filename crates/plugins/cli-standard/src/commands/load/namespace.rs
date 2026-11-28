@@ -5,9 +5,7 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core_types::PluginMetadata;
 use safer_ffi::prelude::*;
-use std::mem::ManuallyDrop;
 
 pub struct NamespaceCommand;
 
@@ -15,16 +13,12 @@ impl NamespaceCommand {
     pub fn execute(&self, namespace: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        cli_core_macros::load_core_symbols!(lib, get_all_plugins, load_plugin);
+        cli_core_macros::load_core_symbols!(lib, is_namespace_active, mount_namespace);
 
-        // 命名空间即插件元数据的 `command_name`（与 `namespace list` / `unload namespace`
-        // 口径一致）；先在已加载集合中按 command_name 幂等匹配，不再反查 namespaces.txt
-        // 分组清单。
-        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
-            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
-        let _ = get_all_plugins(Out::from(&mut buf));
-        let loaded = ManuallyDrop::into_inner(buf);
-        if loaded.iter().any(|p| p.command_name.to_string() == namespace) {
+        // 已挂载则幂等返回；未挂载（含仅加载代码）时挂载 namespace，把命令载入路由 / 命令表。
+        let mut active: i32 = 0;
+        let _ = is_namespace_active(&namespace.clone().into(), Out::from(&mut active));
+        if active == 1 {
             print_content(
                 &crate::tr("std.prompt.plugin.already_loaded")
                     .replace("{namespace}", &namespace)
@@ -33,11 +27,9 @@ impl NamespaceCommand {
             return Ok(());
         }
 
-        // 未加载：按该名称走既有插件库查找与加载路径（与 `load plugin` 同一发现路径）。
-        // 注意：若某插件的 command_name 与库名不同且尚未加载，需用 `load plugin <库名>`。
-        let res = load_plugin(&namespace.clone().into());
-        let msg = res.msg.into_rust().map(|s| s.to_string()).unwrap_or_default();
-        if res.success == 1 {
+        let res = mount_namespace(&namespace.clone().into());
+        let msg = res.message.to_string();
+        if res.code == 0 {
             print_content(
                 &crate::tr("std.prompt.plugin.ns_loaded")
                     .replace("{namespace}", &namespace)
@@ -49,7 +41,7 @@ impl NamespaceCommand {
                 &crate::tr("std.err.plugin.ns_not_found")
                     .replace("{namespace}", &namespace)
                     .replace("{msg}", &msg)
-                    .replace("{code}", &res.exit_code.to_string())
+                    .replace("{code}", &res.code.to_string())
                     .into(),
             );
         }

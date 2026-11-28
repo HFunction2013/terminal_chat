@@ -3,8 +3,9 @@ use base64::{Engine as _, engine::general_purpose};
 use clap::Command;
 use clap_complete::engine::complete;
 use cli_core_types::{
-    GetAllPluginsFn, GetCurrentLangFn, IsConnectedFn, IsInCmdFn, LoadPluginFn, PluginMetadata,
-    RunCommandFn, SetCurrentFreqFn, SetInterruptedFn, plugin_fn_types::ListRemoteDirFn,
+    GetAllPluginsFn, GetCurrentLangFn, IsConnectedFn, IsInCmdFn, IsNamespaceActiveFn, LoadPluginFn,
+    MountNamespaceFn, PluginMetadata, RunCommandFn, SetCurrentFreqFn, SetInterruptedFn,
+    plugin_fn_types::ListRemoteDirFn,
 };
 #[cfg(not(debug_assertions))]
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -750,6 +751,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Failed to load cli_standard: exit_code={} msg={:?}",
             load_res.exit_code, load_res.msg
         );
+    } else {
+        // 仅 cli-standard 在启动时默认挂载 namespace；其余插件需显式 `load namespace`。
+        let mount_namespace: Symbol<MountNamespaceFn> =
+            unsafe { get_cli_core().get(b"mount_namespace") }
+                .map_err(|e| format!("Failed to find symbol 'mount_namespace': {e}"))?;
+        let _ = mount_namespace(&"cli-standard".into());
     }
 
     #[cfg(unix)]
@@ -766,9 +773,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _res = get_all_plugins(Out::from(&mut plugin_buf));
     let plugins: Vec<PluginMetadata> = ManuallyDrop::into_inner(plugin_buf).into();
     let mut cli = Command::new("tc-cli").no_binary_name(true);
+    let is_active: Option<Symbol<IsNamespaceActiveFn>> =
+        unsafe { get_cli_core().get(b"is_namespace_active").ok() };
+    let is_active_ref: Option<&IsNamespaceActiveFn> = is_active.as_deref();
     for plugin in &plugins {
-        let command_yaml: &safer_ffi::String = &plugin.command_yaml;
-        cli = yaml2cmd::add_commands_from_yaml(command_yaml, &cli);
+        // 仅 namespace 已挂载的插件命令进入 clap 命令表；未挂载插件不参与命令解析 / 补全。
+        let mounted = match is_active_ref {
+            Some(f) => {
+                let mut active: i32 = 0;
+                let _ = f(&plugin.name, Out::from(&mut active));
+                active == 1
+            }
+            None => true,
+        };
+        if mounted {
+            let command_yaml: &safer_ffi::String = &plugin.command_yaml;
+            cli = yaml2cmd::add_commands_from_yaml(command_yaml, &cli);
+        }
     }
 
     // `tc-cli completion <shell>`：输出 shell 补全脚本（供 bash/zsh/fish 等 source）。

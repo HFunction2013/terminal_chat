@@ -126,15 +126,17 @@ Commands are grouped by usage scenario. Parameter names match the built-in help;
 | Command | Purpose |
 | --- | --- |
 | `plugin list` | List loaded plugins |
-| `plugin load <PLUGIN>` | Load a plugin |
-| `plugin unload <PLUGIN_NAME>` | Unload a plugin |
-| `namespace list` | List loaded namespaces (`command_name`) |
-| `namespace load <NAMESPACE>` | Load the plugin whose namespace (`command_name`) matches; idempotent if already loaded |
-| `namespace unload <NAMESPACE_NAME>` | Unload the plugin whose namespace (`command_name`) matches; reports if no loaded plugin matches |
-| `load plugin <PLUGIN>` | **Deprecated.** Use `plugin load`. Load a single plugin by name; its commands enter the global table under its own `command_name` |
+| `plugin load <PLUGIN>` | Load plugin code; the namespace stays unmounted, so its commands are not routable / completable until `namespace load` |
+| `plugin unload <PLUGIN_NAME>` | Unload the plugin completely: run shutdown, remove its commands and all registered entries |
+| `namespace list` | List mounted namespaces (`command_name`) |
+| `namespace load <NAMESPACE>` | Mount a namespace: load its commands into the routing / command table; idempotent if already mounted |
+| `namespace unload <NAMESPACE_NAME>` | Detach a namespace: remove routing entries, keep the plugin code loaded |
+| `load plugin <PLUGIN>` | **Deprecated.** Use `plugin load`. Load a single plugin by name |
 | `load namespace <NAMESPACE>` | **Deprecated.** Use `namespace load`. Resolve by `command_name`, not a text manifest group |
 | `unload plugin <PLUGIN_NAME>` | **Deprecated.** Use `plugin unload`. Unload one plugin by name |
 | `unload namespace <NAMESPACE_NAME>` | **Deprecated.** Use `namespace unload`. Resolve by `command_name` |
+
+The sidebar lists loaded plugins. A mounted namespace is shown with a trailing `*` (e.g. `std*`); a loaded-but-unmounted plugin shows its namespace without `*`. Only `cli-standard` is mounted by default at startup; other plugins mount explicitly via `namespace load`.
 
 ### `tcpm` package manager
 

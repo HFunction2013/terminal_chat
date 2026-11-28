@@ -208,7 +208,7 @@ commands:
       - name: list
         about: List all loaded plugins
       - name: load
-        about: Load a plugin
+        about: Load plugin code (namespace stays unmounted)
         args:
           - name: plugin
             type: PLUGIN
@@ -216,7 +216,7 @@ commands:
             required: true
             help: Plugin to load
       - name: unload
-        about: Unload a plugin
+        about: Unload a plugin completely
         args:
           - name: plugin_name
             type: PLUGIN
@@ -227,9 +227,9 @@ commands:
     about: Manage plugin namespaces
     subcommands:
       - name: list
-        about: List all loaded namespaces
+        about: List mounted namespaces
       - name: load
-        about: Load a namespace
+        about: Mount a namespace and load its commands
         args:
           - name: namespace
             type: NAMESPACE
@@ -237,7 +237,7 @@ commands:
             required: true
             help: Namespace to load
       - name: unload
-        about: Unload a namespace
+        about: Detach a namespace (keep plugin code)
         args:
           - name: namespace_name
             type: NAMESPACE

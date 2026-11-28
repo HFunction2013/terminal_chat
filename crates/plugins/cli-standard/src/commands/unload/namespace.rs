@@ -5,9 +5,7 @@ use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
 use anyhow::{Result, anyhow};
 use clap::ArgMatches;
-use cli_core_types::PluginMetadata;
 use safer_ffi::prelude::*;
-use std::mem::ManuallyDrop;
 
 pub struct NamespaceCommand;
 
@@ -16,25 +14,26 @@ impl NamespaceCommand {
     pub fn execute(&self, namespace_name: String) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
         cli_core_macros::load_core_symbols!(lib, print_content);
-        cli_core_macros::load_core_symbols!(lib, get_all_plugins, unregister_plugin);
-        // 命名空间即插件元数据的 `command_name`（与 `namespace list` 口径一致）；
-        // 直接按已加载插件的命名空间匹配卸载，不再反查 namespaces.txt 分组清单。
-        let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
-            ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
-        let _res = get_all_plugins(Out::from(&mut buf));
-        let plugins = ManuallyDrop::into_inner(buf);
-        let mut unloaded = 0usize;
-        for p in plugins.iter() {
-            if p.command_name.to_string() == namespace_name {
-                let _ = unregister_plugin(&p.name);
-                unloaded += 1;
-            }
+        cli_core_macros::load_core_symbols!(lib, is_namespace_active, detach_namespace);
+
+        let mut active: i32 = 0;
+        let _ = is_namespace_active(&namespace_name.clone().into(), Out::from(&mut active));
+        if active != 1 {
+            print_content(
+                &crate::tr("std.err.plugin.ns_not_loaded")
+                    .replace("{namespace_name}", &namespace_name)
+                    .into(),
+            );
+            return Ok(());
         }
-        if unloaded > 0 {
+
+        // 仅摘除 namespace 路由与活跃标记；插件代码、库句柄与已注册归属项保留。
+        let res = detach_namespace(&namespace_name.clone().into());
+        if res.code == 0 {
             print_content(
                 &crate::tr("std.prompt.plugin.ns_unloaded")
                     .replace("{namespace_name}", &namespace_name)
-                    .replace("{count}", &unloaded.to_string())
+                    .replace("{count}", "1")
                     .into(),
             );
         } else {
@@ -53,7 +52,6 @@ impl CommandExecutor for NamespaceCommand {
         "namespace"
     }
 
-    #[allow(unused_variables)]
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let namespace_name = matches
             .get_one::<String>("namespace_name")

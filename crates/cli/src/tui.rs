@@ -205,6 +205,8 @@ struct SessionEntry {
 struct PluginEntry {
     name: String,
     namespace: String,
+    /// namespace 是否已挂载（命令可路由 / 可补全）；决定次行命名空间后是否标 `*`。
+    active: bool,
 }
 
 /// 菜单项动作。
@@ -759,11 +761,14 @@ impl App {
                 continue;
             };
             let name = name.trim().to_string();
-            let namespace = rest.trim().trim_end_matches(')').trim().to_string();
+            let raw = rest.trim().trim_end_matches(')').trim().to_string();
+            // 命名空间尾部 `*` 表示已挂载；剥离后单独记录挂载态。
+            let active = raw.ends_with('*');
+            let namespace = raw.trim_end_matches('*').trim().to_string();
             if name.is_empty() {
                 continue;
             }
-            entries.push(PluginEntry { name, namespace });
+            entries.push(PluginEntry { name, namespace, active });
         }
         // 归一化排序 + 按名去重：注册表 / 输出顺序抖动不应触发整表替换重绘。
         entries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -1996,6 +2001,7 @@ fn render_plugins_template(
     for p in &plugins {
         let name = p.name.clone();
         let ns = p.namespace.clone();
+        let ns_label = if p.active { format!("{ns}*") } else { ns.clone() };
         let primary = match find_template(templates, 0, false) {
             Some(t) => format!("{}{}", t.prefix, fill_side_label(&t.label, &name, "")),
             None => format!("  • {name}"),
@@ -2006,8 +2012,8 @@ fn render_plugins_template(
         }
 
         let secondary = match find_template(templates, 1, false) {
-            Some(t) => format!("{}{}", t.prefix, fill_side_label(&t.label, "", &ns)),
-            None => format!("  : {ns}"),
+            Some(t) => format!("{}{}", t.prefix, fill_side_label(&t.label, "", &ns_label)),
+            None => format!("  : {ns_label}"),
         };
         let sel2 = ctx.list_item(false, &secondary);
         if let ListSelection::Activated = sel2 {
@@ -3226,12 +3232,14 @@ mod tests {
     #[test]
     fn reconcile_plugins_parses_name_and_namespace() {
         let mut app = App::new();
-        app.reconcile_plugins("  cli-standard (command: std)\n  extra (command: xns)");
+        app.reconcile_plugins("  cli-standard (command: std*)\n  extra (command: xns)");
         assert_eq!(app.plugins.len(), 2);
         assert_eq!(app.plugins[0].name, "cli-standard");
         assert_eq!(app.plugins[0].namespace, "std");
+        assert!(app.plugins[0].active);
         assert_eq!(app.plugins[1].name, "extra");
         assert_eq!(app.plugins[1].namespace, "xns");
+        assert!(!app.plugins[1].active);
     }
 
     #[test]
@@ -3348,8 +3356,13 @@ mod tests {
             PluginEntry {
                 name: "cli-standard".to_string().into(),
                 namespace: "std".to_string().into(),
+                active: true,
             },
-            PluginEntry { name: "extra".to_string().into(), namespace: "xns".to_string().into() },
+            PluginEntry {
+                name: "extra".to_string().into(),
+                namespace: "xns".to_string().into(),
+                active: false,
+            },
         ];
         app.input = "plugin load cl".into();
         app.refresh_completions();
@@ -3373,8 +3386,13 @@ mod tests {
             PluginEntry {
                 name: "cli-standard".to_string().into(),
                 namespace: "std".to_string().into(),
+                active: true,
             },
-            PluginEntry { name: "extra".to_string().into(), namespace: "xns".to_string().into() },
+            PluginEntry {
+                name: "extra".to_string().into(),
+                namespace: "xns".to_string().into(),
+                active: false,
+            },
         ];
         app.input = "namespace load x".into();
         app.refresh_completions();

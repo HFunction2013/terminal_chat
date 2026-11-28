@@ -13,14 +13,19 @@ This page describes the contract a plugin must satisfy: the exported entry funct
 
 ## Command routing (cli)
 
-A plugin's `command_name` is its namespace. At load, core parses the top-level command names from the plugin `command_yaml` and registers them in a global command table. On dispatch the first token is matched against:
+A plugin's `command_name` is its namespace. There are two load states:
+
+- **Code loaded** (`plugin load` / `load_plugin`): the dylib is opened, `on_init_plugin` runs, and the plugin record is kept; its commands are **not** written to the routing or command table.
+- **Namespace mounted** (`namespace load` / `mount_namespace`): core parses the top-level command names from the plugin `command_yaml` and registers them in the namespace map, global command table, and unified command table. Only mounted plugins are routable and appear in completion.
+
+On dispatch the first token is matched against:
 
 1. an explicit namespace (`command_name`), then
 2. the global command table, which resolves the owning plugin for an unqualified command.
 
 Core supplies the namespace token internally when invoking the plugin's `run_command`; the user command line is not rewritten with a hard-coded default namespace. An unresolved command reports not-found.
 
-The `load namespace` / `unload namespace` commands are the `command_name`-keyed view of the same plugin set that `load plugin` / `unload plugin` key by plugin name; both sides resolve a plugin through its `command_name` metadata, not through a separate text manifest.
+`plugin load` only loads code; `namespace load` mounts the namespace (loading code first if needed). `namespace unload` detaches the routing entries but keeps the plugin code and its registered ownership; `plugin unload` fully unregisters the plugin. Only `cli-standard` is mounted by default at startup.
 
 ## Client plugin entry functions
 

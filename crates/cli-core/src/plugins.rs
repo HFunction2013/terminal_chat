@@ -8,7 +8,7 @@ use libloading::Library;
 use safer_ffi::ffi_export;
 use safer_ffi::option::TaggedOption;
 use safer_ffi::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -38,6 +38,14 @@ static PLUGIN_LIBS: LazyLock<Mutex<HashMap<String, Arc<Library>>>> =
 /// 命令先在此表解析归属插件，而不是在指令前补默认 namespace 前缀。
 static GLOBAL_COMMAND_MAP: LazyLock<Mutex<HashMap<String, PluginMetadata>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// 已挂载 namespace 的插件名（`PluginMetadata.name`）集合。
+///
+/// 双态口径：插件代码已加载（在 [`PLUGIN_MAP`]）不等于 namespace 已挂载。只有进入
+/// 本集合的插件，其命令才写入 [`COMMAND_PLUGIN_MAP`] / [`GLOBAL_COMMAND_MAP`] 与统一
+/// 命令表，可被路由与补全命中。仅加载代码、未挂载的插件保留库句柄与归属项，但命令不可达。
+static ACTIVE_NAMES: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 /// 当前正在初始化（on_init_plugin）的插件归属，core 内部上下文。
 ///
@@ -135,11 +143,16 @@ pub(crate) fn global_plugin_by_command(cmd: &str) -> Option<PluginMetadata> {
     GLOBAL_COMMAND_MAP.lock().unwrap().get(cmd).cloned()
 }
 
-/// （内部）全部已加载插件的命令命名空间（`command_name`），排序去重；
-/// 供顶层命令补全把可作为首词路由的 namespace 前缀一并列出。
+/// （内部）已挂载插件的命令命名空间（`command_name`），排序去重；
+/// 供顶层命令补全把可作为首词路由的 namespace 前缀一并列出。仅返回 namespace 已挂载的插件。
 pub(crate) fn all_command_namespaces() -> Vec<String> {
     let map = PLUGIN_MAP.lock().unwrap();
-    let mut namespaces: Vec<String> = map.values().map(|m| m.command_name.to_string()).collect();
+    let active = ACTIVE_NAMES.lock().unwrap();
+    let mut namespaces: Vec<String> = map
+        .values()
+        .filter(|m| active.contains(&m.name.to_string()))
+        .map(|m| m.command_name.to_string())
+        .collect();
     namespaces.sort();
     namespaces.dedup();
     namespaces
@@ -238,7 +251,9 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
                     return res;
                 }
 
-                let _ = register_plugin(&meta);
+                // 仅加载代码：写入已加载集合，不挂载 namespace、不写路由表；
+                // 挂载由 `mount_namespace` 显式触发。
+                register_loaded(&meta);
                 // 持有插件库句柄，run_command 复用同一句柄（跨平台）。
                 PLUGIN_LIBS.lock().unwrap().insert(meta.name.to_string(), Arc::new(lib));
                 PluginResult {
@@ -263,32 +278,104 @@ pub fn load_plugin(plugin_name: &safer_ffi::String) -> PluginResult {
     }
 }
 
-/// 注册插件（同时以 name 和 command_name 为键）
-#[register_hook]
-pub fn register_plugin(metadata: &PluginMetadata) -> Result {
-    let mut map = PLUGIN_MAP.lock().unwrap();
-    let mut cmd_map = COMMAND_PLUGIN_MAP.lock().unwrap();
+/// 记录插件代码已加载（写入 [`PLUGIN_MAP`]），不挂载 namespace、不写路由表。
+fn register_loaded(metadata: &PluginMetadata) {
+    PLUGIN_MAP.lock().unwrap().insert(metadata.name.to_string(), metadata.clone());
+}
 
+/// 挂载插件 namespace：把命令写入命令命名空间表、全局命令表与统一命令表，并记入活跃集合。
+/// 调用前提：插件代码已加载（[`register_loaded`] 已执行）。
+fn mount_register(metadata: &PluginMetadata) {
     let key = metadata.name.to_string();
     let cmd_key = metadata.command_name.to_string();
 
-    if map.contains_key(&key) || cmd_map.contains_key(&cmd_key) {
-        Result::error("already registered")
-    } else {
-        map.insert(key, metadata.clone());
-        cmd_map.insert(cmd_key, metadata.clone());
-        // 把顶层命令名登记进全局命令表；同名命令先注册者优先，不覆盖。
-        let mut global = GLOBAL_COMMAND_MAP.lock().unwrap();
-        for name in top_level_command_names(&metadata.command_yaml.to_string()) {
-            global.entry(name).or_insert_with(|| metadata.clone());
-        }
-        // 解析命令 / 子命令 / 参数规格写入统一命令表，供宿主命令与参数补全查询。
-        crate::registered_commands::register_yaml(
-            &metadata.command_yaml.to_string(),
-            &metadata.name.to_string(),
-        );
-        Result::success()
+    COMMAND_PLUGIN_MAP.lock().unwrap().insert(cmd_key, metadata.clone());
+
+    // 把顶层命令名登记进全局命令表；同名命令先注册者优先，不覆盖。
+    let mut global = GLOBAL_COMMAND_MAP.lock().unwrap();
+    for name in top_level_command_names(&metadata.command_yaml.to_string()) {
+        global.entry(name).or_insert_with(|| metadata.clone());
     }
+    // 解析命令 / 子命令 / 参数规格写入统一命令表，供宿主命令与参数补全查询。
+    crate::registered_commands::register_yaml(&metadata.command_yaml.to_string(), &key);
+    ACTIVE_NAMES.lock().unwrap().insert(key);
+}
+
+/// 摘除插件 namespace：移除命令命名空间表、全局命令表、统一命令表条目与活跃标记；
+/// 保留插件代码、库句柄与 on_init 注册的归属项（选项 / UI / 词典）。
+fn detach_register(metadata: &PluginMetadata) {
+    let key = metadata.name.to_string();
+    let cmd_key = metadata.command_name.to_string();
+    COMMAND_PLUGIN_MAP.lock().unwrap().remove(&cmd_key);
+    GLOBAL_COMMAND_MAP.lock().unwrap().retain(|_, m| m.name.to_string() != key);
+    crate::registered_commands::unregister_by_owner(&key);
+    ACTIVE_NAMES.lock().unwrap().remove(&key);
+}
+
+/// 注册插件（兼容入口：代码加载并立即挂载 namespace）。
+#[register_hook]
+pub fn register_plugin(metadata: &PluginMetadata) -> Result {
+    if PLUGIN_MAP.lock().unwrap().contains_key(&metadata.name.to_string()) {
+        return Result::error("already registered");
+    }
+    register_loaded(metadata);
+    mount_register(metadata);
+    Result::success()
+}
+
+/// 按插件名或命令命名空间名在已加载集合中查找元数据克隆。
+fn find_loaded(identifier: &str) -> Option<PluginMetadata> {
+    let map = PLUGIN_MAP.lock().unwrap();
+    map.get(identifier)
+        .cloned()
+        .or_else(|| map.values().find(|m| m.command_name.to_string() == identifier).cloned())
+}
+
+/// 挂载 namespace：插件代码未加载时先加载，再把命令载入路由 / 命令表。
+#[register_hook]
+pub fn mount_namespace(identifier: &safer_ffi::String) -> Result {
+    let id = identifier.to_string();
+    let meta = match find_loaded(&id) {
+        Some(meta) => meta,
+        None => {
+            // 代码未加载：先走既有加载路径（仅加载代码），再按名 / 命名空间找回。
+            unsafe {
+                let _ = load_plugin(identifier);
+            }
+            match find_loaded(&id) {
+                Some(meta) => meta,
+                None => return Result::error("plugin not found"),
+            }
+        }
+    };
+    mount_register(&meta);
+    Result::success()
+}
+
+/// 摘除 namespace：仅摘路由与活跃标记，保留插件代码与归属项。
+#[register_hook]
+pub fn detach_namespace(identifier: &safer_ffi::String) -> Result {
+    let Some(meta) = find_loaded(&identifier.to_string()) else {
+        return Result::error("not found");
+    };
+    detach_register(&meta);
+    Result::success()
+}
+
+/// 查询插件 namespace 是否已挂载（1=已挂载，0=未挂载）。
+#[register_hook]
+pub fn is_namespace_active(identifier: &safer_ffi::String, out: Out<'_, i32>) -> Result {
+    let id = identifier.to_string();
+    let active = ACTIVE_NAMES.lock().unwrap();
+    let loaded = PLUGIN_MAP.lock().unwrap();
+    let is_active = active.contains(&id)
+        || loaded
+            .values()
+            .find(|m| m.command_name.to_string() == id)
+            .map(|m| active.contains(&m.name.to_string()))
+            .unwrap_or(false);
+    out.write(if is_active { 1 } else { 0 });
+    Result::success()
 }
 
 /// 通过名称获取插件
@@ -321,7 +408,7 @@ pub fn get_plugin_by_command_name(
     Result::success()
 }
 
-/// 删除插件：调用其 `on_shutdown_plugin`，移除元数据 / 命令表 / 全局命令表条目，
+/// 彻底删除插件：调用其 `on_shutdown_plugin`，移除元数据 / 路由 / 命令表条目，
 /// 并按归属清理该插件在各注册表登记的选项与 UI 条目。
 #[register_hook]
 pub fn unregister_plugin(name: &safer_ffi::String) -> Result {
@@ -336,8 +423,8 @@ pub fn unregister_plugin(name: &safer_ffi::String) -> Result {
         }
     }
 
-    COMMAND_PLUGIN_MAP.lock().unwrap().remove(&meta.command_name.to_string());
-    GLOBAL_COMMAND_MAP.lock().unwrap().retain(|_, m| m.name.to_string() != meta.name.to_string());
+    // 摘除路由 / 活跃标记 / 命令表条目。
+    detach_register(&meta);
 
     // 按归属清理选项与 UI 注册项。
     crate::registered_options::unregister_by_owner(&meta.name.to_string());
@@ -369,6 +456,7 @@ pub fn clear_plugins() -> Result {
     PLUGIN_MAP.lock().unwrap().clear();
     COMMAND_PLUGIN_MAP.lock().unwrap().clear();
     GLOBAL_COMMAND_MAP.lock().unwrap().clear();
+    ACTIVE_NAMES.lock().unwrap().clear();
     PLUGIN_LIBS.lock().unwrap().clear();
     crate::registered_options::clear_all();
     crate::registered_ui::clear_all();
@@ -452,6 +540,36 @@ mod tests {
             assert!(!command_name_registered("tns"));
             assert!(global_plugin_by_command("foo").is_none());
             assert!(global_plugin_by_command("bar").is_none());
+        }
+    }
+
+    #[test]
+    fn loaded_but_unmounted_is_not_routable_until_mounted() {
+        let mut meta = PluginMetadata::default();
+        meta.name = "t-plug-mount".into();
+        meta.dylib_name = "t_plug_mount".into();
+        meta.command_name = "mns".into();
+        meta.command_yaml = "commands:\n  - name: baz\n".into();
+
+        register_loaded(&meta);
+        // 未挂载：路由表 / 全局表 / 活跃集合均不可见。
+        assert!(!command_name_registered("mns"));
+        assert!(global_plugin_by_command("baz").is_none());
+        assert!(!ACTIVE_NAMES.lock().unwrap().contains(&meta.name.to_string()));
+
+        mount_register(&meta);
+        assert!(command_name_registered("mns"));
+        assert!(global_plugin_by_command("baz").is_some());
+        assert!(ACTIVE_NAMES.lock().unwrap().contains(&meta.name.to_string()));
+
+        detach_register(&meta);
+        assert!(!command_name_registered("mns"));
+        assert!(global_plugin_by_command("baz").is_none());
+        assert!(!ACTIVE_NAMES.lock().unwrap().contains(&meta.name.to_string()));
+
+        // 彻底卸载，清理 PLUGIN_MAP 与归属项。
+        unsafe {
+            assert_eq!(unregister_plugin(&meta.name).code, 0);
         }
     }
 }

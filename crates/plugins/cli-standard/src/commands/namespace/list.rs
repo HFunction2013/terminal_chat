@@ -1,5 +1,5 @@
 // list.rs
-// List all loaded namespaces
+// List all mounted namespaces
 use crate::LIB;
 use crate::commands::CommandExecutor;
 #[allow(unused_imports)]
@@ -16,15 +16,27 @@ impl ListCommand {
     #[allow(unused_variables)]
     pub fn execute(&self) -> Result<()> {
         let lib = LIB.get().expect("`cli-core` not initialized");
-        cli_core_macros::load_core_symbols!(lib, print_content, get_all_plugins);
+        cli_core_macros::load_core_symbols!(
+            lib,
+            print_content,
+            get_all_plugins,
+            is_namespace_active
+        );
 
         let mut buf: ManuallyDrop<safer_ffi::vec::Vec<PluginMetadata>> =
             ManuallyDrop::new(safer_ffi::vec::Vec::from(std::vec::Vec::new()));
         let _res = get_all_plugins(Out::from(&mut buf));
         let plugins = ManuallyDrop::into_inner(buf);
 
-        let namespaces: BTreeSet<String> =
-            plugins.iter().map(|p| p.command_name.to_string()).collect();
+        // 仅列出 namespace 已挂载（命令可路由）的命名空间。
+        let mut namespaces: BTreeSet<String> = BTreeSet::new();
+        for p in plugins.iter() {
+            let mut active: i32 = 0;
+            let _ = is_namespace_active(&p.name, Out::from(&mut active));
+            if active == 1 {
+                namespaces.insert(p.command_name.to_string());
+            }
+        }
         if namespaces.is_empty() {
             print_content(&crate::tr("std.prompt.plugin.no_namespaces").into());
             return Ok(());
